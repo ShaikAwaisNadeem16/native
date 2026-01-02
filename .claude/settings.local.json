@@ -5,7 +5,11 @@
       "mcp__figma-dev-mode-mcp-server__get_screenshot",
       "Bash(tree:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx expo start)"
+      "Bash(npx expo start)",
+      "Bash(dir /s /b \"C:\\\\Users\\\\ShaikAwaisNadeem\\\\Desktop\\\\creamcolalr code base\\\\app-dev\")",
+      "Bash(findstr:*)",
+      "Bash(cat:*)",
+      "WebFetch(domain:www.figma.com)"
     ]
   }
 }

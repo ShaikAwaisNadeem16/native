@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -17,7 +17,37 @@ const VerificationOTPScreen: React.FC = () => {
     const navigation = useNavigation<VerificationOTPScreenNavigationProp>();
     const [mobileOTP, setMobileOTP] = useState('');
     const [emailOTP, setEmailOTP] = useState('');
-    const [timeRemaining, setTimeRemaining] = useState('0s');
+    const [timerSeconds, setTimerSeconds] = useState(120); // 2 minutes countdown
+
+    // Format timer for display
+    const formatTime = useCallback((seconds: number): string => {
+        if (seconds <= 0) return '0s';
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        if (mins > 0) {
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+        return `${secs}s`;
+    }, []);
+
+    const timeRemaining = formatTime(timerSeconds);
+
+    // Timer countdown effect
+    useEffect(() => {
+        if (timerSeconds <= 0) return;
+
+        const interval = setInterval(() => {
+            setTimerSeconds((prev) => {
+                if (prev <= 1) {
+                    clearInterval(interval);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [timerSeconds]);
 
     const handleVerify = () => {
         // Navigate to Personal Details screen after OTP verification
@@ -30,7 +60,8 @@ const VerificationOTPScreen: React.FC = () => {
     };
 
     const handleResend = () => {
-        // Handle resend OTP
+        // Reset timer and resend OTP
+        setTimerSeconds(120);
         console.log('Resend OTPs');
     };
 

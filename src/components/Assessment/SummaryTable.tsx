@@ -36,7 +36,7 @@ const SummaryTable: React.FC<SummaryTableProps> = ({ rows }) => {
             </View>
 
             {/* Table Rows */}
-            {rows.map((row, index) => (
+            {Array.isArray(rows) && rows.map((row, index) => (
                 <View
                     key={index}
                     style={[
@@ -46,17 +46,17 @@ const SummaryTable: React.FC<SummaryTableProps> = ({ rows }) => {
                 >
                     <View style={[styles.dataCell, styles.firstCell]}>
                         <View style={styles.cellContent}>
-                            <Text style={styles.dataText}>{row.testPart}</Text>
+                            <Text style={styles.dataText}>{row?.testPart || ''}</Text>
                         </View>
                     </View>
                     <View style={styles.dataCell}>
                         <View style={styles.cellContent}>
-                            <ResultTag result={row.result} />
+                            <ResultTag result={row?.result || 'Pass'} />
                         </View>
                     </View>
                     <View style={styles.dataCell}>
                         <View style={styles.cellContent}>
-                            <Text style={styles.dataText}>{row.score}</Text>
+                            <Text style={styles.dataText}>{row?.score || ''}</Text>
                         </View>
                     </View>
                 </View>
@@ -118,4 +118,8 @@ const styles = StyleSheet.create({
 });
 
 export default SummaryTable;
+
+
+
+
 

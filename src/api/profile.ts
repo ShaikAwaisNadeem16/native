@@ -8,7 +8,7 @@ export const ProfileService = {
      */
     fetchProfileData: async () => {
         try {
-            const response = await GlobalAxiosConfig.get('/api/student/user-profile/data');
+            const response = await GlobalAxicd apposConfig.get('/api/student/user-profile/data');
             return response.data;
         } catch (error) {
             console.error('Failed to fetch profile data:', error);
@@ -61,7 +61,7 @@ export const ProfileService = {
     },
 
     /**
-     * STEP 6: POST /api/student/user-profile/get-profile-percentage
+     * STEP 5: POST /api/student/user-profile/get-profile-percentage
      * Fetches profile completion percentage
      * Request body: { email: string, userId: string }
      */
@@ -69,7 +69,7 @@ export const ProfileService = {
         try {
             const userId = await Storage.getItem('userId');
             const email = await Storage.getItem('username'); // Using username as email from login
-            
+
             if (!userId) {
                 throw new Error('User ID not found');
             }
@@ -87,7 +87,7 @@ export const ProfileService = {
                         'Content-Type': 'application/x-www-form-urlencoded'
                     },
                     transformRequest: [(data) => {
-                        const str = Object.keys(data).map(key => 
+                        const str = Object.keys(data).map(key =>
                             `${encodeURIComponent(key)}=${encodeURIComponent(data[key] || '')}`
                         ).join('&');
                         return str;
@@ -99,6 +99,29 @@ export const ProfileService = {
             console.error('Failed to fetch profile percentage:', error);
             // Non-blocking, return null
             return null;
+        }
+    },
+
+    /**
+     * POST /api/student/user-profile/update
+     * Updates user profile personal details
+     * Request body: profile data object
+     */
+    updateProfileDetails: async (profileData: any) => {
+        try {
+            const userId = await Storage.getItem('userId');
+            if (!userId) {
+                throw new Error('User ID not found');
+            }
+
+            const response = await GlobalAxiosConfig.post(
+                '/api/student/user-profile/update',
+                { ...profileData, userId }
+            );
+            return response.data;
+        } catch (error) {
+            console.error('Failed to update profile details:', error);
+            throw error;
         }
     },
 };

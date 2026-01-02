@@ -38,13 +38,13 @@ const LanguageTable: React.FC<LanguageTableProps> = ({ languages }) => {
 
             {/* Data Rows */}
             <View style={styles.dataContainer}>
-                {languages.map((lang, index) => (
+                {Array.isArray(languages) && languages.map((lang, index) => (
                     <View key={index} style={styles.dataRow}>
                         <View style={styles.dataCell}>
-                            <Text style={styles.dataText}>{lang.language}</Text>
+                            <Text style={styles.dataText}>{lang?.language || ''}</Text>
                         </View>
                         <View style={styles.dataCell}>
-                            <Text style={styles.dataText}>{lang.proficiency}</Text>
+                            <Text style={styles.dataText}>{lang?.proficiency || ''}</Text>
                         </View>
                     </View>
                 ))}
@@ -100,4 +100,8 @@ const styles = StyleSheet.create({
 });
 
 export default LanguageTable;
+
+
+
+
 

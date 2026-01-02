@@ -14,11 +14,13 @@ const ProfileAvatarWithProgress: React.FC<ProfileAvatarWithProgressProps> = ({
     avatarUrl,
     onEditPress,
 }) => {
+    // Ensure percentage is a valid number between 0-100
+    const safePercentage = typeof percentage === 'number' && !isNaN(percentage) ? Math.min(Math.max(percentage, 0), 100) : 0;
     const progressRingSize = 72; // From Figma: 72px
     const strokeWidth = 0.714; // From Figma: 0.714px border
     const radius = (progressRingSize - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+    const strokeDashoffset = circumference - (safePercentage / 100) * circumference;
     const center = progressRingSize / 2;
     const avatarSize = 61.591; // From Figma: 61.591px
 
@@ -87,7 +89,7 @@ const ProfileAvatarWithProgress: React.FC<ProfileAvatarWithProgressProps> = ({
 
             {/* Percentage Badge */}
             <View style={styles.percentageContainer}>
-                <Text style={styles.percentageText}>{percentage}%</Text>
+                <Text style={styles.percentageText}>{safePercentage}%</Text>
             </View>
 
             {/* Edit Icon */}

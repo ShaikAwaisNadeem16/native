@@ -10,8 +10,8 @@ interface ProfileFieldProps {
 const ProfileField: React.FC<ProfileFieldProps> = ({ label, value }) => {
     return (
         <View style={styles.container}>
-            <Text style={styles.label}>{label}</Text>
-            <Text style={styles.value}>{value}</Text>
+            <Text style={styles.label}>{label || ''}</Text>
+            <Text style={styles.value}>{value || ''}</Text>
         </View>
     );
 };
@@ -34,4 +34,8 @@ const styles = StyleSheet.create({
 });
 
 export default ProfileField;
+
+
+
+
 

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -15,7 +15,7 @@ type HomeScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Home'>;
 
 const HomeScreen: React.FC = () => {
     const navigation = useNavigation<HomeScreenNavigationProp>();
-    const { initializeHome, profilePercentage } = useProfileStore();
+    const { initializeHome, profilePercentage, loading, profileData } = useProfileStore();
 
     // Load home data on mount - executes APIs in strict sequential order
     // APIs are called ONLY after authentication (token stored during login)
@@ -73,6 +73,19 @@ const HomeScreen: React.FC = () => {
             onButtonPress: handleRewatchCourse,
         },
     ];
+
+    // Show loading indicator while fetching initial data
+    if (loading && !profileData) {
+        return (
+            <SafeAreaView style={styles.container} edges={['top']}>
+                <Header onProfilePress={handleProfilePress} />
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primaryBlue} />
+                    <Text style={styles.loadingText}>Loading...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -144,6 +157,16 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.white,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 16,
+    },
+    loadingText: {
+        ...typography.p4,
+        color: colors.textGrey,
     },
     scrollContent: {
         flexGrow: 1,

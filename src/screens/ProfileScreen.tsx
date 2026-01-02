@@ -1,6 +1,9 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../navigation/AppNavigator';
 import { colors, typography } from '../styles/theme';
 import Header from '../components/Home/Header';
 import BreadcrumbBar from '../components/Assessment/BreadcrumbBar';
@@ -10,19 +13,45 @@ import ProfileField from '../components/Profile/ProfileField';
 import LanguageTable from '../components/Profile/LanguageTable';
 import EducationCard from '../components/Profile/EducationCard';
 import SkillTag from '../components/Profile/SkillTag';
+import useProfileStore from '../store/useProfileStore';
+
+type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 const ProfileScreen: React.FC = () => {
+    const navigation = useNavigation<NavigationProp>();
+    const { profileData, profileDetails, profilePercentage, loading } = useProfileStore();
+
     // Image URLs from Figma
     const profileAvatarUrl = 'https://www.figma.com/api/mcp/asset/9f653d3c-f67f-477c-a95b-a57a0d494176';
 
-    // Languages data
-    const languages = [
+    // Extract profile data from store or use defaults
+    const userData = profileDetails || profileData || {};
+    const firstName = userData.firstName || userData.first_name || 'Steven';
+    const lastName = userData.lastName || userData.last_name || 'Quadros';
+    const fullName = `${firstName} ${userData.middleName || ''} ${lastName}`.trim() || 'Steven Melwyn Quadros';
+    const collegeName = userData.collegeName || userData.college_name || 'St. Francis Institute Of Technology';
+    const aboutYou = userData.aboutYou || userData.about_you || 'Lorem ipsum dolor sit amet consectetur. Nisl viverra pulvinar cursus morbi aliquet gravida tincidunt lobortis non. Sed ut leo magna pulvinar odio amet in. Enim consectetur cras tellus magnis nunc condimentum aenean. Tincidunt sapien vulputate interdum pellentesque orci est viverra id vulputate.';
+    const gender = userData.gender || 'Male';
+    const phoneNumber = userData.phoneNumber || userData.phone_number || '+91 435 543 2564';
+    const emailId = userData.email || userData.emailId || 'stevenabcquadros@gmail.com';
+    const city = userData.city || 'Mumbai';
+    const nationality = userData.nationality || 'India';
+    const dateOfBirth = userData.dateOfBirth || userData.dob || '14 Feb 1995';
+    const linkedinUrl = userData.linkedinUrl || userData.linkedin_url || 'Pending...';
+
+    // Extract percentage from store
+    const percentageValue = profilePercentage?.overallPercentage || profilePercentage?.percentage || 70;
+    const personalDetailsPercentage = profilePercentage?.personalDetailsPercentage || 20;
+
+    // Languages data from store or defaults
+    const languages = Array.isArray(userData.languages) ? userData.languages : [
         { language: 'English', proficiency: 'Proficient' },
         { language: 'Marathi', proficiency: 'Basic' },
     ];
 
-    // Skills data
-    const skills = [
+    // Skills data from store or defaults
+    const rawSkills = userData.skills || userData.technicalCompetencies;
+    const skills = Array.isArray(rawSkills) ? rawSkills : [
         { skill: 'Photoshop', isHighlighted: false },
         { skill: 'Illustrator', isHighlighted: false },
         { skill: 'Figma', isHighlighted: true },
@@ -37,7 +66,7 @@ const ProfileScreen: React.FC = () => {
     };
 
     const handleEditPersonalDetails = () => {
-        console.log('Edit personal details');
+        navigation.navigate('EditPersonalDetails');
     };
 
     const handleAddEducation = () => {
@@ -60,6 +89,20 @@ const ProfileScreen: React.FC = () => {
         console.log('Edit technical competencies');
     };
 
+    // Show loading indicator while fetching data
+    if (loading && !profileData && !profileDetails) {
+        return (
+            <SafeAreaView style={styles.container} edges={['top']}>
+                <Header onProfilePress={handleProfilePress} />
+                <BreadcrumbBar items={['Your Profile']} />
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primaryBlue} />
+                    <Text style={styles.loadingText}>Loading profile...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
@@ -75,13 +118,13 @@ const ProfileScreen: React.FC = () => {
                 {/* Avatar and User Info Section */}
                 <View style={styles.avatarSection}>
                     <ProfileAvatarWithProgress
-                        percentage={70}
+                        percentage={percentageValue}
                         avatarUrl={profileAvatarUrl}
                         onEditPress={handleProfilePress}
                     />
                     <View style={styles.userInfoContainer}>
-                        <Text style={styles.userName}>Steven Melwyn Quadros</Text>
-                        <Text style={styles.userCollege}>St. Francis Institute Of Technology</Text>
+                        <Text style={styles.userName}>{fullName}</Text>
+                        <Text style={styles.userCollege}>{collegeName}</Text>
                     </View>
                 </View>
 
@@ -89,24 +132,24 @@ const ProfileScreen: React.FC = () => {
                 <View style={styles.sectionCard}>
                     <SectionHeader
                         title="Personal Details"
-                        completionPercentage={20}
+                        completionPercentage={personalDetailsPercentage}
                         onEditPress={handleEditPersonalDetails}
                     />
                     <View style={styles.fieldsContainer}>
                         <ProfileField
                             label="About You"
-                            value="Lorem ipsum dolor sit amet consectetur. Nisl viverra pulvinar cursus morbi aliquet gravida tincidunt lobortis non. Sed ut leo magna pulvinar odio amet in. Enim consectetur cras tellus magnis nunc condimentum aenean. Tincidunt sapien vulputate interdum pellentesque orci est viverra id vulputate."
+                            value={aboutYou}
                         />
-                        <ProfileField label="First Name" value="Steven" />
-                        <ProfileField label="Last Name" value="Quadros" />
-                        <ProfileField label="Gender" value="Male" />
-                        <ProfileField label="Phone Number" value="+91 435 543 2564" />
-                        <ProfileField label="Email ID" value="stevenabcquadros@gmail.com" />
-                        <ProfileField label="Full Name" value="Pending..." />
-                        <ProfileField label="City" value="Mumbai" />
-                        <ProfileField label="Nationality" value="India" />
-                        <ProfileField label="Date of Birth" value="14 Feb 1995" />
-                        <ProfileField label="Linkedin Profile URL" value="Pending..." />
+                        <ProfileField label="First Name" value={firstName} />
+                        <ProfileField label="Last Name" value={lastName} />
+                        <ProfileField label="Gender" value={gender} />
+                        <ProfileField label="Phone Number" value={phoneNumber} />
+                        <ProfileField label="Email ID" value={emailId} />
+                        <ProfileField label="Full Name" value={fullName} />
+                        <ProfileField label="City" value={city} />
+                        <ProfileField label="Nationality" value={nationality} />
+                        <ProfileField label="Date of Birth" value={dateOfBirth} />
+                        <ProfileField label="Linkedin Profile URL" value={linkedinUrl} />
                     </View>
 
                     {/* Languages Section */}
@@ -162,11 +205,11 @@ const ProfileScreen: React.FC = () => {
                         onEditPress={handleEditTechnicalCompetencies}
                     />
                     <View style={styles.skillsContainer}>
-                        {skills.map((skill, index) => (
+                        {skills.map((skill: { skill?: string; isHighlighted?: boolean }, index: number) => (
                             <SkillTag
                                 key={index}
-                                skill={skill.skill}
-                                isHighlighted={skill.isHighlighted}
+                                skill={skill?.skill || ''}
+                                isHighlighted={skill?.isHighlighted || false}
                             />
                         ))}
                     </View>
@@ -180,6 +223,16 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.mainBgGrey,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 16,
+    },
+    loadingText: {
+        ...typography.p4,
+        color: colors.textGrey,
     },
     scrollContent: {
         flexGrow: 1,

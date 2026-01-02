@@ -27,12 +27,12 @@ const useProfileStore = create<ProfileState>((set) => ({
 
     /**
      * Initialize Home: Execute APIs in strict sequential order
-     * STEP 1 → STEP 2 → STEP 3 → STEP 4 → STEP 6 → STEP 7
+     * STEP 1 → STEP 2 → STEP 3 → STEP 4 → STEP 5 → STEP 6
      * APIs must be called ONLY after authentication
      */
     initializeHome: async () => {
         set({ loading: true, error: null });
-        
+
         try {
             // STEP 1: Fetch Basic User Profile
             // GET https://apis.dev.cream-collar.com/api/student/user-profile/data
@@ -56,7 +56,7 @@ const useProfileStore = create<ProfileState>((set) => ({
             try {
                 profileDetails = await ProfileService.fetchProfileDetails();
                 // Merge with basic profile data safely
-                set({ 
+                set({
                     profileDetails,
                     profileData: { ...profileData, ...profileDetails }
                 });
@@ -66,8 +66,8 @@ const useProfileStore = create<ProfileState>((set) => ({
             }
 
             // STEP 4: Fetch Notifications
-            // GET https://apis.dev.cream-collar.com/api/student/notification/{USER_ID}
-            // USER_ID must be dynamic
+            // GET https://apis.dev.cream-collar.com/api/student/notification/{userId}
+            // userId must be dynamic (fetched from storage)
             try {
                 const notifications = await NotificationService.getNotifications();
                 if (notifications) {
@@ -78,10 +78,7 @@ const useProfileStore = create<ProfileState>((set) => ({
                 // Non-blocking - continue flow
             }
 
-            // STEP 5: Re-check Enrollment (ONLY if already implemented)
-            // Skipping as per rules - only call if existing code already does this
-
-            // STEP 6: Fetch Profile Completion Percentage
+            // STEP 5: Fetch Profile Completion Percentage
             // POST https://apis.dev.cream-collar.com/api/student/user-profile/get-profile-percentage
             try {
                 const percentageData = await ProfileService.fetchProfilePercentage();
@@ -93,7 +90,7 @@ const useProfileStore = create<ProfileState>((set) => ({
                 // Non-blocking - continue flow
             }
 
-            // STEP 7: Fetch Enrolled Courses (ONLY if enrolled)
+            // STEP 6: Fetch Enrolled Courses (ONLY if user is enrolled)
             // POST https://apis.dev.cream-collar.com/api/lms/enrol/get-enroll-course
             if (enrollmentData?.roleEnrolled) {
                 try {
@@ -110,9 +107,9 @@ const useProfileStore = create<ProfileState>((set) => ({
             set({ loading: false });
         } catch (error: any) {
             console.error('Failed to initialize home:', error);
-            set({ 
-                error: error?.message || 'Failed to load home data', 
-                loading: false 
+            set({
+                error: error?.message || 'Failed to load home data',
+                loading: false
             });
         }
     },

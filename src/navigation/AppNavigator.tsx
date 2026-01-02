@@ -10,6 +10,7 @@ import AccountCreatedSuccessScreen from '../screens/AccountCreatedSuccessScreen'
 import HomeScreen from '../screens/HomeScreen';
 import AssessmentReportScreen from '../screens/AssessmentReportScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import EditPersonalDetailsScreen from '../screens/EditPersonalDetailsScreen';
 
 export type RootStackParamList = {
     Login: undefined;
@@ -21,6 +22,7 @@ export type RootStackParamList = {
     Home: undefined;
     AssessmentReport: { finalResult?: 'Pass' | 'Fail' } | undefined;
     Profile: undefined;
+    EditPersonalDetails: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -44,6 +46,7 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="Home" component={HomeScreen} />
                 <Stack.Screen name="AssessmentReport" component={AssessmentReportScreen} />
                 <Stack.Screen name="Profile" component={ProfileScreen} />
+                <Stack.Screen name="EditPersonalDetails" component={EditPersonalDetailsScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );

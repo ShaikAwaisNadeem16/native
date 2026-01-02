@@ -3,20 +3,24 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList } from 'react
 import { ChevronDown } from 'lucide-react-native';
 import { colors, typography, spacing, borderRadius } from '../../styles/theme';
 
-interface DropdownFieldProps {
+interface DropdownWithLabelProps {
+    label: string;
     value: string;
     onValueChange: (value: string) => void;
     placeholder: string;
     options: string[];
     error?: string;
+    required?: boolean;
 }
 
-const DropdownField: React.FC<DropdownFieldProps> = ({ 
-    value, 
-    onValueChange, 
+const DropdownWithLabel: React.FC<DropdownWithLabelProps> = ({
+    label,
+    value,
+    onValueChange,
     placeholder,
     options,
-    error 
+    error,
+    required = false,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
 
@@ -27,6 +31,10 @@ const DropdownField: React.FC<DropdownFieldProps> = ({
 
     return (
         <View style={styles.container}>
+            <Text style={styles.label}>
+                {label}
+                {required && <Text style={styles.required}>*</Text>}
+            </Text>
             <TouchableOpacity
                 style={[styles.inputContainer, error && styles.inputContainerError]}
                 onPress={() => setIsOpen(true)}
@@ -73,6 +81,14 @@ const DropdownField: React.FC<DropdownFieldProps> = ({
 const styles = StyleSheet.create({
     container: {
         width: '100%',
+    },
+    label: {
+        ...typography.s1Regular,
+        color: colors.textGrey,
+        marginBottom: 8,
+    },
+    required: {
+        color: colors.primaryBlue,
     },
     inputContainer: {
         backgroundColor: colors.white,
@@ -129,13 +145,8 @@ const styles = StyleSheet.create({
     errorText: {
         ...typography.s1Regular,
         color: colors.error,
-        marginTop: spacing.titleSubtitleGap,
+        marginTop: 4,
     },
 });
 
-export default DropdownField;
-
-
-
-
-
+export default DropdownWithLabel;

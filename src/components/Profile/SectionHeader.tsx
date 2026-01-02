@@ -22,12 +22,14 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
     const addIconUrl = 'https://www.figma.com/api/mcp/asset/419c11ae-d5e4-4355-bdd9-f59644f14813';
 
     const handlePress = showAddIcon ? onAddPress : onEditPress;
+    // Ensure completionPercentage is a valid number
+    const safePercentage = typeof completionPercentage === 'number' && !isNaN(completionPercentage) ? completionPercentage : 0;
 
     return (
         <View style={styles.container}>
             <View style={styles.titleContainer}>
-                <Text style={styles.title}>{title}</Text>
-                <Text style={styles.completionText}>{completionPercentage}% complete</Text>
+                <Text style={styles.title}>{title || ''}</Text>
+                <Text style={styles.completionText}>{safePercentage}% complete</Text>
             </View>
             {(onEditPress || onAddPress) && (
                 <TouchableOpacity
@@ -63,7 +65,7 @@ const styles = StyleSheet.create({
     },
     title: {
         ...typography.p2Bold,
-        color: colors.primaryDarkBlue,
+        color: '#000000', // Exact black from Figma design
     },
     completionText: {
         ...typography.interRegular12,
@@ -92,4 +94,8 @@ const styles = StyleSheet.create({
 });
 
 export default SectionHeader;
+
+
+
+
 

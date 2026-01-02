@@ -16,9 +16,11 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
     strokeWidth = 0.723,
     avatarUrl,
 }) => {
+    // Ensure percentage is a valid number between 0-100
+    const safePercentage = typeof percentage === 'number' && !isNaN(percentage) ? Math.min(Math.max(percentage, 0), 100) : 0;
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - (percentage / 100) * circumference;
+    const strokeDashoffset = circumference - (safePercentage / 100) * circumference;
     const center = size / 2;
     const avatarSize = size * 0.855; // 51.326 / 60
 
@@ -60,7 +62,7 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
             )}
             {/* Percentage badge - positioned at top right of circle */}
             <View style={styles.percentageContainer}>
-                <Text style={styles.percentageText}>{percentage}%</Text>
+                <Text style={styles.percentageText}>{safePercentage}%</Text>
             </View>
         </View>
     );

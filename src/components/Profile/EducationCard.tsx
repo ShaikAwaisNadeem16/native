@@ -24,8 +24,8 @@ const EducationCard: React.FC<EducationCardProps> = ({
         <View style={styles.container}>
             <View style={styles.contentContainer}>
                 <View style={styles.textContainer}>
-                    <Text style={styles.title}>{title}</Text>
-                    <Text style={styles.subtitle}>{subtitle}</Text>
+                    <Text style={styles.title}>{title || ''}</Text>
+                    <Text style={styles.subtitle}>{subtitle || ''}</Text>
                 </View>
                 <View style={styles.actionsContainer}>
                     {onEditPress && (
@@ -144,4 +144,8 @@ const styles = StyleSheet.create({
 });
 
 export default EducationCard;
+
+
+
+
 

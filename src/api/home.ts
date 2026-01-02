@@ -26,7 +26,7 @@ export const HomeService = {
     },
 
     /**
-     * STEP 7: POST /api/lms/enrol/get-enroll-course
+     * STEP 6: POST /api/lms/enrol/get-enroll-course
      * Fetches enrolled courses for the user (ONLY if enrolled)
      * Request body: { email: string, userId: string }
      */
