@@ -35,6 +35,9 @@ export const HomeService = {
             const userId = await Storage.getItem('userId');
             const email = await Storage.getItem('username'); // Using username as email from login
 
+            console.log('[API] getEnrollCourse - userId:', userId);
+            console.log('[API] getEnrollCourse - email:', email);
+
             if (!userId) {
                 throw new Error('User ID not found');
             }
@@ -43,13 +46,26 @@ export const HomeService = {
                 throw new Error('Email not found');
             }
 
+            const requestPayload = { email, userId };
+            console.log('[API] getEnrollCourse - Request payload:', JSON.stringify(requestPayload, null, 2));
+            console.log('[API] getEnrollCourse - Calling POST /api/lms/enrol/get-enroll-course');
+
             const response = await GlobalAxiosConfig.post(
                 '/api/lms/enrol/get-enroll-course',
-                { email, userId }
+                requestPayload
             );
+
+            console.log('[API] getEnrollCourse - Response status:', response.status);
+            console.log('[API] getEnrollCourse - Response data type:', typeof response.data);
+            console.log('[API] getEnrollCourse - Response data keys:', Object.keys(response.data || {}));
+            console.log('[API] getEnrollCourse - Full response.data:', JSON.stringify(response.data, null, 2));
+
             return response.data;
-        } catch (error) {
-            console.error('Failed to fetch enrolled courses:', error);
+        } catch (error: any) {
+            console.error('[API] getEnrollCourse - Error occurred:', error);
+            console.error('[API] getEnrollCourse - Error message:', error?.message);
+            console.error('[API] getEnrollCourse - Error response:', error?.response?.data);
+            console.error('[API] getEnrollCourse - Error status:', error?.response?.status);
             throw error;
         }
     },

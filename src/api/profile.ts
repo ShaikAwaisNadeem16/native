@@ -8,7 +8,7 @@ export const ProfileService = {
      */
     fetchProfileData: async () => {
         try {
-            const response = await GlobalAxicd apposConfig.get('/api/student/user-profile/data');
+            const response = await GlobalAxiosConfig.get('/api/student/user-profile/data');
             return response.data;
         } catch (error) {
             console.error('Failed to fetch profile data:', error);

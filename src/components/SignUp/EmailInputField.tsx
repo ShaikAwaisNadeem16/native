@@ -1,7 +1,15 @@
-import React from 'react';
-import { View, TextInput, Text, StyleSheet } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, TextInput, Text, StyleSheet, Animated } from 'react-native';
 import { Check } from 'lucide-react-native';
-import { colors, typography, spacing, borderRadius } from '../../styles/theme';
+import {
+    colors,
+    typography,
+    inputVariants,
+    inputBaseStyles,
+    getInputVariant,
+    InputVariant,
+    animations
+} from '../../styles/theme';
 
 interface EmailInputFieldProps {
     value: string;
@@ -10,41 +18,96 @@ interface EmailInputFieldProps {
     showCheckmark?: boolean;
 }
 
-const EmailInputField: React.FC<EmailInputFieldProps> = ({ 
-    value, 
-    onChangeText, 
+const EmailInputField: React.FC<EmailInputFieldProps> = ({
+    value,
+    onChangeText,
     error,
-    showCheckmark = false 
+    showCheckmark = false
 }) => {
-    const hasValue = value.length > 0;
-    const showLabel = hasValue || showCheckmark;
+    const [isFocused, setIsFocused] = useState(false);
+
+    // Animated value for floating label
+    const labelAnimation = useRef(new Animated.Value(value ? 1 : 0)).current;
+
+    // Track if label should be floated (focused OR has value)
+    const shouldFloat = isFocused || value.length > 0;
+
+    useEffect(() => {
+        Animated.timing(labelAnimation, {
+            toValue: shouldFloat ? 1 : 0,
+            duration: animations.floatingLabel.duration,
+            useNativeDriver: false,
+        }).start();
+    }, [shouldFloat, labelAnimation]);
+
+    // Determine current variant based on state
+    const variant: InputVariant = getInputVariant({
+        isFocused,
+        hasError: !!error,
+        hasValue: !!value,
+    });
+
+    // Get variant-specific styles
+    const variantStyles = inputVariants[variant];
+
+    // Interpolate label position and font size
+    const labelTop = labelAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [animations.floatingLabel.defaultTop, animations.floatingLabel.floatedTop],
+    });
+
+    const labelFontSize = labelAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [animations.floatingLabel.defaultFontSize, animations.floatingLabel.floatedFontSize],
+    });
+
+    const labelColor = labelAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [variantStyles.placeholderColor, isFocused ? colors.primaryBlue : colors.primaryDarkBlue],
+    });
 
     return (
         <View style={styles.container}>
-            <View style={[styles.inputContainer, error && styles.inputContainerError]}>
-                <View style={styles.inputContent}>
-                    {showLabel && (
-                        <View style={styles.labelContainer}>
-                            <Text style={styles.label}>Email ID</Text>
+            <View style={[
+                styles.inputContainer,
+                {
+                    borderColor: variantStyles.borderColor,
+                    backgroundColor: variantStyles.backgroundColor,
+                }
+            ]}>
+                {/* Floating Label */}
+                <Animated.Text
+                    style={[
+                        styles.floatingLabel,
+                        {
+                            top: labelTop,
+                            fontSize: labelFontSize,
+                            color: labelColor,
+                            backgroundColor: shouldFloat ? colors.white : 'transparent',
+                            paddingHorizontal: shouldFloat ? animations.floatingLabel.horizontalPadding : 0,
+                        }
+                    ]}
+                    pointerEvents="none"
+                >
+                    Email ID*
+                </Animated.Text>
+
+                <View style={styles.inputWrapper}>
+                    <TextInput
+                        style={[styles.input, { color: variantStyles.textColor }]}
+                        value={value}
+                        onChangeText={onChangeText}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        onFocus={() => setIsFocused(true)}
+                        onBlur={() => setIsFocused(false)}
+                    />
+                    {showCheckmark && value.length > 0 && (
+                        <View style={styles.checkmarkContainer}>
+                            <Check size={24} color="#27AE60" />
                         </View>
                     )}
-                    <View style={styles.inputWrapper}>
-                        <TextInput
-                            style={styles.input}
-                            value={value}
-                            onChangeText={onChangeText}
-                            placeholder={!showLabel ? "Email ID*" : ""}
-                            placeholderTextColor={colors.placeholderGrey}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                        />
-                        {showCheckmark && hasValue && (
-                            <View style={styles.checkmarkContainer}>
-                                <Check size={24} color="#27AE60" />
-                            </View>
-                        )}
-                    </View>
                 </View>
             </View>
             {error && <Text style={styles.errorText}>{error}</Text>}
@@ -54,36 +117,17 @@ const EmailInputField: React.FC<EmailInputFieldProps> = ({
 
 const styles = StyleSheet.create({
     container: {
-        width: '100%',
+        ...inputBaseStyles.container,
     },
     inputContainer: {
-        backgroundColor: colors.white,
-        borderWidth: 1,
-        borderColor: colors.lightGrey,
-        borderRadius: borderRadius.input,
-        paddingHorizontal: spacing.inputPaddingH,
-        paddingVertical: spacing.inputPaddingV,
-    },
-    inputContainerError: {
-        borderColor: colors.error,
-    },
-    inputContent: {
-        flex: 1,
+        ...inputBaseStyles.inputContainer,
         position: 'relative',
     },
-    labelContainer: {
+    floatingLabel: {
         position: 'absolute',
-        top: -22,
-        left: -8,
-        backgroundColor: colors.white,
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 2,
+        left: 16,
+        fontFamily: typography.p4.fontFamily,
         zIndex: 1,
-    },
-    label: {
-        ...typography.s1Regular,
-        color: colors.primaryDarkBlue,
     },
     inputWrapper: {
         flexDirection: 'row',
@@ -92,11 +136,8 @@ const styles = StyleSheet.create({
         minHeight: 24,
     },
     input: {
-        ...typography.p4,
-        color: colors.textGrey,
+        ...inputBaseStyles.input,
         flex: 1,
-        padding: 0,
-        margin: 0,
     },
     checkmarkContainer: {
         width: 24,
@@ -105,11 +146,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     errorText: {
-        ...typography.s1Regular,
-        color: colors.error,
-        marginTop: spacing.titleSubtitleGap,
+        ...inputBaseStyles.errorText,
     },
 });
 
 export default EmailInputField;
-

@@ -1,7 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, Animated } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
-import { colors, typography, spacing, borderRadius } from '../../styles/theme';
+import {
+    colors,
+    typography,
+    borderRadius,
+    inputVariants,
+    inputBaseStyles,
+    getInputVariant,
+    InputVariant,
+    animations
+} from '../../styles/theme';
 
 interface DropdownFieldProps {
     value: string;
@@ -9,32 +18,108 @@ interface DropdownFieldProps {
     placeholder: string;
     options: string[];
     error?: string;
+    disabled?: boolean;
 }
 
-const DropdownField: React.FC<DropdownFieldProps> = ({ 
-    value, 
-    onValueChange, 
+const DropdownField: React.FC<DropdownFieldProps> = ({
+    value,
+    onValueChange,
     placeholder,
     options,
-    error 
+    error,
+    disabled = false
 }) => {
     const [isOpen, setIsOpen] = useState(false);
+
+    // Animated value for floating label
+    const labelAnimation = useRef(new Animated.Value(value ? 1 : 0)).current;
+
+    // Track if label should be floated (open OR has value)
+    const shouldFloat = isOpen || value.length > 0;
+
+    useEffect(() => {
+        Animated.timing(labelAnimation, {
+            toValue: shouldFloat ? 1 : 0,
+            duration: animations.floatingLabel.duration,
+            useNativeDriver: false,
+        }).start();
+    }, [shouldFloat, labelAnimation]);
+
+    // Determine current variant based on state
+    const variant: InputVariant = getInputVariant({
+        isFocused: isOpen,
+        hasError: !!error,
+        isDisabled: disabled,
+        hasValue: !!value,
+    });
+
+    // Get variant-specific styles
+    const variantStyles = inputVariants[variant];
+
+    // Interpolate label position and font size
+    const labelTop = labelAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [animations.floatingLabel.defaultTop, animations.floatingLabel.floatedTop],
+    });
+
+    const labelFontSize = labelAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [animations.floatingLabel.defaultFontSize, animations.floatingLabel.floatedFontSize],
+    });
+
+    const labelColor = labelAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [variantStyles.placeholderColor, isOpen ? colors.primaryBlue : colors.primaryDarkBlue],
+    });
 
     const handleSelect = (option: string) => {
         onValueChange(option);
         setIsOpen(false);
     };
 
+    const handleOpen = () => {
+        if (!disabled) {
+            setIsOpen(true);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <TouchableOpacity
-                style={[styles.inputContainer, error && styles.inputContainerError]}
-                onPress={() => setIsOpen(true)}
+                style={[
+                    styles.inputContainer,
+                    {
+                        borderColor: variantStyles.borderColor,
+                        backgroundColor: variantStyles.backgroundColor,
+                    }
+                ]}
+                onPress={handleOpen}
+                disabled={disabled}
             >
-                <Text style={[styles.inputText, !value && styles.placeholderText]}>
+                {/* Floating Label */}
+                <Animated.Text
+                    style={[
+                        styles.floatingLabel,
+                        {
+                            top: labelTop,
+                            fontSize: labelFontSize,
+                            color: labelColor,
+                            backgroundColor: shouldFloat ? colors.white : 'transparent',
+                            paddingHorizontal: shouldFloat ? animations.floatingLabel.horizontalPadding : 0,
+                        }
+                    ]}
+                    pointerEvents="none"
+                >
+                    {placeholder}
+                </Animated.Text>
+
+                <Text style={[
+                    styles.inputText,
+                    { color: value ? variantStyles.textColor : 'transparent' }
+                ]}>
                     {value || placeholder}
                 </Text>
-                <ChevronDown size={24} color={colors.textGrey} />
+                <ChevronDown size={24} color={variantStyles.textColor} />
             </TouchableOpacity>
 
             <Modal
@@ -72,30 +157,25 @@ const DropdownField: React.FC<DropdownFieldProps> = ({
 
 const styles = StyleSheet.create({
     container: {
-        width: '100%',
+        ...inputBaseStyles.container,
     },
     inputContainer: {
-        backgroundColor: colors.white,
-        borderWidth: 1,
-        borderColor: colors.lightGrey,
-        borderRadius: borderRadius.input,
-        paddingHorizontal: spacing.inputPaddingH,
-        paddingVertical: spacing.inputPaddingV,
+        ...inputBaseStyles.inputContainer,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         minHeight: 48,
+        position: 'relative',
     },
-    inputContainerError: {
-        borderColor: colors.error,
+    floatingLabel: {
+        position: 'absolute',
+        left: 16,
+        fontFamily: typography.p4.fontFamily,
+        zIndex: 1,
     },
     inputText: {
         ...typography.p4,
-        color: colors.textGrey,
         flex: 1,
-    },
-    placeholderText: {
-        color: colors.placeholderGrey,
     },
     modalOverlay: {
         flex: 1,
@@ -127,15 +207,11 @@ const styles = StyleSheet.create({
         color: colors.textGrey,
     },
     errorText: {
-        ...typography.s1Regular,
-        color: colors.error,
-        marginTop: spacing.titleSubtitleGap,
+        ...inputBaseStyles.errorText,
     },
 });
 
 export default DropdownField;
-
-
 
 
 

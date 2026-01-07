@@ -25,9 +25,15 @@ const SecondaryButton: React.FC<SecondaryButtonProps> = ({ label, onPress, disab
 
 const styles = StyleSheet.create({
     button: {
+        borderWidth: 1,
+        borderColor: colors.primaryBlue,
+        borderRadius: 8,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
         justifyContent: 'center',
         alignItems: 'center',
-        gap: 4,
+        width: '100%',
+        backgroundColor: 'transparent',
     },
     buttonText: {
         ...typography.p4SemiBold,
@@ -40,6 +46,15 @@ const styles = StyleSheet.create({
 });
 
 export default SecondaryButton;
+
+
+
+
+
+
+
+
+
 
 
 

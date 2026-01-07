@@ -12,9 +12,19 @@ const AuthService = {
 
         try {
             const res = await axios.post(`${ENV.API_BASE_URL}/api/auth/user/login`, payload);
+
+            // DEBUG: Log full API response to verify token field name
+            console.log('[DEBUG] Login API Response:', JSON.stringify(res.data, null, 2));
+            console.log('[DEBUG] accessToken value:', res.data.accessToken);
+            console.log('[DEBUG] access_token value:', res.data.access_token);
+            console.log('[DEBUG] token value:', res.data.token);
+
             if (res.data.message === "Login successful") {
                 // Explicitly convert all values to strings to prevent Android type casting errors
-                await Storage.setItem("accessToken", res.data.accessToken || '');
+                const tokenValue = res.data.accessToken || res.data.access_token || res.data.token || '';
+                console.log('[DEBUG] Token being stored:', tokenValue ? `${tokenValue.substring(0, 20)}...` : 'EMPTY');
+
+                await Storage.setItem("accessToken", tokenValue);
                 await Storage.setItem("refreshToken", res.data.refreshToken || '');
                 await Storage.setItem("userId", res.data.userId != null ? String(res.data.userId) : '');
                 await Storage.setItem("username", username || '');

@@ -19,6 +19,7 @@ export const colors = {
     tableHeaderBlue: '#e6f3ff', // Light blue for table header background
     passBg: 'rgba(39, 174, 96, 0.05)', // Light green background for Pass tag
     failBg: 'rgba(235, 87, 87, 0.05)', // Light red background for Fail tag
+    reviewOrange: '#f18522', // Orange color for marked-for-review questions (from Figma)
 };
 
 export const typography = {
@@ -174,6 +175,183 @@ export const shadows = {
     },
 };
 
+// Animation timing from Figma design
+export const animations = {
+    // Input field transition timing
+    inputTransition: {
+        duration: 200, // 200ms
+        easing: 'ease-out',
+    },
+    // Floating label animation
+    floatingLabel: {
+        duration: 200, // 200ms
+        // Label positions
+        defaultTop: 14, // Centered in input (44px height - 16px label height / 2)
+        floatedTop: -8, // Above input border
+        // Label font sizes
+        defaultFontSize: 14, // Same as input text
+        floatedFontSize: 12, // Smaller when floated
+        // Label padding
+        horizontalPadding: 4, // Padding around floated label
+    },
+};
+
+// ============================================
+// CENTRALIZED INPUT VARIANT SYSTEM
+// Based on Figma design specifications
+// ============================================
+
+export type InputVariant = 'default' | 'focused' | 'error' | 'disabled' | 'filled';
+
+export interface InputVariantStyles {
+    borderColor: string;
+    backgroundColor: string;
+    textColor: string;
+    placeholderColor: string;
+}
+
+// Input variant definitions - single source of truth
+export const inputVariants: Record<InputVariant, InputVariantStyles> = {
+    default: {
+        borderColor: colors.lightGrey,     // #e2ebf3
+        backgroundColor: colors.white,      // #ffffff
+        textColor: colors.textGrey,         // #696a6f
+        placeholderColor: colors.placeholderGrey, // #80919f
+    },
+    focused: {
+        borderColor: colors.primaryBlue,   // #0b6aea
+        backgroundColor: colors.white,      // #ffffff
+        textColor: colors.primaryBlue,      // #0b6aea
+        placeholderColor: colors.placeholderGrey, // #80919f
+    },
+    error: {
+        borderColor: colors.error,          // #EB5757
+        backgroundColor: colors.white,      // #ffffff
+        textColor: colors.textGrey,         // #696a6f
+        placeholderColor: colors.placeholderGrey, // #80919f
+    },
+    disabled: {
+        borderColor: colors.lightGrey,      // #e2ebf3
+        backgroundColor: '#ededed',         // Disabled grey from Figma
+        textColor: colors.textGrey,         // #696a6f
+        placeholderColor: colors.placeholderGrey, // #80919f
+    },
+    filled: {
+        borderColor: colors.lightGrey,      // #e2ebf3
+        backgroundColor: colors.white,      // #ffffff
+        textColor: colors.textGrey,         // #696a6f
+        placeholderColor: colors.placeholderGrey, // #80919f
+    },
+};
+
+// Helper function to get input container styles for a given variant
+export const getInputContainerStyle = (variant: InputVariant) => ({
+    backgroundColor: inputVariants[variant].backgroundColor,
+    borderWidth: 1,
+    borderColor: inputVariants[variant].borderColor,
+    borderRadius: borderRadius.input,
+    paddingHorizontal: spacing.inputPaddingH,
+    paddingVertical: spacing.inputPaddingV,
+});
+
+// Helper function to get input text style for a given variant
+export const getInputTextStyle = (variant: InputVariant) => ({
+    ...typography.p4,
+    color: inputVariants[variant].textColor,
+    padding: 0,
+    margin: 0,
+});
+
+// Helper function to determine variant based on state
+export const getInputVariant = (options: {
+    isFocused?: boolean;
+    hasError?: boolean;
+    isDisabled?: boolean;
+    hasValue?: boolean;
+}): InputVariant => {
+    const { isFocused, hasError, isDisabled, hasValue } = options;
+
+    if (isDisabled) return 'disabled';
+    if (hasError) return 'error';
+    if (isFocused) return 'focused';
+    if (hasValue) return 'filled';
+    return 'default';
+};
+
+// Input field dimensions from Figma node 6076-36897
+export const inputDimensions = {
+    // Standard input height: 44px (20px text + 12px top padding + 12px bottom padding)
+    minHeight: 44,
+    // Multiline input minimum height
+    multilineMinHeight: 100,
+    // Input text minimum height
+    textMinHeight: 20,
+    // Border width
+    borderWidth: 1,
+};
+
+// Base input container styles (common across all variants)
+export const inputBaseStyles = {
+    container: {
+        width: '100%' as const,
+    },
+    inputContainer: {
+        backgroundColor: colors.white,
+        borderWidth: inputDimensions.borderWidth,
+        borderColor: colors.lightGrey,
+        borderRadius: borderRadius.input,
+        paddingHorizontal: spacing.inputPaddingH,
+        paddingVertical: spacing.inputPaddingV,
+        minHeight: inputDimensions.minHeight,
+    },
+    inputContainerFocused: {
+        borderColor: colors.primaryBlue,
+    },
+    inputContainerError: {
+        borderColor: colors.error,
+    },
+    inputContainerDisabled: {
+        backgroundColor: '#ededed',
+    },
+    input: {
+        ...typography.p4,
+        color: colors.textGrey,
+        padding: 0,
+        margin: 0,
+        minHeight: 20,
+    },
+    inputFocused: {
+        color: colors.primaryBlue,
+    },
+    placeholderText: {
+        color: colors.placeholderGrey,
+    },
+    label: {
+        ...typography.s1Regular,
+        color: colors.textGrey,
+        marginBottom: 8,
+    },
+    required: {
+        color: colors.primaryBlue,
+    },
+    errorText: {
+        ...typography.s1Regular,
+        color: colors.error,
+        marginTop: 4,
+    },
+    helperText: {
+        ...typography.s1Regular,
+        color: colors.textGrey,
+        marginTop: 8,
+    },
+    charCount: {
+        ...typography.s1Regular,
+        color: colors.textGrey,
+        textAlign: 'right' as const,
+        marginTop: 4,
+    },
+};
+
 export const theme = {
     colors,
     typography,
@@ -181,6 +359,13 @@ export const theme = {
     borderRadius,
     sizes,
     shadows,
+    animations,
+    inputDimensions,
+    inputVariants,
+    inputBaseStyles,
+    getInputVariant,
+    getInputContainerStyle,
+    getInputTextStyle,
 };
 
 export default theme;

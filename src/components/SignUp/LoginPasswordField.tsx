@@ -1,7 +1,17 @@
-import React, { useState } from 'react';
-import { View, TextInput, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Eye, EyeOff } from 'lucide-react-native';
-import { colors, typography, spacing, borderRadius } from '../../styles/theme';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, TextInput, Text, StyleSheet, TouchableOpacity, Image, Animated } from 'react-native';
+import {
+    colors,
+    typography,
+    inputVariants,
+    inputBaseStyles,
+    getInputVariant,
+    InputVariant,
+    animations
+} from '../../styles/theme';
+
+// Import assets
+import eyeIcon from '../../../assets/quill_eye.png';
 
 interface LoginPasswordFieldProps {
     value: string;
@@ -11,37 +21,101 @@ interface LoginPasswordFieldProps {
     onForgotPassword?: () => void;
 }
 
-const LoginPasswordField: React.FC<LoginPasswordFieldProps> = ({ 
-    value, 
-    onChangeText, 
+const LoginPasswordField: React.FC<LoginPasswordFieldProps> = ({
+    value,
+    onChangeText,
     placeholder = "Password",
     error,
     onForgotPassword
 }) => {
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
+
+    // Animated value for floating label
+    const labelAnimation = useRef(new Animated.Value(value ? 1 : 0)).current;
+
+    // Track if label should be floated (focused OR has value)
+    const shouldFloat = isFocused || value.length > 0;
+
+    useEffect(() => {
+        Animated.timing(labelAnimation, {
+            toValue: shouldFloat ? 1 : 0,
+            duration: animations.floatingLabel.duration,
+            useNativeDriver: false,
+        }).start();
+    }, [shouldFloat, labelAnimation]);
+
+    // Determine current variant based on state
+    const variant: InputVariant = getInputVariant({
+        isFocused,
+        hasError: !!error,
+        hasValue: !!value,
+    });
+
+    // Get variant-specific styles
+    const variantStyles = inputVariants[variant];
+
+    // Interpolate label position and font size
+    const labelTop = labelAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [animations.floatingLabel.defaultTop, animations.floatingLabel.floatedTop],
+    });
+
+    const labelFontSize = labelAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [animations.floatingLabel.defaultFontSize, animations.floatingLabel.floatedFontSize],
+    });
+
+    const labelColor = labelAnimation.interpolate({
+        inputRange: [0, 1],
+        outputRange: [variantStyles.placeholderColor, isFocused ? colors.primaryBlue : colors.primaryDarkBlue],
+    });
 
     return (
         <View style={styles.container}>
-            <View style={[styles.inputContainer, error && styles.inputContainerError]}>
+            <View style={[
+                styles.inputContainer,
+                {
+                    borderColor: variantStyles.borderColor,
+                    backgroundColor: variantStyles.backgroundColor,
+                }
+            ]}>
+                {/* Floating Label */}
+                <Animated.Text
+                    style={[
+                        styles.floatingLabel,
+                        {
+                            top: labelTop,
+                            fontSize: labelFontSize,
+                            color: labelColor,
+                            backgroundColor: shouldFloat ? colors.white : 'transparent',
+                            paddingHorizontal: shouldFloat ? animations.floatingLabel.horizontalPadding : 0,
+                        }
+                    ]}
+                    pointerEvents="none"
+                >
+                    {placeholder}
+                </Animated.Text>
+
                 <TextInput
-                    style={styles.input}
+                    style={[styles.input, { color: variantStyles.textColor }]}
                     value={value}
                     onChangeText={onChangeText}
-                    placeholder={placeholder}
-                    placeholderTextColor={colors.placeholderGrey}
                     secureTextEntry={!isPasswordVisible}
                     autoCapitalize="none"
                     autoCorrect={false}
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
                 />
                 <TouchableOpacity
                     style={styles.eyeIconContainer}
                     onPress={() => setIsPasswordVisible(!isPasswordVisible)}
                 >
-                    {isPasswordVisible ? (
-                        <EyeOff size={24} color={colors.textGrey} />
-                    ) : (
-                        <Eye size={24} color={colors.textGrey} />
-                    )}
+                    <Image
+                        source={eyeIcon}
+                        style={styles.eyeIcon}
+                        resizeMode="contain"
+                    />
                 </TouchableOpacity>
             </View>
             {onForgotPassword && (
@@ -60,24 +134,20 @@ const styles = StyleSheet.create({
         gap: 8, // Exact gap from Figma (8px between input and forgot password link)
     },
     inputContainer: {
-        backgroundColor: colors.white,
-        borderWidth: 1,
-        borderColor: colors.lightGrey,
-        borderRadius: borderRadius.input,
-        paddingHorizontal: spacing.inputPaddingH,
-        paddingVertical: spacing.inputPaddingV,
+        ...inputBaseStyles.inputContainer,
         flexDirection: 'row',
         alignItems: 'center',
+        position: 'relative',
     },
-    inputContainerError: {
-        borderColor: colors.error,
+    floatingLabel: {
+        position: 'absolute',
+        left: 16,
+        fontFamily: typography.p4.fontFamily,
+        zIndex: 1,
     },
     input: {
-        ...typography.p4,
-        color: colors.textGrey,
+        ...inputBaseStyles.input,
         flex: 1,
-        padding: 0,
-        margin: 0,
         minHeight: 24,
     },
     eyeIconContainer: {
@@ -85,6 +155,10 @@ const styles = StyleSheet.create({
         height: 24,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    eyeIcon: {
+        width: 24,
+        height: 24,
     },
     forgotPasswordContainer: {
         alignSelf: 'flex-end',
@@ -98,15 +172,8 @@ const styles = StyleSheet.create({
         textDecorationLine: 'underline',
     },
     errorText: {
-        ...typography.s1Regular,
-        color: colors.error,
-        marginTop: spacing.titleSubtitleGap,
+        ...inputBaseStyles.errorText,
     },
 });
 
 export default LoginPasswordField;
-
-
-
-
-

@@ -9,7 +9,17 @@
       "Bash(dir /s /b \"C:\\\\Users\\\\ShaikAwaisNadeem\\\\Desktop\\\\creamcolalr code base\\\\app-dev\")",
       "Bash(findstr:*)",
       "Bash(cat:*)",
-      "WebFetch(domain:www.figma.com)"
+      "WebFetch(domain:www.figma.com)",
+      "Bash(dir /s /b \"C:\\\\Users\\\\ShaikAwaisNadeem\\\\Desktop\\\\creamcolalr code base\\\\app-dev\\\\src\")",
+      "Bash(move ModuleDetailsScreen.tsx StemAssessmentInstructionsScreen.tsx)",
+      "Bash(ren:*)",
+      "Bash(dir:*)",
+      "Bash(mkdir:*)",
+      "Bash(find:*)",
+      "mcp__figma-dev-mode-mcp-server__get_metadata",
+      "Bash(npm install:*)",
+      "Bash(npx expo start:*)",
+      "Bash(npm ls:*)"
     ]
   }
 }
