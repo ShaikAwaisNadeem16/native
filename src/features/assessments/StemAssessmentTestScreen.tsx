@@ -1,18 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { Bookmark, ChevronDown } from 'lucide-react-native';
 import { colors, typography, borderRadius } from '../../styles/theme';
 import TimerProgress from './components/TimerProgress';
 import TestQuestionTag from './components/TestQuestionTag';
 import AnswerOption from './components/AnswerOption';
 import PrimaryButton from '../../components/SignUp/PrimaryButton';
+import SubmitTestConfirmationModal from './components/SubmitTestConfirmationModal';
+import AssessmentService from '../../api/assessment';
+import Storage from '../../utils/storage';
+import { RootStackParamList } from '../../navigation/AppNavigator';
 
-// StemAssessmentTestScreen - STEM Assessment test with questions
-// Renamed from TestScreen to reflect actual content (STEM Assessment Test)
+// StemAssessmentTestScreen - Assessment test with questions
+// Handles both passage-based and single-line MCQ questions
+// State-driven: Works for STEM Assessment, Engineering Systems, and other assessments
+type StemAssessmentTestScreenNavigationProp = StackNavigationProp<RootStackParamList, 'StemAssessmentTest'>;
+type StemAssessmentTestScreenRouteProp = RouteProp<RootStackParamList, 'StemAssessmentTest'>;
+
 const StemAssessmentTestScreen: React.FC = () => {
+    const navigation = useNavigation<StemAssessmentTestScreenNavigationProp>();
+    const route = useRoute<StemAssessmentTestScreenRouteProp>();
     const [isMenuExpanded, setIsMenuExpanded] = useState(true); // Menu expanded by default
     const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    // Assessment type - can be "STEM Assessment" or "Engineering Systems" or other
+    // In real implementation, this would come from route params or assessment state
+    const assessmentType = 'Engineering Systems'; // Default to Engineering Systems for this state
+    const assessmentSubtitle = 'ASSESSMENT'; // Subtitle shown in menu
+    
+    // Determine if this is a passage-based question or single-line MCQ
+    // In real implementation, this would come from question data
+    // For now, we'll use a prop or determine from question type
+    const hasPassage = false; // Set to true for passage questions, false for single-line MCQs
+    const questionCategory = 'PASSAGE SINGLE CHOICE QUESTION'; // Question category label
 
     const handleMarkForReview = () => {
         console.log('Mark for review pressed');
@@ -26,15 +50,12 @@ const StemAssessmentTestScreen: React.FC = () => {
         console.log('Next pressed');
     };
 
-    const handleSubmitTest = () => {
-        console.log('Submit test pressed');
-    };
-
     const handleAnswerSelect = (optionNumber: string) => {
         setSelectedAnswer(optionNumber);
     };
 
     // Question tags data - showing different states
+    // In real implementation, this would come from assessment state
     const questionTags = [
         { number: '1', state: 'Answered' as const },
         { number: '2', state: 'Answered' as const },
@@ -51,6 +72,115 @@ const StemAssessmentTestScreen: React.FC = () => {
         { number: '13', state: 'Unanswered' as const },
         { number: '14', state: 'Unanswered' as const },
     ];
+
+    const [showSubmitConfirmation, setShowSubmitConfirmation] = useState(false);
+
+    // Calculate unanswered and review-marked question counts
+    // In real implementation, this would come from assessment state
+    const unansweredCount = useMemo(() => {
+        // Count questions with state 'Unanswered'
+        return questionTags.filter(tag => tag.state === 'Unanswered').length;
+    }, [questionTags]);
+
+    const reviewMarkedCount = useMemo(() => {
+        // Count questions with state 'Review Unanswered' or 'Review Answered'
+        return questionTags.filter(tag => 
+            tag.state === 'Review Unanswered' || tag.state === 'Review Answered'
+        ).length;
+    }, [questionTags]);
+
+    const handleSubmitTest = () => {
+        // Check if there are unanswered or review-marked questions
+        if (unansweredCount > 0 || reviewMarkedCount > 0) {
+            // Show confirmation modal
+            setShowSubmitConfirmation(true);
+        } else {
+            // All questions answered, proceed directly to submission
+            console.log('Submit test - all questions answered');
+            // TODO: Navigate to final submission or call submit API
+        }
+    };
+
+    const handleConfirmSubmit = async () => {
+        setShowSubmitConfirmation(false);
+        setIsSubmitting(true);
+        
+        try {
+            const userId = await Storage.getItem('userId');
+            const lessonId = route.params?.lessonId || route.params?.moodleCourseId;
+            
+            if (!userId || !lessonId) {
+                console.error('[StemAssessmentTestScreen] Missing userId or lessonId for submission');
+                setIsSubmitting(false);
+                return;
+            }
+
+            // Call quiz-submit API
+            console.log('[StemAssessmentTestScreen] Submitting assessment...');
+            const response = await AssessmentService.attemptQuiz({
+                page: 'quiz-submit',
+                userId,
+                lessonId,
+                // TODO: Include qdata with all question answers when available
+            });
+
+            console.log('[StemAssessmentTestScreen] Assessment submission response:', JSON.stringify(response, null, 2));
+
+            // Extract data from response
+            const finalData = response?.final || {};
+            const questionsData = response?.questions || {};
+            const overallData = questionsData?.overall || {};
+            
+            // Determine if result is Pass or Fail
+            const isPass = finalData?.pass === true || 
+                          response?.pass === true ||
+                          finalData?.quizStatus?.toLowerCase().includes('cleared') ||
+                          (finalData?.quizStatus !== 'Fail' && finalData?.pass !== false && 
+                           finalData?.message?.toLowerCase().includes('pass'));
+            
+            // Extract score data
+            const scoredMarks = overallData?.scoredMarks || 0;
+            const totalMarks = overallData?.totalMarks || 100;
+            const finalScorePercentage = overallData?.scaledScore || 
+                                        finalData?.rawScore || 
+                                        Math.round((scoredMarks / totalMarks) * 100);
+            const correctAnswersDisplay = `${scoredMarks}/${totalMarks}`;
+            const timeTaken = finalData?.timeTaken || '00m 00s';
+            
+            // Extract fail message and cooldown
+            const failMessage = finalData?.failReason || finalData?.message;
+            const cooldownDays = finalData?.cooldownDays || finalData?.reattemptDays || 60;
+            const minimumScore = finalData?.minimumScore || finalData?.passingScore || 50;
+
+            if (isPass) {
+                // Navigate to success screen
+                navigation.navigate('AssessmentClearedSuccess', {
+                    finalScore: finalScorePercentage,
+                    correctAnswers: correctAnswersDisplay,
+                    timeTaken: timeTaken,
+                });
+            } else {
+                // Navigate to failed screen
+                navigation.navigate('AssessmentFailed', {
+                    finalScore: finalScorePercentage,
+                    correctAnswers: correctAnswersDisplay,
+                    timeTaken: timeTaken,
+                    failMessage: failMessage,
+                    cooldownDays: cooldownDays,
+                    minimumScore: minimumScore,
+                });
+            }
+        } catch (error: any) {
+            console.error('[StemAssessmentTestScreen] Failed to submit assessment:', error);
+            setIsSubmitting(false);
+            // TODO: Show error message to user
+        }
+    };
+
+    const handleReturnToAttempt = () => {
+        setShowSubmitConfirmation(false);
+        // Return to current question - no state reset
+    };
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -69,8 +199,8 @@ const StemAssessmentTestScreen: React.FC = () => {
                     {isMenuExpanded && (
                         <View style={styles.menuContent}>
                             <View style={styles.testInfo}>
-                                <Text style={styles.testSubtitle}>STEM ASSESSMENT</Text>
-                                <Text style={styles.testTitle}>Part 1 of 4: Science</Text>
+                                <Text style={styles.testSubtitle}>{assessmentSubtitle}</Text>
+                                <Text style={styles.testTitle}>{assessmentType}</Text>
                             </View>
                             <View style={styles.questionTagsContainer}>
                                 {questionTags.map((tag, index) => (
@@ -112,10 +242,24 @@ const StemAssessmentTestScreen: React.FC = () => {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Question Section (Passage section is hidden in this view) */}
-                <View style={styles.questionSection}>
+                {/* Passage Section - Only shown for passage-based questions */}
+                {hasPassage && (
+                    <View style={styles.passageSection}>
+                        <Text style={styles.passageInstruction}>
+                            Read the given information carefully and answer the questions 6-10 below:
+                        </Text>
+                        <Text style={styles.passageText}>
+                            Ten persons are sitting in parallel rows such that P, Q, R, S and T are siting in Row-1 while A, B, C, D and E are sitting in Row-2. Row-1 is in the north of Row-2. Equal number of persons are facing north and south. All the above information is not necessarily in the same order. sits opposite to A. Q sits to the immediate left of R, who faces in the same direction as T. E sits second to the right of A, but not adjacent to B. D faces north direction. T sits third to the right of S. who faces south direction. The persons sitting at extreme ends of the same row do not face in same direction. Q and S are not neighbours. E, who faces south direction, is sitting opposite to P. C and B face in the same direction.
+                        </Text>
+                    </View>
+                )}
+
+                {/* Question Section */}
+                <View style={[styles.questionSection, !hasPassage && styles.questionSectionNoPassage]}>
                     <View style={styles.questionHeader}>
-                        <Text style={styles.questionType}>PASSAGE SINGLE CHOICE QUESTION</Text>
+                        {/* Question Category Label */}
+                        <Text style={styles.questionCategory}>{questionCategory}</Text>
+                        {/* Question Text */}
                         <Text style={styles.questionText}>
                             Who among the following is sitting opposite to the person who is sitting second to the left of T
                         </Text>
@@ -176,6 +320,16 @@ const StemAssessmentTestScreen: React.FC = () => {
                     </TouchableOpacity>
                 </View>
             </View>
+
+            {/* Submit Test Confirmation Modal */}
+            <SubmitTestConfirmationModal
+                visible={showSubmitConfirmation}
+                unansweredCount={unansweredCount}
+                reviewMarkedCount={reviewMarkedCount}
+                onConfirm={handleConfirmSubmit}
+                onCancel={handleReturnToAttempt}
+                isSubmitting={isSubmitting}
+            />
         </SafeAreaView>
     );
 };
@@ -270,24 +424,49 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingTop: 24,
         paddingBottom: 20,
+        gap: 40,
+    },
+    passageSection: {
+        backgroundColor: colors.mainBgGrey, // #f6f9fc from Figma
+        borderRadius: 12,
+        paddingHorizontal: 20,
+        paddingVertical: 24,
+        gap: 16,
+        width: '100%',
+    },
+    passageInstruction: {
+        ...typography.p4SemiBold, // 14px SemiBold
+        color: colors.primaryDarkBlue,
+        lineHeight: 20,
+    },
+    passageText: {
+        ...typography.p3Regular, // 16px Regular
+        color: colors.textGrey,
+        lineHeight: 25,
     },
     questionSection: {
         flexDirection: 'column',
         gap: 24,
         width: '100%',
     },
+    questionSectionNoPassage: {
+        // For single-line MCQ questions without passage
+        gap: 24,
+    },
     questionHeader: {
         flexDirection: 'column',
         gap: 4,
         width: '100%',
     },
-    questionType: {
-        ...typography.s1Regular,
+    questionCategory: {
+        ...typography.s1Regular, // 12px Regular
         color: colors.textGrey,
+        lineHeight: 16,
     },
     questionText: {
-        ...typography.p4SemiBold,
+        ...typography.p4SemiBold, // 14px SemiBold
         color: colors.primaryDarkBlue,
+        lineHeight: 20,
     },
     answerOptions: {
         flexDirection: 'column',

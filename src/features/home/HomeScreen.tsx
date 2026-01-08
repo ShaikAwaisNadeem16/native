@@ -106,8 +106,30 @@ const HomeScreen: React.FC = () => {
         }
     };
 
-    const handleViewReport = () => {
-        navigation.navigate('StemAssessmentReport', { finalResult: 'Pass' });
+    const handleViewReport = (course?: any) => {
+        // Extract moodleCourseId from course data
+        const moodleCourseId = course?.moodleCourseId || 
+                              course?.lessonId || 
+                              course?.raw?.moodleCourseId || 
+                              course?.raw?.lessonId ||
+                              course?.raw?.Courses?.moodleCourseId ||
+                              course?.raw?.Courses?.id;
+        
+        console.log('[HomeScreen] handleViewReport - course:', JSON.stringify(course, null, 2));
+        console.log('[HomeScreen] handleViewReport - extracted moodleCourseId:', moodleCourseId);
+        
+        if (!moodleCourseId) {
+            console.error('[HomeScreen] handleViewReport - No moodleCourseId found in course data');
+            // Still navigate but let the screen handle the error
+        }
+        
+        navigation.navigate('StemAssessmentReport', { 
+            finalResult: 'Pass', // This will be determined by API response
+            lessonId: moodleCourseId,
+            moodleCourseId: moodleCourseId,
+        });
+        
+        console.log('[HomeScreen] handleViewReport - Navigation called to StemAssessmentReport');
     };
 
     const handleRewatchCourse = () => {
@@ -310,7 +332,7 @@ const HomeScreen: React.FC = () => {
                     : 'COURSE COMPLETED',
                 title: course.title,
                 buttonLabel: isAssessment ? 'View Report' : 'Rewatch Course',
-                onButtonPress: isAssessment ? handleViewReport : handleRewatchCourse,
+                onButtonPress: isAssessment ? () => handleViewReport(course) : handleRewatchCourse,
             };
         });
     }, [completedCourses]);
@@ -381,16 +403,49 @@ const HomeScreen: React.FC = () => {
             return;
         }
         
+        // Check for Engineering Systems Assessment URL pattern
+        if (url.includes('/student/engIntro') || url.includes('engIntro')) {
+            console.log('[HomeScreen] Navigating to EngineeringSystemsAssessment for URL:', url);
+            navigation.navigate('EngineeringSystemsAssessment');
+            return;
+        }
+        
+        // Check for other assessment/test patterns
+        const isAssessmentUrl = url.includes('/student/assessment') || 
+                               url.includes('/assessment') ||
+                               url.includes('/test') ||
+                               url.includes('/quiz');
+        const isAssessmentCourse = course?.contentType && 
+                                  (course.contentType.includes('ASSESSMENT') || 
+                                   course.contentType.includes('TEST') ||
+                                   course.contentType.toUpperCase().includes('ASSESSMENT'));
+        
+        if (isAssessmentUrl || isAssessmentCourse) {
+            // Navigate to appropriate assessment screen based on course data
+            // For now, default to Engineering Systems Assessment if it's an engineering-related course
+            if (course?.title?.toLowerCase().includes('engineering') || 
+                course?.subTitle?.toLowerCase().includes('engineering')) {
+                console.log('[HomeScreen] Navigating to EngineeringSystemsAssessment for engineering course');
+                navigation.navigate('EngineeringSystemsAssessment');
+            } else {
+                // Default to STEM Assessment Instructions for other assessments
+                console.log('[HomeScreen] Navigating to StemAssessmentInstructions for assessment course');
+                navigation.navigate('StemAssessmentInstructions');
+            }
+            return;
+        }
+        
         // For external URLs (moodle URLs), use Linking
         // Check if it's a full URL (starts with http:// or https://)
         if (url.startsWith('http://') || url.startsWith('https://')) {
             Linking.openURL(url).catch((err) => {
                 console.error('Failed to open course URL:', err);
             });
-        } else {
-            // Relative URL that's not an assignment - log for debugging
-            console.warn('[HomeScreen] Relative URL not handled (not an assignment):', url);
+            return;
         }
+        
+        // Relative URL that doesn't match any known pattern - log for debugging
+        console.warn('[HomeScreen] Relative URL not handled:', url, 'Course:', course?.title || 'Unknown');
     };
 
     // Show loading indicator while fetching initial data

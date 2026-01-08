@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState, useMemo, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -8,6 +8,7 @@ import Header from '../home/components/Header';
 import BreadcrumbBar from '../assessments/components/BreadcrumbBar';
 import AssignmentAttemptHeader from './components/AssignmentAttemptHeader';
 import AssignmentSubmissionPanel from './components/AssignmentSubmissionPanel';
+import DeadlineExceededModal from './components/DeadlineExceededModal';
 import AssignmentService, {
     AssignmentAttemptData,
     AssignmentAttemptInfo,
@@ -85,8 +86,39 @@ const AssignmentAttemptScreen: React.FC = () => {
     const deadline = attemptData.deadline || '';
     const isSubmitted = attemptData.status === 'submitted';
     const isEvaluated = attemptData.evaluated || false;
+    const isDraft = attemptData.is_draft || false;
     const initialText = attemptData.submissionText || '';
-    const initialFileName = attemptData.uploadedFileName || undefined;
+    const initialFileName = attemptData.uploadedFileName || attemptData.file || undefined;
+    const fileStatus = attemptData.fileStatus;
+    const fileIds = attemptData.fileIds || [];
+    const [showDeadlineExceededModal, setShowDeadlineExceededModal] = useState(false);
+
+    // Check if deadline has been exceeded
+    const isDeadlineExceeded = useMemo(() => {
+        if (!deadline) return false;
+        
+        try {
+            // Parse deadline string (format: "7th January 2026, 5:18pm" or ISO string)
+            let deadlineDate: Date;
+            
+            // Try parsing as ISO string first
+            if (deadline.includes('T') || deadline.includes('Z')) {
+                deadlineDate = new Date(deadline);
+            } else {
+                // Try parsing formatted date string like "7th January 2026, 5:18pm"
+                // Remove ordinal suffixes (st, nd, rd, th)
+                const cleanedDeadline = deadline.replace(/(\d+)(st|nd|rd|th)/g, '$1');
+                deadlineDate = new Date(cleanedDeadline);
+            }
+            
+            // Check if deadline is in the past
+            const now = new Date();
+            return deadlineDate < now;
+        } catch (error) {
+            console.error('[AssignmentAttemptScreen] Error parsing deadline:', error);
+            return false;
+        }
+    }, [deadline]);
 
     // Handle profile press
     const handleProfilePress = useCallback(() => {
@@ -102,6 +134,20 @@ const AssignmentAttemptScreen: React.FC = () => {
     const handleLogoPress = useCallback(() => {
         navigation.navigate('Home');
     }, [navigation]);
+
+    // Handle deadline exceeded modal okay button
+    const handleDeadlineExceededOkay = useCallback(() => {
+        setShowDeadlineExceededModal(false);
+        // Navigate to home or next allowed action
+        navigation.navigate('Home');
+    }, [navigation]);
+
+    // Show deadline exceeded modal on screen load if deadline is already exceeded
+    useEffect(() => {
+        if (isDeadlineExceeded && !isSubmitted) {
+            setShowDeadlineExceededModal(true);
+        }
+    }, [isDeadlineExceeded, isSubmitted]);
 
     // Handle save draft
     // IMPORTANT: API field is "lessonId" but VALUE comes from moodleCourseId
@@ -124,23 +170,45 @@ const AssignmentAttemptScreen: React.FC = () => {
     // Handle submit
     // IMPORTANT: API field is "lessonId" but VALUE comes from moodleCourseId
     const handleSubmit = useCallback(async (text: string, fileName?: string) => {
+        // Check if deadline has been exceeded
+        if (isDeadlineExceeded) {
+            setShowDeadlineExceededModal(true);
+            return;
+        }
+
         const userId = await Storage.getItem('userId');
         if (!userId) {
             throw new Error('User ID not found');
         }
 
-        await AssignmentService.submitAssignment({
-            lessonId: moodleCourseId, // Use moodleCourseId as the value for lessonId
-            userId,
-            submissionText: text,
-            fileName,
-        });
+        try {
+            const response = await AssignmentService.submitAssignment({
+                lessonId: moodleCourseId, // Use moodleCourseId as the value for lessonId
+                userId,
+                submissionText: text,
+                fileName,
+            });
 
-        console.log('[AssignmentAttemptScreen] Assignment submitted successfully with moodleCourseId:', moodleCourseId);
+            console.log('[AssignmentAttemptScreen] Assignment submitted successfully with moodleCourseId:', moodleCourseId);
 
-        // Navigate back to home or show success screen
-        navigation.navigate('Home');
-    }, [moodleCourseId, navigation]);
+            // Navigate to success screen with time data
+            const startTime = attemptData?.startTime;
+            const submissionTime = new Date().toISOString(); // Current time as submission time
+
+            navigation.navigate('AssignmentSubmittedSuccess', {
+                startTime: startTime || new Date().toISOString(),
+                submissionTime: submissionTime,
+            });
+        } catch (error: any) {
+            // Check if error is due to deadline exceeded
+            if (error?.response?.data?.message?.toLowerCase().includes('deadline') ||
+                error?.response?.data?.error?.toLowerCase().includes('deadline')) {
+                setShowDeadlineExceededModal(true);
+            } else {
+                throw error;
+            }
+        }
+    }, [moodleCourseId, navigation, isDeadlineExceeded, attemptData]);
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -175,13 +243,23 @@ const AssignmentAttemptScreen: React.FC = () => {
                         maxFileSize={maxFileSize}
                         initialText={initialText}
                         initialFileName={initialFileName}
+                        fileStatus={fileStatus}
+                        fileIds={fileIds}
+                        isDraft={isDraft}
                         isSubmitted={isSubmitted}
                         isEvaluated={isEvaluated}
+                        isDeadlineExceeded={isDeadlineExceeded}
                         onSaveDraft={handleSaveDraft}
                         onSubmit={handleSubmit}
                     />
                 </View>
             </ScrollView>
+
+            {/* Deadline Exceeded Modal */}
+            <DeadlineExceededModal
+                visible={showDeadlineExceededModal}
+                onOkay={handleDeadlineExceededOkay}
+            />
         </SafeAreaView>
     );
 };

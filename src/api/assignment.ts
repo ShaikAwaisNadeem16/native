@@ -23,7 +23,9 @@ export interface AssignmentAttemptInfo {
     status: 'not_started' | 'in_progress' | 'submitted' | 'evaluated';
     startTime?: string;
     deadline: string;
-    fileStatus?: 'none' | 'uploaded' | 'pending';
+    fileStatus?: 'none' | 'uploaded' | 'pending' | 'not uploaded';
+    file?: string | null;
+    fileIds?: string[];
     is_draft: boolean;
     evaluated: boolean;
     submissionText?: string;

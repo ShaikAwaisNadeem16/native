@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform } from 'react-native';
-import { Upload, FileText, X, AlertCircle } from 'lucide-react-native';
+import { Upload, FileText, X, AlertCircle, Check, Download } from 'lucide-react-native';
 import { getDocumentAsync, DocumentPickerResult } from 'expo-document-picker';
 import { colors, typography, borderRadius } from '../../../styles/theme';
 import PrimaryButton from '../../../components/SignUp/PrimaryButton';
 import SecondaryButton from '../../../components/SignUp/SecondaryButton';
+import SubmitAssignmentConfirmationModal from './SubmitAssignmentConfirmationModal';
 
 /**
  * AssignmentSubmissionPanel Component
@@ -35,9 +36,13 @@ export interface AssignmentSubmissionPanelProps {
     allowedFileTypes?: string[]; // From assign_data.allowedFileTypes (default: ['.pdf', '.doc', '.docx'])
     maxFileSize?: number; // From assign_data.maxFileSize in MB (default: 10)
     initialText?: string; // From attempt.submissionText (for drafts)
-    initialFileName?: string; // From attempt.uploadedFileName (for drafts)
+    initialFileName?: string; // From attempt.uploadedFileName or attempt.file (for drafts)
+    fileStatus?: 'none' | 'uploaded' | 'pending' | 'not uploaded'; // From attempt.fileStatus
+    fileIds?: string[]; // From attempt.fileIds
+    isDraft?: boolean; // From attempt.is_draft
     isSubmitted?: boolean; // From attempt.status === 'submitted'
     isEvaluated?: boolean; // From attempt.evaluated
+    isDeadlineExceeded?: boolean; // Whether deadline has been exceeded
     onSaveDraft: (text: string, fileName?: string) => Promise<void>;
     onSubmit: (text: string, fileName?: string) => Promise<void>;
 }
@@ -50,8 +55,12 @@ const AssignmentSubmissionPanel: React.FC<AssignmentSubmissionPanelProps> = ({
     maxFileSize = 10,
     initialText = '',
     initialFileName,
+    fileStatus,
+    fileIds = [],
+    isDraft = false,
     isSubmitted = false,
     isEvaluated = false,
+    isDeadlineExceeded = false,
     onSaveDraft,
     onSubmit,
 }) => {
@@ -62,13 +71,30 @@ const AssignmentSubmissionPanel: React.FC<AssignmentSubmissionPanelProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+
+    // Determine if file is uploaded based on API response
+    const isFileUploaded = fileStatus === 'uploaded' || (fileIds && fileIds.length > 0);
+
+    // Determine if we're in Edit Draft state
+    // Render Edit Draft UI ONLY when: fileStatus === "uploaded" AND is_draft === true AND assignment is NOT yet submitted
+    const isEditDraftState = isDraft && isFileUploaded && !isSubmitted && !isEvaluated;
+
+    // Update selectedFile when fileStatus or fileIds change
+    useEffect(() => {
+        if (isFileUploaded && initialFileName) {
+            setSelectedFile({ name: initialFileName, uri: '' });
+        } else if (!isFileUploaded && !initialFileName) {
+            setSelectedFile(null);
+        }
+    }, [isFileUploaded, initialFileName]);
 
     // Character count
     const characterCount = submissionText.length;
     const isOverLimit = characterCount > maxCharacters;
 
-    // Disable editing if already submitted
-    const isEditable = !isSubmitted && !isEvaluated;
+    // Disable editing if already submitted or deadline exceeded
+    const isEditable = !isSubmitted && !isEvaluated && !isDeadlineExceeded;
 
     // Format allowed file types for display
     const allowedTypesDisplay = allowedFileTypes.map(type => type.toUpperCase().replace('.', '')).join(', ');
@@ -136,8 +162,8 @@ const AssignmentSubmissionPanel: React.FC<AssignmentSubmissionPanelProps> = ({
         }
     }, [isEditable, isSaving, isSubmitting, onSaveDraft, submissionText, selectedFile]);
 
-    // Handle submit
-    const handleSubmit = useCallback(async () => {
+    // Handle submit button click - show confirmation modal
+    const handleSubmitClick = useCallback(() => {
         if (!isEditable || isSaving || isSubmitting) return;
 
         // Validate submission
@@ -151,16 +177,30 @@ const AssignmentSubmissionPanel: React.FC<AssignmentSubmissionPanelProps> = ({
             return;
         }
 
+        // Show confirmation modal
+        setShowConfirmationModal(true);
+    }, [isEditable, isSaving, isSubmitting, submissionText, selectedFile, isOverLimit, maxCharacters]);
+
+    // Handle confirmed submit
+    const handleConfirmSubmit = useCallback(async () => {
         try {
             setIsSubmitting(true);
             setError(null);
             await onSubmit(submissionText, selectedFile?.name);
+            // Close modal after successful submission
+            setShowConfirmationModal(false);
         } catch (err: any) {
             setError(err?.message || 'Failed to submit assignment');
+            // Keep modal open on error so user can retry
         } finally {
             setIsSubmitting(false);
         }
-    }, [isEditable, isSaving, isSubmitting, onSubmit, submissionText, selectedFile, isOverLimit, maxCharacters]);
+    }, [onSubmit, submissionText, selectedFile]);
+
+    // Handle cancel confirmation
+    const handleCancelConfirmation = useCallback(() => {
+        setShowConfirmationModal(false);
+    }, []);
 
     return (
         <View style={styles.container}>
@@ -188,73 +228,136 @@ const AssignmentSubmissionPanel: React.FC<AssignmentSubmissionPanelProps> = ({
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>My Submission</Text>
 
-                {/* Text Area */}
-                <View style={[
-                    styles.textAreaContainer,
-                    !isEditable && styles.textAreaDisabled,
-                    isOverLimit && styles.textAreaError,
-                ]}>
-                    <TextInput
-                        style={styles.textArea}
-                        placeholder="Type your submission here..."
-                        placeholderTextColor={colors.placeholderGrey}
-                        value={submissionText}
-                        onChangeText={handleTextChange}
-                        multiline
-                        numberOfLines={8}
-                        textAlignVertical="top"
-                        editable={isEditable}
-                    />
-                </View>
+                {/* Summary - Show as read-only text in Edit Draft state, otherwise show TextInput */}
+                {isEditDraftState ? (
+                    <View style={styles.summaryContainer}>
+                        <Text style={styles.summaryLabel}>Summary</Text>
+                        <View style={styles.summaryTextContainer}>
+                            <Text style={styles.summaryText}>
+                                {submissionText || 'No summary provided'}
+                            </Text>
+                        </View>
+                    </View>
+                ) : (
+                    <>
+                        {/* Text Area */}
+                        <View style={[
+                            styles.textAreaContainer,
+                            !isEditable && styles.textAreaDisabled,
+                            isOverLimit && styles.textAreaError,
+                        ]}>
+                            <TextInput
+                                style={styles.textArea}
+                                placeholder="Type your submission here..."
+                                placeholderTextColor={colors.placeholderGrey}
+                                value={submissionText}
+                                onChangeText={handleTextChange}
+                                multiline
+                                numberOfLines={8}
+                                textAlignVertical="top"
+                                editable={isEditable}
+                            />
+                        </View>
 
-                {/* Character Counter */}
-                <View style={styles.characterCounterContainer}>
-                    <Text style={[
-                        styles.characterCounter,
-                        isOverLimit && styles.characterCounterError,
-                    ]}>
-                        {characterCount}/{maxCharacters} characters
-                    </Text>
-                </View>
+                        {/* Character Counter */}
+                        <View style={styles.characterCounterContainer}>
+                            <Text style={[
+                                styles.characterCounter,
+                                isOverLimit && styles.characterCounterError,
+                            ]}>
+                                {characterCount}/{maxCharacters} characters
+                            </Text>
+                        </View>
+                    </>
+                )}
             </View>
 
             {/* File Upload Section */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Upload File (Optional)</Text>
-                <Text style={styles.fileHint}>
-                    Accepted formats: {allowedTypesDisplay} (Max {maxFileSize}MB)
+                <Text style={styles.sectionTitle}>
+                    {isEditDraftState ? 'Your File' : 'Submit Your File*'}
                 </Text>
-
-                {/* File Upload Area */}
-                {!selectedFile ? (
-                    <TouchableOpacity
-                        style={[styles.uploadArea, !isEditable && styles.uploadAreaDisabled]}
-                        onPress={handleFileSelect}
-                        disabled={!isEditable}
-                        activeOpacity={0.7}
-                    >
-                        <Upload size={32} color={colors.primaryBlue} />
-                        <Text style={styles.uploadText}>Click to upload file</Text>
-                        <Text style={styles.uploadSubtext}>or drag and drop</Text>
-                    </TouchableOpacity>
-                ) : (
-                    <View style={styles.selectedFileContainer}>
-                        <View style={styles.selectedFileInfo}>
-                            <FileText size={24} color={colors.primaryBlue} />
-                            <Text style={styles.selectedFileName} numberOfLines={1}>
-                                {selectedFile.name}
-                            </Text>
-                        </View>
-                        {isEditable && (
+                
+                {/* File Upload Area - Show Edit Draft state OR uploaded state */}
+                {isEditDraftState && selectedFile ? (
+                    <View style={styles.editDraftFileContainer}>
+                        <View style={styles.editDraftFileRow}>
                             <TouchableOpacity
-                                style={styles.removeFileButton}
-                                onPress={handleFileRemove}
+                                style={styles.editDraftFileLink}
+                                onPress={() => {
+                                    // Handle file download/view action
+                                    console.log('[AssignmentSubmissionPanel] File link pressed:', selectedFile.name);
+                                }}
                                 activeOpacity={0.7}
                             >
-                                <X size={20} color={colors.error} />
+                                <Text style={styles.editDraftFileLinkText}>{selectedFile.name}</Text>
                             </TouchableOpacity>
-                        )}
+                            <TouchableOpacity
+                                style={styles.editDraftDownloadIcon}
+                                onPress={() => {
+                                    // Handle file download action
+                                    console.log('[AssignmentSubmissionPanel] Download icon pressed:', selectedFile.name);
+                                }}
+                                activeOpacity={0.7}
+                            >
+                                <Download size={24} color={colors.primaryBlue} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
+                ) : isFileUploaded && selectedFile ? (
+                    <View style={styles.uploadedFileContainer}>
+                        <TouchableOpacity
+                            style={styles.uploadedFileRow}
+                            onPress={isEditable ? handleFileSelect : undefined}
+                            disabled={!isEditable}
+                            activeOpacity={isEditable ? 0.7 : 1}
+                        >
+                            <View style={styles.uploadedFileInputContainer}>
+                                <View style={styles.uploadedFileInput}>
+                                    <View style={styles.uploadedFileIconContainer}>
+                                        <Check size={24} color={colors.successGreen || '#27AE60'} />
+                                    </View>
+                                    <View style={styles.uploadedFileTextContainer}>
+                                        <Text style={styles.uploadedFileText} numberOfLines={1}>
+                                            {selectedFile.name}
+                                        </Text>
+                                    </View>
+                                </View>
+                            </View>
+                            {isEditable && (
+                                <TouchableOpacity
+                                    style={styles.replaceFileButton}
+                                    onPress={handleFileSelect}
+                                    activeOpacity={0.7}
+                                >
+                                    <Text style={styles.replaceFileText}>Replace File</Text>
+                                </TouchableOpacity>
+                            )}
+                        </TouchableOpacity>
+                        <View style={styles.fileInfoRow}>
+                            <Text style={styles.fileInfoText}>Maximum file size: {maxFileSize}MB</Text>
+                            <View style={styles.fileInfoSeparator} />
+                            <Text style={styles.fileInfoText}>File Types: {allowedTypesDisplay}</Text>
+                        </View>
+                    </View>
+                ) : (
+                    <>
+                        <TouchableOpacity
+                            style={[styles.uploadArea, !isEditable && styles.uploadAreaDisabled]}
+                            onPress={handleFileSelect}
+                            disabled={!isEditable}
+                            activeOpacity={0.7}
+                        >
+                            <Upload size={32} color={colors.primaryBlue} />
+                            <Text style={styles.uploadText}>Click to upload file</Text>
+                            <Text style={styles.uploadSubtext}>or drag and drop</Text>
+                        </TouchableOpacity>
+                        <View style={styles.fileInfoRow}>
+                            <Text style={styles.fileInfoText}>Maximum file size: {maxFileSize}MB</Text>
+                            <View style={styles.fileInfoSeparator} />
+                            <Text style={styles.fileInfoText}>File Types: {allowedTypesDisplay}</Text>
+                        </View>
+                    </>
                 )}
             </View>
 
@@ -269,18 +372,26 @@ const AssignmentSubmissionPanel: React.FC<AssignmentSubmissionPanelProps> = ({
             {/* Action Buttons */}
             {isEditable && (
                 <View style={styles.buttonsContainer}>
-                    {/* Save Draft Button */}
-                    <SecondaryButton
-                        label={isSaving ? 'Saving...' : 'Save Draft'}
-                        onPress={handleSaveDraft}
-                        disabled={isSaving || isSubmitting}
-                    />
+                    {/* Edit Draft / Save Draft Button */}
+                    {isEditDraftState ? (
+                        <SecondaryButton
+                            label={isSaving ? 'Saving...' : 'Edit Draft'}
+                            onPress={handleSaveDraft}
+                            disabled={isSaving || isSubmitting}
+                        />
+                    ) : (
+                        <SecondaryButton
+                            label={isSaving ? 'Saving...' : 'Save Draft'}
+                            onPress={handleSaveDraft}
+                            disabled={isSaving || isSubmitting}
+                        />
+                    )}
 
                     {/* Submit Assignment Button */}
                     <PrimaryButton
                         label={isSubmitting ? 'Submitting...' : 'Submit Assignment'}
-                        onPress={handleSubmit}
-                        disabled={isSaving || isSubmitting || isOverLimit}
+                        onPress={handleSubmitClick}
+                        disabled={isSaving || isSubmitting || (isOverLimit && !isEditDraftState)}
                     />
                 </View>
             )}
@@ -293,6 +404,14 @@ const AssignmentSubmissionPanel: React.FC<AssignmentSubmissionPanelProps> = ({
                     </Text>
                 </View>
             )}
+
+            {/* Submit Assignment Confirmation Modal */}
+            <SubmitAssignmentConfirmationModal
+                visible={showConfirmationModal}
+                onConfirm={handleConfirmSubmit}
+                onCancel={handleCancelConfirmation}
+                isSubmitting={isSubmitting}
+            />
         </View>
     );
 };
@@ -360,6 +479,64 @@ const styles = StyleSheet.create({
     fileHint: {
         ...typography.s1Regular, // Inter Regular, 12px from Figma
         color: colors.textGrey, // #696a6f from Figma
+    },
+    uploadedFileContainer: {
+        flexDirection: 'column',
+        gap: 8, // 8px gap between elements from Figma
+        width: '100%',
+    },
+    uploadedFileRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12, // 12px gap between upload button and replace button from Figma
+        width: '100%',
+    },
+    uploadedFileInputContainer: {
+        flex: 1,
+    },
+    uploadedFileInput: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.white,
+        borderWidth: 1,
+        borderColor: colors.primaryBlue, // #0b6aea from Figma
+        borderRadius: borderRadius.input, // 8px from Figma
+        paddingHorizontal: 20, // 20px horizontal padding from Figma
+        paddingVertical: 12, // 12px vertical padding from Figma
+        height: 48, // 48px height from Figma
+    },
+    uploadedFileIconContainer: {
+        marginRight: 16, // 16px gap between icon and text from Figma
+    },
+    uploadedFileTextContainer: {
+        flex: 1,
+    },
+    uploadedFileText: {
+        ...typography.p4, // Inter Regular, 14px from Figma
+        color: colors.primaryBlue, // #0b6aea from Figma
+    },
+    replaceFileButton: {
+        paddingVertical: 4, // 4px vertical padding from Figma
+    },
+    replaceFileText: {
+        ...typography.p4SemiBold, // Inter SemiBold, 14px from Figma
+        color: colors.primaryBlue, // #0b6aea from Figma
+        textDecorationLine: 'underline',
+    },
+    fileInfoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8, // 8px gap between elements from Figma
+    },
+    fileInfoText: {
+        ...typography.s1Regular, // Inter Regular, 12px from Figma
+        color: colors.placeholderGrey || '#80919f', // #80919f from Figma
+    },
+    fileInfoSeparator: {
+        width: 1,
+        height: 16, // 16px height for separator from Figma
+        backgroundColor: colors.placeholderGrey || '#80919f', // #80919f from Figma
+        marginHorizontal: 4, // 4px margin from Figma
     },
     uploadArea: {
         borderWidth: 2,
@@ -432,6 +609,52 @@ const styles = StyleSheet.create({
     submittedText: {
         ...typography.p4SemiBold, // Inter SemiBold, 14px from Figma
         color: colors.successGreen || '#27ae60', // Green from Figma
+    },
+    summaryContainer: {
+        flexDirection: 'column',
+        gap: 4, // 4px gap between label and text from Figma
+        width: '100%',
+    },
+    summaryLabel: {
+        ...typography.s2SemiBold, // Inter SemiBold, 12px from Figma
+        color: colors.primaryDarkBlue, // #00213d from Figma
+    },
+    summaryTextContainer: {
+        flexDirection: 'row',
+        gap: 8, // 8px gap from Figma
+        alignItems: 'center',
+        width: '100%',
+    },
+    summaryText: {
+        flex: 1,
+        ...typography.p4, // Inter Regular, 14px from Figma
+        color: colors.textGrey, // #696a6f from Figma
+    },
+    editDraftFileContainer: {
+        flexDirection: 'column',
+        gap: 4, // 4px gap between label and file row from Figma
+        width: '100%',
+    },
+    editDraftFileRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16, // 16px gap between file link and download icon from Figma
+    },
+    editDraftFileLink: {
+        flex: 1,
+    },
+    editDraftFileLinkText: {
+        ...typography.p4, // Inter Regular, 14px from Figma
+        color: colors.primaryBlue, // #0b6aea from Figma
+        textDecorationLine: 'underline',
+    },
+    editDraftDownloadIcon: {
+        width: 32, // 32px size from Figma
+        height: 32,
+        borderRadius: 19.2, // 19.2px border radius from Figma
+        backgroundColor: colors.lightGrey, // #e2ebf3 from Figma
+        alignItems: 'center',
+        justifyContent: 'center',
     },
 });
 

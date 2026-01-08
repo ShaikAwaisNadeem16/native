@@ -112,6 +112,8 @@ const AssignmentInstructionsScreen: React.FC = () => {
                     startTime: response.startTime,
                     deadline: response.deadline,
                     fileStatus: response.fileStatus,
+                    file: response.file,
+                    fileIds: response.fileIds || [],
                     is_draft: response.is_draft,
                     evaluated: response.evaluated,
                     attemptCount: response.attemptCount,

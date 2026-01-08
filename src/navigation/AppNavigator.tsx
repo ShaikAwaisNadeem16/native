@@ -11,6 +11,7 @@ import HomeScreen from '../features/home/HomeScreen';
 import StemAssessmentReportScreen from '../features/assessments/StemAssessmentReportScreen';
 import StemAssessmentInstructionsScreen from '../features/assessments/StemAssessmentInstructionsScreen';
 import StemAssessmentTestScreen from '../features/assessments/StemAssessmentTestScreen';
+import EngineeringSystemsAssessmentScreen from '../features/assessments/EngineeringSystemsAssessmentScreen';
 import ProfileScreen from '../features/profile/ProfileScreen';
 import EditPersonalDetailsScreen from '../features/profile/EditPersonalDetailsScreen';
 import EditEducationDetailsScreen from '../features/profile/EditEducationDetailsScreen';
@@ -25,6 +26,9 @@ import QuizFailedScreen from '../features/home/QuizFailedScreen';
 import CourseCompletedScreen from '../features/home/CourseCompletedScreen';
 import AssignmentInstructionsScreen from '../features/assignments/AssignmentInstructionsScreen';
 import AssignmentAttemptScreen from '../features/assignments/AssignmentAttemptScreen';
+import AssignmentSubmittedSuccessScreen from '../features/assignments/AssignmentSubmittedSuccessScreen';
+import AssessmentClearedSuccessScreen from '../features/assessments/AssessmentClearedSuccessScreen';
+import AssessmentFailedScreen from '../features/assessments/AssessmentFailedScreen';
 import { AssignmentAttemptData, AssignmentAttemptInfo } from '../api/assignment';
 
 export type RootStackParamList = {
@@ -35,9 +39,10 @@ export type RootStackParamList = {
     CollegeCourseDetails: undefined;
     AccountCreatedSuccess: undefined;
     Home: undefined;
-    StemAssessmentReport: { finalResult?: 'Pass' | 'Fail' } | undefined;
+    StemAssessmentReport: { finalResult?: 'Pass' | 'Fail'; lessonId?: string; moodleCourseId?: string } | undefined;
     StemAssessmentInstructions: undefined;
-    StemAssessmentTest: undefined;
+    StemAssessmentTest: { lessonId?: string; moodleCourseId?: string } | undefined;
+    EngineeringSystemsAssessment: undefined;
     Profile: undefined;
     EditPersonalDetails: undefined;
     EditEducationDetails: undefined;
@@ -55,6 +60,23 @@ export type RootStackParamList = {
         moodleCourseId?: string;
         assignData?: AssignmentAttemptData;
         attemptData?: AssignmentAttemptInfo;
+    } | undefined;
+    AssignmentSubmittedSuccess: {
+        startTime?: string;
+        submissionTime?: string;
+    } | undefined;
+    AssessmentClearedSuccess: {
+        finalScore?: number;      // Percentage (e.g., 60)
+        correctAnswers?: string;  // String format "40/60"
+        timeTaken?: string;       // String format "01m 15s"
+    } | undefined;
+    AssessmentFailed: {
+        finalScore?: number;      // Percentage (e.g., 30)
+        correctAnswers?: string;  // String format "40/60"
+        timeTaken?: string;       // String format "01m 15s"
+        failMessage?: string;     // Fail message/reason from API
+        cooldownDays?: number;    // Number of days for cooldown (e.g., 60)
+        minimumScore?: number;    // Minimum score required (e.g., 50)
     } | undefined;
 };
 
@@ -80,6 +102,7 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="StemAssessmentReport" component={StemAssessmentReportScreen} />
                 <Stack.Screen name="StemAssessmentInstructions" component={StemAssessmentInstructionsScreen} />
                 <Stack.Screen name="StemAssessmentTest" component={StemAssessmentTestScreen} />
+                <Stack.Screen name="EngineeringSystemsAssessment" component={EngineeringSystemsAssessmentScreen} />
                 <Stack.Screen name="Profile" component={ProfileScreen} />
                 <Stack.Screen name="EditPersonalDetails" component={EditPersonalDetailsScreen} />
                 <Stack.Screen name="EditEducationDetails" component={EditEducationDetailsScreen} />
@@ -94,6 +117,9 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="CourseCompleted" component={CourseCompletedScreen} />
                 <Stack.Screen name="AssignmentInstructions" component={AssignmentInstructionsScreen} />
                 <Stack.Screen name="AssignmentAttempt" component={AssignmentAttemptScreen} />
+                <Stack.Screen name="AssignmentSubmittedSuccess" component={AssignmentSubmittedSuccessScreen} />
+                <Stack.Screen name="AssessmentClearedSuccess" component={AssessmentClearedSuccessScreen} />
+                <Stack.Screen name="AssessmentFailed" component={AssessmentFailedScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );

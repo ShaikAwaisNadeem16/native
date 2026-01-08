@@ -5,10 +5,10 @@ export const AssessmentService = {
     /**
      * POST /api/lms/attempt/quiz
      * Attempt quiz API - used for STEM Assessment
-     * Can be called with different page values: "start", "question-submit", "quiz-submit"
+     * Can be called with different page values: "start", "question-submit", "quiz-submit", "score"
      */
     attemptQuiz: async (payload: {
-        page: 'start' | 'question-submit' | 'quiz-submit';
+        page: 'start' | 'question-submit' | 'quiz-submit' | 'score';
         userId?: string;
         lessonId?: string;
         attemptId?: string;
