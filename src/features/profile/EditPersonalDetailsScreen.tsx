@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { ChevronDown, Plus, Calendar } from 'lucide-react-native';
 import { colors, typography, spacing, borderRadius, inputBaseStyles, inputVariants, getInputVariant, InputVariant } from '../../styles/theme';
+import PlusIcon from '../../components/common/PlusIcon';
 import Header from '../home/components/Header';
 import BreadcrumbBar from '../assessments/components/BreadcrumbBar';
 import FormInputWithLabel from './components/FormInputWithLabel';
@@ -400,10 +400,7 @@ const EditPersonalDetailsScreen: React.FC = () => {
                                 activeOpacity={0.7}
                             >
                                 <Text style={styles.addLanguageText}>Add Language</Text>
-                                <Image
-                                    style={styles.addIcon}
-                                    resizeMode="contain"
-                                />
+                                <PlusIcon size={16} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -517,10 +514,6 @@ const styles = StyleSheet.create({
     addLanguageText: {
         ...typography.p4SemiBold,
         color: colors.primaryBlue,
-    },
-    addIcon: {
-        width: 16,
-        height: 16,
     },
     buttonRow: {
         flexDirection: 'row',

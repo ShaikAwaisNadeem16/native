@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { colors, typography } from '../../../styles/theme';
+import Avatar from '../../../components/common/Avatar';
 
 interface CircularProgressProps {
     percentage: number; // 0-100
@@ -23,6 +24,8 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
     const strokeDashoffset = circumference - (safePercentage / 100) * circumference;
     const center = size / 2;
     const avatarSize = size * 0.855; // 51.326 / 60
+    const avatarTop = (size - avatarSize) / 2; // Center the avatar vertically
+    const avatarLeft = (size - avatarSize) / 2; // Center the avatar horizontally
 
     return (
         <View style={[styles.container, { width: size, height: size }]}>
@@ -51,13 +54,27 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
                 />
             </Svg>
             {/* Avatar in center */}
-            {avatarUrl && avatarUrl !== '' && (
-                <View style={[styles.avatarContainer, { width: avatarSize, height: avatarSize }]}>
+            {avatarUrl && avatarUrl !== '' ? (
+                <View style={[styles.avatarContainer, { 
+                    width: avatarSize, 
+                    height: avatarSize,
+                    top: avatarTop,
+                    left: avatarLeft,
+                }]}>
                     <Image
                         source={typeof avatarUrl === 'string' ? { uri: avatarUrl } : avatarUrl}
                         style={styles.avatar}
                         resizeMode="cover"
                     />
+                </View>
+            ) : (
+                <View style={[styles.avatarContainer, { 
+                    width: avatarSize, 
+                    height: avatarSize,
+                    top: avatarTop,
+                    left: avatarLeft,
+                }]}>
+                    <Avatar size={avatarSize} />
                 </View>
             )}
             {/* Percentage badge - positioned at top right of circle */}
@@ -82,6 +99,8 @@ const styles = StyleSheet.create({
         borderRadius: 100,
         overflow: 'hidden',
         backgroundColor: colors.lightGrey,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     avatar: {
         width: '100%',

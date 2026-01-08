@@ -1,14 +1,16 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { colors, typography, borderRadius } from '../../../styles/theme';
+import CheckIconGreen from '../../../components/common/CheckIconGreen';
 
 interface CompletedJourneyBlockProps {
-    checkIconUrl: string | React.ComponentType<any>; // Can be URI string or SVG component
+    checkIconUrl?: string | React.ComponentType<any>; // Can be URI string or SVG component (optional)
     subtitle: string;
     title: string;
     buttonLabel: string;
     onButtonPress?: () => void;
     showDivider?: boolean;
+    useGreenCheck?: boolean; // If true, use the green check icon instead of checkIconUrl
 }
 
 const CompletedJourneyBlock: React.FC<CompletedJourneyBlockProps> = ({
@@ -18,25 +20,34 @@ const CompletedJourneyBlock: React.FC<CompletedJourneyBlockProps> = ({
     buttonLabel,
     onButtonPress,
     showDivider = false,
+    useGreenCheck = false,
 }) => {
     return (
         <View style={styles.container}>
             <View style={styles.content}>
                 <View style={styles.iconTitleSection}>
                     <View style={styles.iconContainer}>
-                        {typeof checkIconUrl === 'function' ? (
-                            // SVG component - render directly
-                            (() => {
-                                const IconComponent = checkIconUrl;
-                                return <IconComponent style={styles.icon} />;
-                            })()
+                        {useGreenCheck ? (
+                            // Use green check icon for completed assessments
+                            <CheckIconGreen size={48} />
+                        ) : checkIconUrl ? (
+                            typeof checkIconUrl === 'function' ? (
+                                // SVG component - render directly
+                                (() => {
+                                    const IconComponent = checkIconUrl;
+                                    return <IconComponent style={styles.icon} />;
+                                })()
+                            ) : (
+                                // Image source (URI)
+                                <Image
+                                    source={{ uri: checkIconUrl }}
+                                    style={styles.icon}
+                                    resizeMode="contain"
+                                />
+                            )
                         ) : (
-                            // Image source (URI)
-                            <Image
-                                source={{ uri: checkIconUrl }}
-                                style={styles.icon}
-                                resizeMode="contain"
-                            />
+                            // Fallback: use green check icon if no icon provided
+                            <CheckIconGreen size={48} />
                         )}
                     </View>
                     <View style={styles.titleSection}>

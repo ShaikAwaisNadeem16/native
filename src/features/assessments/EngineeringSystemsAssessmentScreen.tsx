@@ -12,6 +12,7 @@ import TestQuestionTag from './components/TestQuestionTag';
 import PrimaryButton from '../../components/SignUp/PrimaryButton';
 import SecondaryButton from '../../components/SignUp/SecondaryButton';
 import Checkbox from 'expo-checkbox';
+import AssessmentLogo from '../../components/common/AssessmentLogo';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -67,12 +68,7 @@ const EngineeringSystemsAssessmentScreen: React.FC = () => {
                 <View style={styles.headerCard}>
                     {/* Illustration */}
                     <View style={styles.illustrationContainer}>
-                        <View style={styles.backgroundMaskContainer}>
-                            <View style={styles.backgroundMask} />
-                        </View>
-                        <View style={styles.ufoContainer}>
-                            <View style={styles.ufoImage} />
-                        </View>
+                        <AssessmentLogo size={70} />
                     </View>
 
                     {/* Content Section */}
@@ -192,11 +188,18 @@ const EngineeringSystemsAssessmentScreen: React.FC = () => {
                             I have read and understood all the instructions
                         </Text>
                     </View>
-                    <PrimaryButton
-                        label="Start The Test"
-                        onPress={handleStartTest}
-                        disabled={!isInstructionsRead}
-                    />
+                    <View style={styles.startButtonContainer}>
+                        <View style={styles.assessmentLogoContainer}>
+                            <AssessmentLogo size={40} />
+                        </View>
+                        <View style={styles.startButtonWrapper}>
+                            <PrimaryButton
+                                label="Start The Test"
+                                onPress={handleStartTest}
+                                disabled={!isInstructionsRead}
+                            />
+                        </View>
+                    </View>
                 </View>
             </ScrollView>
         </SafeAreaView>
@@ -536,6 +539,21 @@ const styles = StyleSheet.create({
         ...typography.s1Regular, // 12px Regular
         color: colors.primaryDarkBlue,
         lineHeight: 16,
+        flex: 1,
+    },
+    startButtonContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        width: '100%',
+    },
+    assessmentLogoContainer: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    startButtonWrapper: {
         flex: 1,
     },
 });

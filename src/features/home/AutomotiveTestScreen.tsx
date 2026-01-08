@@ -10,7 +10,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Bookmark, ChevronDown } from 'lucide-react-native';
+import { Bookmark } from 'lucide-react-native';
+import DownwardArrow from '../../components/common/DownwardArrow';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { colors, typography, borderRadius } from '../../styles/theme';
 import TimerProgress from '../assessments/components/TimerProgress';
@@ -516,11 +517,9 @@ const AutomotiveTestScreen: React.FC = () => {
 
     // Render chevron icon for menu toggle (from Figma design)
     const renderChevronIcon = () => (
-        <ChevronDown 
-            size={24} 
-            color={colors.textGrey} 
-            style={[styles.chevron, isMenuExpanded && styles.chevronRotated]} 
-        />
+        <View style={[isMenuExpanded && styles.chevronRotated]}>
+            <DownwardArrow size={24} />
+        </View>
     );
 
     return (

@@ -65,7 +65,7 @@ const TextInputField: React.FC<TextInputFieldProps> = ({
 
     const labelColor = labelAnimation.interpolate({
         inputRange: [0, 1],
-        outputRange: [variantStyles.placeholderColor, isFocused ? colors.primaryBlue : colors.primaryDarkBlue],
+        outputRange: [variantStyles.placeholderColor, isFocused ? colors.textGrey : colors.primaryDarkBlue],
     });
 
     return (

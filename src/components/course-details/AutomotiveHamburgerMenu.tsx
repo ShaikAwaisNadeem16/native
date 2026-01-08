@@ -9,6 +9,7 @@ import {
     Pressable,
 } from 'react-native';
 import { colors, typography } from '../../styles/theme';
+import CrossIcon from '../common/CrossIcon';
 
 // Types for module items
 export type ModuleItemStatus = 'completed' | 'current' | 'locked';
@@ -112,10 +113,7 @@ const AutomotiveHamburgerMenu: React.FC<AutomotiveHamburgerMenuProps> = ({
 
     // Render close (X) icon
     const renderCloseIcon = () => (
-        <View style={styles.closeIconContainer}>
-            <View style={styles.closeLine1} />
-            <View style={styles.closeLine2} />
-        </View>
+        <CrossIcon size={14} />
     );
 
     // Render module item
@@ -296,28 +294,6 @@ const styles = StyleSheet.create({
         backgroundColor: colors.mainBgGrey,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    closeIconContainer: {
-        width: 14,
-        height: 14,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    closeLine1: {
-        position: 'absolute',
-        width: 14,
-        height: 2,
-        backgroundColor: colors.textGrey,
-        borderRadius: 1,
-        transform: [{ rotate: '45deg' }],
-    },
-    closeLine2: {
-        position: 'absolute',
-        width: 14,
-        height: 2,
-        backgroundColor: colors.textGrey,
-        borderRadius: 1,
-        transform: [{ rotate: '-45deg' }],
     },
     scrollView: {
         flex: 1,

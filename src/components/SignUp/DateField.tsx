@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Animated } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Calendar } from 'lucide-react-native';
+import CalendarIcon from '../common/CalendarIcon';
 import {
     colors,
     typography,
@@ -67,7 +67,7 @@ const DateField: React.FC<DateFieldProps> = ({
 
     const labelColor = labelAnimation.interpolate({
         inputRange: [0, 1],
-        outputRange: [variantStyles.placeholderColor, showPicker ? colors.primaryBlue : colors.primaryDarkBlue],
+        outputRange: [variantStyles.placeholderColor, showPicker ? colors.textGrey : colors.primaryDarkBlue],
     });
 
     const formatDate = (date: Date | null): string => {
@@ -130,7 +130,7 @@ const DateField: React.FC<DateFieldProps> = ({
                 ]}>
                     {value ? formatDate(value) : placeholder}
                 </Text>
-                <Calendar size={24} color={colors.primaryDarkBlue} />
+                <CalendarIcon size={24} />
             </TouchableOpacity>
 
             {showPicker && (

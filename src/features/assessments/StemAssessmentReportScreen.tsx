@@ -7,6 +7,7 @@ import Header from '../home/components/Header';
 import BreadcrumbBar from './components/BreadcrumbBar';
 import SummaryTable from './components/SummaryTable';
 import PrimaryButton from '../../components/SignUp/PrimaryButton';
+import AssessmentLogo from '../../components/common/AssessmentLogo';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
@@ -241,14 +242,9 @@ const StemAssessmentReportScreen: React.FC = () => {
             >
                 {/* Assessment Report Card */}
                 <View style={styles.reportCard}>
-                    {/* Illustration - placeholder */}
+                    {/* Assessment Logo at top of card */}
                     <View style={styles.illustrationContainer}>
-                        <View style={styles.backgroundMaskContainer}>
-                            <View style={styles.backgroundMask} />
-                        </View>
-                        <View style={styles.ufoContainer}>
-                            <View style={styles.ufoImage} />
-                        </View>
+                        <AssessmentLogo size={70} />
                     </View>
 
                     {/* Content Section */}

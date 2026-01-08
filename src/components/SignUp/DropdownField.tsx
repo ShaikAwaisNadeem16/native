@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, Animated } from 'react-native';
-import { ChevronDown } from 'lucide-react-native';
+import DownwardArrow from '../common/DownwardArrow';
 import {
     colors,
     typography,
@@ -69,7 +69,7 @@ const DropdownField: React.FC<DropdownFieldProps> = ({
 
     const labelColor = labelAnimation.interpolate({
         inputRange: [0, 1],
-        outputRange: [variantStyles.placeholderColor, isOpen ? colors.primaryBlue : colors.primaryDarkBlue],
+        outputRange: [variantStyles.placeholderColor, isOpen ? colors.textGrey : colors.primaryDarkBlue],
     });
 
     const handleSelect = (option: string) => {
@@ -119,7 +119,7 @@ const DropdownField: React.FC<DropdownFieldProps> = ({
                 ]}>
                     {value || placeholder}
                 </Text>
-                <ChevronDown size={24} color={variantStyles.textColor} />
+                <DownwardArrow size={24} />
             </TouchableOpacity>
 
             <Modal

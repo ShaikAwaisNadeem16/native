@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { colors, typography } from '../../../styles/theme';
 import useProfileStore from '../../../store/useProfileStore';
+import CreamCollarLogo from '../../../components/common/CreamCollarLogo';
+import Avatar from '../../../components/common/Avatar';
 
 // Icons removed - will be added later
 
@@ -28,7 +30,7 @@ const Header: React.FC<HeaderProps> = ({ onProfilePress, onNotificationPress, on
                     activeOpacity={0.7}
                     style={styles.logoContainer}
                 >
-                    <View style={styles.logo} />
+                    <CreamCollarLogo width={149} height={32} />
                 </TouchableOpacity>
             </View>
 
@@ -45,10 +47,10 @@ const Header: React.FC<HeaderProps> = ({ onProfilePress, onNotificationPress, on
                     </TouchableOpacity>
                 )}
                 
-                {/* Profile Avatar - placeholder */}
+                {/* Profile Avatar */}
                 <TouchableOpacity onPress={onProfilePress} activeOpacity={0.7}>
                     <View style={styles.avatarContainer}>
-                        <View style={styles.avatar} />
+                        <Avatar size={40} />
                     </View>
                 </TouchableOpacity>
             </View>
@@ -76,21 +78,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    logo: {
-        width: 149,
-        height: 31.919,
-        backgroundColor: colors.lightGrey, // Placeholder background
-    },
     avatarContainer: {
         width: 40,
         height: 40,
         borderRadius: 20,
         overflow: 'hidden',
         backgroundColor: colors.lightGrey,
-    },
-    avatar: {
-        width: '100%',
-        height: '100%',
     },
     rightSection: {
         flexDirection: 'row',

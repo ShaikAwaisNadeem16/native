@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { colors, typography, borderRadius, shadows } from '../../../styles/theme';
 import PrimaryButton from '../../../components/SignUp/PrimaryButton';
 import SecondaryButton from '../../../components/SignUp/SecondaryButton';
+import AssessmentLogo from '../../../components/common/AssessmentLogo';
 
 export interface LearningJourneyCardProps {
     type: 'completed' | 'inProgress' | 'comingSoon';
@@ -52,7 +53,12 @@ const LearningJourneyCard: React.FC<LearningJourneyCardProps> = ({
             <View style={styles.content}>
                 {/* Icon Title and Subtitle Section */}
                 <View style={styles.iconTitleSection}>
-                    {iconUrl && (
+                    {/* Show assessment logo if subtitle is ASSESSMENT or TEST, otherwise show iconUrl */}
+                    {(subtitle === 'ASSESSMENT' || subtitle === 'TEST' || subtitle === 'ASSESSMENT CLEARED') ? (
+                        <View style={styles.iconContainer}>
+                            <AssessmentLogo size={70} />
+                        </View>
+                    ) : iconUrl ? (
                         <View style={styles.iconContainer}>
                             <Image
                                 source={typeof iconUrl === 'string' ? { uri: iconUrl } : iconUrl}
@@ -60,7 +66,7 @@ const LearningJourneyCard: React.FC<LearningJourneyCardProps> = ({
                                 resizeMode="contain"
                             />
                         </View>
-                    )}
+                    ) : null}
                     {isComingSoon && (
                         <View style={styles.comingSoonTag}>
                             <Text style={styles.comingSoonText}>COMING SOON</Text>

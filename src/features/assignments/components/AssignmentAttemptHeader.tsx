@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import { Calendar } from 'lucide-react-native';
 import { colors, typography } from '../../../styles/theme';
+import CalendarIcon from '../../../components/common/CalendarIcon';
 
 /**
  * AssignmentAttemptHeader Component
@@ -64,7 +64,7 @@ const AssignmentAttemptHeader: React.FC<AssignmentAttemptHeaderProps> = ({
 
                 {/* Deadline Section */}
                 <View style={styles.deadlineSection}>
-                    <Calendar size={20} color={colors.white} />
+                    <CalendarIcon size={20} />
                     <Text style={styles.deadlineLabel}>Deadline:</Text>
                     <Text style={styles.deadlineValue}>{formattedDeadline}</Text>
                 </View>

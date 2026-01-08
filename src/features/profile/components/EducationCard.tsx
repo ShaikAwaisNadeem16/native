@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { colors, typography, borderRadius } from '../../../styles/theme';
+import DeleteIcon from '../../../components/common/DeleteIcon';
+import EditPencilIcon from '../../../components/common/EditPencilIcon';
 
 /**
  * EducationCard Component
@@ -55,7 +57,7 @@ const EducationCard: React.FC<EducationCardProps> = ({
                                 <View style={styles.iconBgImage} />
                             </View>
                             <View style={styles.iconWrapper}>
-                                <View style={styles.icon} />
+                                <EditPencilIcon size={24} />
                             </View>
                         </TouchableOpacity>
                     )}
@@ -70,7 +72,7 @@ const EducationCard: React.FC<EducationCardProps> = ({
                                 <View style={styles.iconBgImage} />
                             </View>
                             <View style={styles.iconWrapper}>
-                                <View style={styles.icon} />
+                                <DeleteIcon size={24} />
                             </View>
                         </TouchableOpacity>
                     )}
@@ -138,10 +140,6 @@ const styles = StyleSheet.create({
         left: 4,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    icon: {
-        width: '100%',
-        height: '100%',
     },
 });
 

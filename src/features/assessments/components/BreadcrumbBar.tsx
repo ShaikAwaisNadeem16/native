@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { ChevronRight } from 'lucide-react-native';
 import { colors, typography } from '../../../styles/theme';
+import CreamCollarCRLogo from '../../../components/common/CreamCollarCRLogo';
+import GreaterIcon from '../../../components/common/GreaterIcon';
 
 // Icons removed - will be added later
 
@@ -13,9 +14,14 @@ const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({ items }) => {
 
     return (
         <View style={styles.container}>
-            {/* CC Logo Icon - placeholder */}
+            {/* CC Logo Icon */}
             <View style={styles.logoContainer}>
-                <View style={styles.logoIcon} />
+                <CreamCollarCRLogo width={18} height={16} />
+            </View>
+
+            {/* Greater Icon after CR Logo */}
+            <View style={styles.chevronContainer}>
+                <GreaterIcon size={16} />
             </View>
 
             {/* Breadcrumb Items */}
@@ -24,7 +30,7 @@ const BreadcrumbBar: React.FC<BreadcrumbBarProps> = ({ items }) => {
                     <React.Fragment key={index}>
                         {index > 0 && (
                             <View style={styles.chevronContainer}>
-                                <ChevronRight size={16} color={colors.primaryDarkBlue} />
+                                <GreaterIcon size={16} />
                             </View>
                         )}
                         <Text style={styles.breadcrumbText}>{item}</Text>
@@ -47,14 +53,10 @@ const styles = StyleSheet.create({
         gap: 5,
     },
     logoContainer: {
-        width: 17.303,
+        width: 18,
         height: 16,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    logoIcon: {
-        width: '100%',
-        height: '100%',
     },
     breadcrumbContainer: {
         flexDirection: 'row',
@@ -67,10 +69,6 @@ const styles = StyleSheet.create({
         height: 16,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    chevronIcon: {
-        width: '100%',
-        height: '100%',
     },
     breadcrumbText: {
         ...typography.p4,

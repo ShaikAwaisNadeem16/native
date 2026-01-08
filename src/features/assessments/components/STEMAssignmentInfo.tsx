@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Clock, BarChart2 } from 'lucide-react-native';
 import { colors, typography, borderRadius } from '../../../styles/theme';
+import AssessmentLogo from '../../../components/common/AssessmentLogo';
 
 /**
  * STEMAssignmentInfo Component
@@ -48,17 +49,9 @@ const STEMAssignmentInfo: React.FC<STEMAssignmentInfoProps> = ({
         <View style={styles.container}>
             {/* Header Row: Icon + Content */}
             <View style={styles.headerRow}>
-                {/* Icon Container */}
+                {/* Icon Container - Always show assessment logo */}
                 <View style={styles.iconContainer}>
-                    {iconUrl ? (
-                        <Image
-                            source={typeof iconUrl === 'string' ? { uri: iconUrl } : iconUrl}
-                            style={styles.icon}
-                            resizeMode="contain"
-                        />
-                    ) : (
-                        <View style={styles.iconPlaceholder} />
-                    )}
+                    <AssessmentLogo size={48} />
                 </View>
 
                 {/* Content Section */}

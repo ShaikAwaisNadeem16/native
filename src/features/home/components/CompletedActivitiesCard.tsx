@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ChevronDown } from 'lucide-react-native';
+import DownwardArrow from '../../../components/common/DownwardArrow';
 import { colors, typography, borderRadius } from '../../../styles/theme';
 import CompletedJourneyBlock from './CompletedJourneyBlock';
 
@@ -8,7 +8,8 @@ interface CompletedActivitiesCardProps {
     completed: number;
     total: number;
     completedItems?: Array<{
-        checkIconUrl: string;
+        checkIconUrl?: string;
+        useGreenCheck?: boolean;
         subtitle: string;
         title: string;
         buttonLabel: string;
@@ -21,7 +22,7 @@ const CompletedActivitiesCard: React.FC<CompletedActivitiesCardProps> = ({
     total,
     completedItems = [],
 }) => {
-    const [isExpanded, setIsExpanded] = useState(true);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     const handleToggle = () => {
         setIsExpanded(!isExpanded);
@@ -40,10 +41,9 @@ const CompletedActivitiesCard: React.FC<CompletedActivitiesCardProps> = ({
                         <Text style={styles.count}>({completed}/{total})</Text>
                     </View>
                     <View style={styles.iconContainer}>
-                        <ChevronDown 
-                            size={24} 
-                            color={colors.textGrey}
-                            style={[styles.chevron, isExpanded && styles.chevronRotated]}
+                        <DownwardArrow
+                            size={24}
+                            style={isExpanded ? undefined : styles.iconRotated}
                         />
                     </View>
                 </View>
@@ -54,6 +54,7 @@ const CompletedActivitiesCard: React.FC<CompletedActivitiesCardProps> = ({
                         <CompletedJourneyBlock
                             key={index}
                             checkIconUrl={item.checkIconUrl}
+                            useGreenCheck={item.useGreenCheck}
                             subtitle={item.subtitle}
                             title={item.title}
                             buttonLabel={item.buttonLabel}
@@ -106,11 +107,8 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    chevron: {
-        transform: [{ rotate: '0deg' }],
-    },
-    chevronRotated: {
-        transform: [{ rotate: '180deg' }],
+    iconRotated: {
+        transform: [{ rotate: '180deg' }], // Upward arrow when collapsed
     },
     expandedContent: {
         flexDirection: 'column',

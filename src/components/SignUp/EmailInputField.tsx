@@ -63,7 +63,7 @@ const EmailInputField: React.FC<EmailInputFieldProps> = ({
 
     const labelColor = labelAnimation.interpolate({
         inputRange: [0, 1],
-        outputRange: [variantStyles.placeholderColor, isFocused ? colors.primaryBlue : colors.primaryDarkBlue],
+        outputRange: [variantStyles.placeholderColor, isFocused ? colors.textGrey : colors.primaryDarkBlue],
     });
 
     return (
@@ -71,7 +71,8 @@ const EmailInputField: React.FC<EmailInputFieldProps> = ({
             <View style={[
                 styles.inputContainer,
                 {
-                    borderColor: variantStyles.borderColor,
+                    // Email field: blue outline when focused, gray otherwise
+                    borderColor: isFocused ? colors.primaryBlue : variantStyles.borderColor,
                     backgroundColor: variantStyles.backgroundColor,
                 }
             ]}>

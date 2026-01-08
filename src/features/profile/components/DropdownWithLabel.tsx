@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList } from 'react-native';
-import { ChevronDown } from 'lucide-react-native';
+import DownwardArrow from '../../../components/common/DownwardArrow';
 import {
     colors,
     typography,
@@ -80,7 +80,7 @@ const DropdownWithLabel: React.FC<DropdownWithLabelProps> = ({
                 ]}>
                     {value || placeholder}
                 </Text>
-                <ChevronDown size={24} color={variantStyles.textColor} />
+                <DownwardArrow size={24} />
             </TouchableOpacity>
 
             <Modal

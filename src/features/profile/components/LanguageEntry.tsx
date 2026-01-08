@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, FlatList, Image } from 'react-native';
-import { ChevronDown, Trash2 } from 'lucide-react-native';
+import DownwardArrow from '../../../components/common/DownwardArrow';
+import DeleteIcon from '../../../components/common/DeleteIcon';
 import {
     colors,
     typography,
@@ -85,7 +86,7 @@ const LanguageEntry: React.FC<LanguageEntryProps> = ({
                     ]}>
                         {language || 'Select Language'}
                     </Text>
-                    <ChevronDown size={24} color={languageStyles.textColor} />
+                    <DownwardArrow size={24} />
                 </TouchableOpacity>
             </View>
 
@@ -109,7 +110,7 @@ const LanguageEntry: React.FC<LanguageEntryProps> = ({
                     ]}>
                         {proficiency || 'Select Proficiency'}
                     </Text>
-                    <ChevronDown size={24} color={proficiencyStyles.textColor} />
+                    <DownwardArrow size={24} />
                 </TouchableOpacity>
             </View>
 
@@ -146,7 +147,7 @@ const LanguageEntry: React.FC<LanguageEntryProps> = ({
             {/* Delete Button */}
             <TouchableOpacity style={styles.deleteButton} onPress={onDelete} activeOpacity={0.7}>
                 <Text style={styles.deleteText}>Delete</Text>
-                <View style={styles.deleteIcon} />
+                <DeleteIcon size={16} />
             </TouchableOpacity>
 
             {/* Language Modal */}
@@ -263,10 +264,6 @@ const styles = StyleSheet.create({
     deleteText: {
         ...typography.p4SemiBold,
         color: colors.primaryBlue, // Figma: Delete button text is blue, not error color
-    },
-    deleteIcon: {
-        width: 16,
-        height: 16,
     },
     modalOverlay: {
         flex: 1,

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, TextInput, Text, StyleSheet, TouchableOpacity, Image, Animated } from 'react-native';
-import { ChevronDown } from 'lucide-react-native';
+import DownwardArrow from '../common/DownwardArrow';
 import {
     colors,
     typography,
@@ -69,7 +69,7 @@ const PhoneInputField: React.FC<PhoneInputFieldProps> = ({
 
     const labelColor = labelAnimation.interpolate({
         inputRange: [0, 1],
-        outputRange: [variantStyles.placeholderColor, isFocused ? colors.primaryBlue : colors.primaryDarkBlue],
+        outputRange: [variantStyles.placeholderColor, isFocused ? colors.textGrey : colors.primaryDarkBlue],
     });
 
     // Interpolate label left position to account for country code section when floated
@@ -83,7 +83,8 @@ const PhoneInputField: React.FC<PhoneInputFieldProps> = ({
             <View style={[
                 styles.inputContainer,
                 {
-                    borderColor: variantStyles.borderColor,
+                    // Mobile number field: blue outline when focused, gray otherwise
+                    borderColor: isFocused ? colors.primaryBlue : variantStyles.borderColor,
                     backgroundColor: variantStyles.backgroundColor,
                 }
             ]}>
@@ -119,7 +120,7 @@ const PhoneInputField: React.FC<PhoneInputFieldProps> = ({
                             style={styles.chevronContainer}
                             onPress={() => setShowCountryPicker(!showCountryPicker)}
                         >
-                            <ChevronDown size={24} color={variantStyles.textColor} />
+                            <DownwardArrow size={24} />
                         </TouchableOpacity>
                     </View>
                     <View style={styles.divider} />

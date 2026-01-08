@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform } from 'react-native';
-import { Upload, FileText, X, AlertCircle, Check, Download } from 'lucide-react-native';
+import { Upload, FileText, AlertCircle, Check, Download } from 'lucide-react-native';
 import { getDocumentAsync, DocumentPickerResult } from 'expo-document-picker';
 import { colors, typography, borderRadius } from '../../../styles/theme';
 import PrimaryButton from '../../../components/SignUp/PrimaryButton';

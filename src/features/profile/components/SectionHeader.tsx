@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { colors, typography } from '../../../styles/theme';
-
-// Icons removed - will be added later
+import PlusIcon from '../../../components/common/PlusIcon';
+import EditPencilIcon from '../../../components/common/EditPencilIcon';
 
 interface SectionHeaderProps {
     title: string;
@@ -37,7 +37,11 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
                     activeOpacity={0.7}
                 >
                     <View style={styles.iconContainer}>
-                        <View style={styles.icon} />
+                        {showAddIcon ? (
+                            <PlusIcon size={16} />
+                        ) : (
+                            <EditPencilIcon size={16} />
+                        )}
                     </View>
                 </TouchableOpacity>
             )}
@@ -81,10 +85,6 @@ const styles = StyleSheet.create({
         height: 24,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    icon: {
-        width: '100%',
-        height: '100%',
     },
 });
 

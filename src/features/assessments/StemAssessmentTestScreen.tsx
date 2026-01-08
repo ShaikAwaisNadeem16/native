@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Bookmark, ChevronDown } from 'lucide-react-native';
+import { Bookmark } from 'lucide-react-native';
+import DownwardArrow from '../../components/common/DownwardArrow';
 import { colors, typography, borderRadius } from '../../styles/theme';
 import TimerProgress from './components/TimerProgress';
 import TestQuestionTag from './components/TestQuestionTag';
@@ -228,12 +229,8 @@ const StemAssessmentTestScreen: React.FC = () => {
                     onPress={() => setIsMenuExpanded(!isMenuExpanded)}
                     activeOpacity={0.7}
                 >
-                    <View style={styles.menuToggleCircle}>
-                        <ChevronDown
-                            size={24}
-                            color={isMenuExpanded ? colors.primaryBlue : colors.textGrey}
-                            style={[styles.chevron, isMenuExpanded && styles.chevronRotated]}
-                        />
+                    <View style={[styles.menuToggleCircle, isMenuExpanded && styles.chevronRotated]}>
+                        <DownwardArrow size={24} />
                     </View>
                 </TouchableOpacity>
             </View>

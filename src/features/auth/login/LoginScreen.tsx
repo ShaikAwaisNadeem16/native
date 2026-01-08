@@ -10,6 +10,7 @@ import PrimaryButton from '../../../components/SignUp/PrimaryButton';
 import Checkbox from '../../../components/SignUp/Checkbox';
 import AuthService from '../../../api/auth';
 import { RootStackParamList } from '../../../navigation/AppNavigator';
+import CreamCollarLogo from '../../../components/common/CreamCollarLogo';
 
 type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -80,9 +81,7 @@ const LoginScreen: React.FC = () => {
             >
                 {/* CC Logo */}
                 <View style={styles.logoContainer}>
-                    <View style={styles.logoPlaceholder}>
-                        <Text style={styles.logoText}>CC Logo</Text>
-                    </View>
+                    <CreamCollarLogo width={149} height={32} />
                 </View>
 
                 {/* Main Card - Frame 16143 from Figma */}
@@ -188,18 +187,6 @@ const styles = StyleSheet.create({
     logoContainer: {
         alignItems: 'center',
         marginBottom: 0,
-    },
-    logoPlaceholder: {
-        width: sizes.logoWidth,
-        height: sizes.logoHeight,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: colors.white,
-        borderRadius: 4,
-    },
-    logoText: {
-        ...typography.s1Regular,
-        color: colors.primaryDarkBlue,
     },
     cardContainer: {
         width: '100%',

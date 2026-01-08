@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -6,7 +6,6 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, typography } from '../../styles/theme';
 import Header from './components/Header';
 import BreadcrumbBar from '../assessments/components/BreadcrumbBar';
-import WelcomeBanner from './components/WelcomeBanner';
 import CompleteProfileWidget from './components/CompleteProfileWidget';
 import CompletedActivitiesCard from './components/CompletedActivitiesCard';
 import JourneyBlock from './components/JourneyBlock';
@@ -271,6 +270,15 @@ const HomeScreen: React.FC = () => {
                     courseProgress?.totalModules ||
                     0;
 
+                // Extract deadline from various possible locations
+                const deadline = courseMeta?.deadline || 
+                               course?.deadline || 
+                               courseProgress?.deadline ||
+                               course?.endTime ||
+                               course?.endDate ||
+                               courseMeta?.endTime ||
+                               courseMeta?.endDate;
+
                 return {
                     raw: course,
                     id: course?.id || course?.courseId || courseMeta?.courseId || index,
@@ -290,6 +298,7 @@ const HomeScreen: React.FC = () => {
                     progressPercentage,
                     completedModules,
                     totalModules,
+                    deadline, // Store deadline for deadline exceeded checks
                 };
             })
             .sort((a, b) => {
@@ -311,21 +320,87 @@ const HomeScreen: React.FC = () => {
         () => normalizedCourses.filter((c) => c.state === 'comingSoon'),
         [normalizedCourses]
     );
+    // Helper function to check if deadline has passed
+    const isDeadlineExceeded = useCallback((deadline: string | null | undefined): boolean => {
+        if (!deadline) return false;
+        
+        try {
+            // Parse various deadline formats
+            // Format examples: "7th January 2026, 5:18pm", "2026-01-07T17:18:00.000Z", etc.
+            let deadlineDate: Date | null = null;
+            
+            // Try ISO format first
+            if (deadline.includes('T') || deadline.includes('Z')) {
+                deadlineDate = new Date(deadline);
+            } else {
+                // Try parsing common date formats
+                // Handle formats like "7th January 2026, 5:18pm"
+                const dateStr = deadline.replace(/(\d+)(st|nd|rd|th)/, '$1'); // Remove ordinal suffixes
+                deadlineDate = new Date(dateStr);
+            }
+            
+            if (!deadlineDate || isNaN(deadlineDate.getTime())) {
+                return false; // Invalid date
+            }
+            
+            const now = new Date();
+            return deadlineDate < now;
+        } catch (error) {
+            console.error('[HomeScreen] Error parsing deadline:', deadline, error);
+            return false;
+        }
+    }, []);
+
     const completedCourses = useMemo(
         () => normalizedCourses.filter((c) => c.state === 'completed'),
         [normalizedCourses]
     );
 
+    // Find assessments/exams with expired deadlines that aren't already completed
+    const deadlineExceededAssessments = useMemo(() => {
+        return normalizedCourses
+            .filter((course) => {
+                const isAssessment =
+                    course.contentType.includes('ASSESSMENT') || course.contentType.includes('TEST');
+                if (!isAssessment) return false;
+                
+                // Check if already completed
+                if (course.state === 'completed') return false;
+                
+                // Check for deadline - use the deadline field we stored during normalization
+                const deadline = course.deadline;
+                
+                return deadline && isDeadlineExceeded(deadline);
+            })
+            .map((course) => ({
+                ...course,
+                state: 'completed' as const, // Mark as completed for display
+            }));
+    }, [normalizedCourses, isDeadlineExceeded]);
+
+    // Combine completed courses with deadline-exceeded assessments
+    const allCompletedItems = useMemo(() => {
+        return [...completedCourses, ...deadlineExceededAssessments];
+    }, [completedCourses, deadlineExceededAssessments]);
+
     // Process completed courses into CompletedActivitiesCard items
     const completedItems = useMemo(() => {
-        return completedCourses.map((course) => {
+        return allCompletedItems.map((course) => {
             const isAssessment =
                 course.contentType.includes('ASSESSMENT') || course.contentType.includes('TEST');
             const isAssignment = course.contentType.includes('ASSIGNMENT');
+            
+            // Check if this is a deadline-exceeded assessment
+            const deadline = course.deadline;
+            const isDeadlinePassed = deadline && isDeadlineExceeded(deadline) && isAssessment && 
+                                   !completedCourses.some(c => c.id === course.id);
 
             return {
                 checkIconUrl: '', // Icon wiring handled separately; keeps visuals unchanged for now
-                subtitle: isAssessment
+                useGreenCheck: isAssessment, // Use green check icon for completed assessments
+                subtitle: isDeadlinePassed
+                    ? 'ASSESSMENT DEADLINE EXCEEDED'
+                    : isAssessment
                     ? 'ASSESSMENT CLEARED'
                     : isAssignment
                     ? 'ASSIGNMENT COMPLETED'
@@ -335,7 +410,7 @@ const HomeScreen: React.FC = () => {
                 onButtonPress: isAssessment ? () => handleViewReport(course) : handleRewatchCourse,
             };
         });
-    }, [completedCourses]);
+    }, [allCompletedItems, isDeadlineExceeded]);
 
     const completedCount = completedItems.length;
     const totalCount = normalizedCourses.length;
@@ -490,13 +565,6 @@ const HomeScreen: React.FC = () => {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Welcome Banner - Shows greeting with user's name */}
-                {profileData && (
-                    <WelcomeBanner
-                        userName={profileData?.firstName || profileData?.name?.split(' ')[0] || 'User'}
-                    />
-                )}
-
                 {/* Complete Your Profile Widget */}
                 <CompleteProfileWidget
                     percentage={percentageValue}
@@ -519,7 +587,6 @@ const HomeScreen: React.FC = () => {
                         {/* Section 1: Active / Unlocked Courses */}
                         {activeCourses.length > 0 && (
                             <>
-                                <HomeSectionHeader title="Your Active Courses" />
                                 {activeCourses.map((course) => (
                                     <ActiveCourseCard
                                         key={course.id}

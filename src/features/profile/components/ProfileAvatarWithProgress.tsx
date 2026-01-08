@@ -2,8 +2,8 @@ import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { colors, typography } from '../../../styles/theme';
-
-// Icons removed - will be added later
+import Avatar from '../../../components/common/Avatar';
+import EditPencilIcon from '../../../components/common/EditPencilIcon';
 
 interface ProfileAvatarWithProgressProps {
     percentage: number; // 0-100
@@ -66,13 +66,19 @@ const ProfileAvatarWithProgress: React.FC<ProfileAvatarWithProgressProps> = ({
             </View>
 
             {/* Avatar Image */}
-            {avatarUrl && avatarUrl !== '' && (
+            {avatarUrl && avatarUrl !== '' ? (
                 <View style={styles.avatarContainer}>
                     <Image
                         source={typeof avatarUrl === 'string' ? { uri: avatarUrl } : avatarUrl}
                         style={styles.avatar}
                         resizeMode="cover"
                     />
+                </View>
+            ) : (
+                <View style={styles.avatarContainer}>
+                    <View style={styles.avatarCentered}>
+                        <Avatar size={61.591} />
+                    </View>
                 </View>
             )}
 
@@ -91,7 +97,7 @@ const ProfileAvatarWithProgress: React.FC<ProfileAvatarWithProgressProps> = ({
                     <View style={styles.editIconBgImage} />
                 </View>
                 <View style={styles.editIconWrapper}>
-                    <View style={styles.editIcon} />
+                    <EditPencilIcon size={16} />
                 </View>
             </TouchableOpacity>
         </View>
@@ -152,6 +158,12 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
     },
+    avatarCentered: {
+        width: '100%',
+        height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     percentageContainer: {
         position: 'absolute',
         top: 0,
@@ -201,10 +213,6 @@ const styles = StyleSheet.create({
         left: 1,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    editIcon: {
-        width: '100%',
-        height: '100%',
     },
 });
 

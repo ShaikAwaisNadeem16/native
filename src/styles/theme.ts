@@ -219,9 +219,10 @@ export const inputVariants: Record<InputVariant, InputVariantStyles> = {
         placeholderColor: colors.placeholderGrey, // #80919f
     },
     focused: {
-        borderColor: colors.primaryBlue,   // #0b6aea
+        // Figma: blue outline on focus, gray text
+        borderColor: colors.primaryBlue,    // #0b6aea
         backgroundColor: colors.white,      // #ffffff
-        textColor: colors.primaryBlue,      // #0b6aea
+        textColor: colors.textGrey,         // #696a6f
         placeholderColor: colors.placeholderGrey, // #80919f
     },
     error: {
@@ -321,7 +322,7 @@ export const inputBaseStyles = {
         minHeight: 20,
     },
     inputFocused: {
-        color: colors.primaryBlue,
+        color: colors.textGrey, // Gray as per Figma
     },
     placeholderText: {
         color: colors.placeholderGrey,
