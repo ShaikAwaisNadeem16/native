@@ -29,16 +29,28 @@ const Avatar: React.FC<AvatarProps> = ({
 
     return (
         <View style={[styles.container, { width: finalWidth, height: finalHeight }, style]}>
-            <AvatarSvg 
-                width={finalWidth} 
-                height={finalHeight}
-            />
+            <View style={styles.svgWrapper}>
+                <AvatarSvg 
+                    width={finalWidth} 
+                    height={finalHeight}
+                />
+            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+        // Ensure SVG is properly contained
+        maxWidth: '100%',
+        maxHeight: '100%',
+    },
+    svgWrapper: {
+        width: '100%',
+        height: '100%',
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',

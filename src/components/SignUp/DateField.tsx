@@ -128,7 +128,7 @@ const DateField: React.FC<DateFieldProps> = ({
                     styles.inputText,
                     { color: value ? variantStyles.textColor : 'transparent' }
                 ]}>
-                    {value ? formatDate(value) : placeholder}
+                    {value ? formatDate(value) : ''}
                 </Text>
                 <CalendarIcon size={24} />
             </TouchableOpacity>

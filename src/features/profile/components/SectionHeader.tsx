@@ -54,13 +54,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: 32,
+        gap: 16,
         width: '100%',
     },
     titleContainer: {
         flex: 1,
         flexDirection: 'column',
         gap: 4,
+        justifyContent: 'center',
     },
     title: {
         ...typography.p2Bold,
@@ -79,6 +80,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',
+        flexShrink: 0, // Prevent icon from shrinking
     },
     iconContainer: {
         width: 24,

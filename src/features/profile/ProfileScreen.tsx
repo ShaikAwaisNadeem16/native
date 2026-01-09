@@ -109,7 +109,17 @@ const ProfileScreen: React.FC = () => {
     const locality = userData?.locality || '';
 
     // Extract percentage from store - API returns: personalPercentage, educationPercentage, workPercentage, skillPercentage, certificatePercentage, overallPercentage
-    const percentageValue = profilePercentage?.overallPercentage || profilePercentage?.percentage || 70;
+    // Only use API data, no hardcoded fallback
+    const percentageValue = profilePercentage?.overallPercentage ?? profilePercentage?.percentage ?? null;
+    
+    // Debug: Log percentage for verification
+    useEffect(() => {
+        if (percentageValue !== null && percentageValue !== undefined) {
+            console.log('[ProfileScreen] Profile completion percentage:', percentageValue);
+        } else {
+            console.log('[ProfileScreen] Profile completion percentage: Not available (will hide badge)');
+        }
+    }, [percentageValue]);
     const personalDetailsPercentage = profilePercentage?.personalPercentage || profilePercentage?.personalDetailsPercentage || 0;
     const educationPercentage = profilePercentage?.educationPercentage || 0;
     const workPercentage = profilePercentage?.workPercentage || 0;
@@ -496,7 +506,7 @@ const styles = StyleSheet.create({
     },
     avatarSection: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         gap: 16,
         paddingHorizontal: 16,
         paddingTop: 0,
@@ -506,7 +516,7 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'column',
         gap: 4,
-        paddingTop: 13.236, // From Figma positioning
+        justifyContent: 'center',
     },
     userName: {
         ...typography.p2Bold,
@@ -525,11 +535,13 @@ const styles = StyleSheet.create({
         paddingVertical: 24,
         gap: 24,
         width: '100%',
+        alignSelf: 'stretch',
     },
     fieldsContainer: {
         flexDirection: 'column',
         gap: 24,
         width: '100%',
+        alignSelf: 'stretch',
     },
     languagesSection: {
         flexDirection: 'column',

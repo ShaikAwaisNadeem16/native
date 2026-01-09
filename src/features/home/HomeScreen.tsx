@@ -9,6 +9,7 @@ import BreadcrumbBar from '../assessments/components/BreadcrumbBar';
 import CompleteProfileWidget from './components/CompleteProfileWidget';
 import CompletedActivitiesCard from './components/CompletedActivitiesCard';
 import JourneyBlock from './components/JourneyBlock';
+import EngineeringAssessmentCard from './components/EngineeringAssessmentCard';
 import ActiveCourseCard from './components/ActiveCourseCard';
 import LockedCourseCard from './components/LockedCourseCard';
 import CompletedCourseCard from './components/CompletedCourseCard';
@@ -587,24 +588,54 @@ const HomeScreen: React.FC = () => {
                         {/* Section 1: Active / Unlocked Courses */}
                         {activeCourses.length > 0 && (
                             <>
-                                {activeCourses.map((course) => (
-                                    <ActiveCourseCard
-                                        key={course.id}
-                                        iconUrl={course.iconUrl}
-                                        subtitle={course.subTitle || course.contentType}
-                                        title={course.title}
-                                        description={course.description || 'Continue your learning journey with this course.'}
-                                        level={course.subTitle}
-                                        duration={course.duration}
-                                        progressPercentage={course.progressPercentage}
-                                        completedModules={course.completedModules}
-                                        totalModules={course.totalModules}
-                                        primaryButtonLabel={course.buttonText || 'Start Learning'}
-                                        onPrimaryButtonPress={() => handleOpenMoodleUrl(course.moodleUrl, course)}
-                                        secondaryButtonLabel="Course Details"
-                                        onSecondaryButtonPress={() => handleCourseDetails(course.title)}
-                                    />
-                                ))}
+                                {activeCourses.map((course) => {
+                                    // Check if this is an assessment (case-insensitive)
+                                    const contentTypeUpper = (course.contentType || '').toUpperCase();
+                                    const isAssessment = contentTypeUpper.includes('ASSESSMENT') || contentTypeUpper.includes('TEST');
+                                    
+                                    if (isAssessment) {
+                                        return (
+                                            <EngineeringAssessmentCard
+                                                key={course.id}
+                                                subtitle="TEST"
+                                                title={course.title}
+                                                description={course.description || 'You need to clear the test by scoring at least 7/10 in-order to access the next activity in your journey'}
+                                                level={course.subTitle || 'Beginner'}
+                                                duration={course.duration || '3 hours'}
+                                                buttonLabel="Test Details"
+                                                onButtonPress={() => {
+                                                    // Check if it's Engineering Systems Assessment
+                                                    if (course.title?.toLowerCase().includes('engineering') || 
+                                                        course.subTitle?.toLowerCase().includes('engineering')) {
+                                                        navigation.navigate('EngineeringSystemsAssessment');
+                                                    } else {
+                                                        handleTakeTheTest();
+                                                    }
+                                                }}
+                                            />
+                                        );
+                                    }
+                                    
+                                    // Regular course card
+                                    return (
+                                        <ActiveCourseCard
+                                            key={course.id}
+                                            iconUrl={course.iconUrl}
+                                            subtitle={course.subTitle || course.contentType}
+                                            title={course.title}
+                                            description={course.description || 'Continue your learning journey with this course.'}
+                                            level={course.subTitle}
+                                            duration={course.duration}
+                                            progressPercentage={course.progressPercentage}
+                                            completedModules={course.completedModules}
+                                            totalModules={course.totalModules}
+                                            primaryButtonLabel={course.buttonText || 'Start Learning'}
+                                            onPrimaryButtonPress={() => handleOpenMoodleUrl(course.moodleUrl, course)}
+                                            secondaryButtonLabel="Course Details"
+                                            onSecondaryButtonPress={() => handleCourseDetails(course.title)}
+                                        />
+                                    );
+                                })}
                             </>
                         )}
 
@@ -667,26 +698,46 @@ const HomeScreen: React.FC = () => {
                                     const completedModules = course?.completedModules || course?.modulesCompleted || courseProgress?.completedModules || 0;
                                     const totalModules = course?.totalModules || course?.totalModulesCount || course?.modulesTotal || courseProgress?.totalModules || 10;
 
-                                    // Use JourneyBlock for assessments/assignments, otherwise use appropriate card
-                                    if (isAssessment || isAssignment) {
+                                    // Use EngineeringAssessmentCard for assessments, JourneyBlock for assignments
+                                    if (isAssessment) {
+                                        return (
+                                            <EngineeringAssessmentCard
+                                                key={course?.id || course?.courseId || course?.Courses?.courseId || index}
+                                                subtitle="TEST"
+                                                title={courseTitle}
+                                                description={courseDescription || 'You need to clear the test by scoring at least 7/10 in-order to access the next activity in your journey'}
+                                                level={courseLevel}
+                                                duration={courseDuration}
+                                                buttonLabel={isReattempt ? (course?.reattemptMessage || 'Reattempt in 60 Days') : 'Test Details'}
+                                                onButtonPress={isReattempt ? handleReattempt : (() => {
+                                                    // Check if it's Engineering Systems Assessment
+                                                    if (courseTitle?.toLowerCase().includes('engineering') || 
+                                                        course?.subTitle?.toLowerCase().includes('engineering')) {
+                                                        navigation.navigate('EngineeringSystemsAssessment');
+                                                    } else {
+                                                        handleTakeTheTest();
+                                                    }
+                                                })}
+                                            />
+                                        );
+                                    }
+                                    if (isAssignment) {
                                         return (
                                             <JourneyBlock
                                                 key={course?.id || course?.courseId || course?.Courses?.courseId || index}
                                                 type={blockType}
                                                 iconUrl={courseIconUrl}
-                                                subtitle={isAssessment ? 'TEST' : 'ASSIGNMENT'}
+                                                subtitle="ASSIGNMENT"
                                                 title={courseTitle}
-                                                description={courseDescription || (isAssessment 
-                                                    ? 'You need to clear the test by scoring at least 7/10 in-order to access the next activity in your journey'
-                                                    : 'Complete this assignment to progress in your learning journey.')}
+                                                description={courseDescription || 'Complete this assignment to progress in your learning journey.'}
                                                 level={courseLevel}
                                                 duration={courseDuration}
-                                                buttonLabel={isAssessment ? 'Take The Test' : (progressPercentage > 0 ? 'Resume Learning' : 'Start Assignment')}
-                                                onButtonPress={isAssessment ? handleTakeTheTest : handleRewatchCourse}
-                                                onSecondaryButtonPress={!isAssessment ? () => handleCourseDetails(courseTitle) : undefined}
-                                                progressPercentage={isActive && !isAssessment && !isAssignment ? progressPercentage : undefined}
-                                                completedModules={isActive && !isAssessment && !isAssignment ? completedModules : undefined}
-                                                totalModules={isActive && !isAssessment && !isAssignment ? totalModules : undefined}
+                                                buttonLabel={progressPercentage > 0 ? 'Resume Learning' : 'Start Assignment'}
+                                                onButtonPress={handleRewatchCourse}
+                                                onSecondaryButtonPress={() => handleCourseDetails(courseTitle)}
+                                                progressPercentage={isActive ? progressPercentage : undefined}
+                                                completedModules={isActive ? completedModules : undefined}
+                                                totalModules={isActive ? totalModules : undefined}
                                                 buttons={isReattempt ? [
                                                     {
                                                         label: course?.reattemptMessage || 'Reattempt in 60 Days',

@@ -117,7 +117,7 @@ const DropdownField: React.FC<DropdownFieldProps> = ({
                     styles.inputText,
                     { color: value ? variantStyles.textColor : 'transparent' }
                 ]}>
-                    {value || placeholder}
+                    {value}
                 </Text>
                 <DownwardArrow size={24} />
             </TouchableOpacity>

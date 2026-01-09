@@ -6,7 +6,7 @@ import Avatar from '../../../components/common/Avatar';
 import EditPencilIcon from '../../../components/common/EditPencilIcon';
 
 interface ProfileAvatarWithProgressProps {
-    percentage: number; // 0-100
+    percentage: number | null; // 0-100 or null to hide badge
     avatarUrl?: string | number; // Can be URI string or require() result (number)
     onEditPress?: () => void;
 }
@@ -16,13 +16,20 @@ const ProfileAvatarWithProgress: React.FC<ProfileAvatarWithProgressProps> = ({
     avatarUrl = '',
     onEditPress,
 }) => {
-    // Ensure percentage is a valid number between 0-100
-    const safePercentage = typeof percentage === 'number' && !isNaN(percentage) ? Math.min(Math.max(percentage, 0), 100) : 0;
+    // Ensure percentage is a valid number between 0-100, or null to hide badge
+    // Note: 0 is a valid percentage and should be displayed
+    const safePercentage = typeof percentage === 'number' && !isNaN(percentage) && percentage >= 0 && percentage <= 100
+        ? Math.round(percentage) // Round to nearest integer for display
+        : null;
+    // Show badge if percentage is a valid number (including 0)
+    const shouldShowBadge = safePercentage !== null;
     const progressRingSize = 72; // From Figma: 72px
     const strokeWidth = 0.714; // From Figma: 0.714px border
     const radius = (progressRingSize - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
-    const strokeDashoffset = circumference - (safePercentage / 100) * circumference;
+    // Use 0% for progress ring when percentage is null (show empty ring)
+    const progressPercentage = safePercentage ?? 0;
+    const strokeDashoffset = circumference - (progressPercentage / 100) * circumference;
     const center = progressRingSize / 2;
     const avatarSize = 61.591; // From Figma: 61.591px
 
@@ -77,15 +84,21 @@ const ProfileAvatarWithProgress: React.FC<ProfileAvatarWithProgressProps> = ({
             ) : (
                 <View style={styles.avatarContainer}>
                     <View style={styles.avatarCentered}>
-                        <Avatar size={61.591} />
+                        <View style={styles.avatarSvgWrapper}>
+                            <View style={styles.avatarSvgContainer}>
+                                <Avatar size={61.576} />
+                            </View>
+                        </View>
                     </View>
                 </View>
             )}
 
-            {/* Percentage Badge */}
-            <View style={styles.percentageContainer}>
-                <Text style={styles.percentageText}>{safePercentage}%</Text>
-            </View>
+            {/* Percentage Badge - Only show when percentage is available from API */}
+            {shouldShowBadge && (
+                <View style={styles.percentageContainer}>
+                    <Text style={styles.percentageText}>{safePercentage}%</Text>
+                </View>
+            )}
 
             {/* Edit Icon */}
             <TouchableOpacity
@@ -108,9 +121,14 @@ const styles = StyleSheet.create({
     container: {
         width: 72,
         height: 75.471, // From Figma: 75.471px total height
+        minWidth: 72, // Ensure minimum width
+        minHeight: 75.471, // Ensure minimum height
         position: 'relative',
         justifyContent: 'center',
         alignItems: 'center',
+        // Ensure container is visible
+        zIndex: 1,
+        overflow: 'visible', // Ensure all child elements are visible
     },
     progressRingContainer: {
         position: 'absolute',
@@ -161,6 +179,25 @@ const styles = StyleSheet.create({
     avatarCentered: {
         width: '100%',
         height: '100%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+    },
+    avatarSvgWrapper: {
+        width: 61.576,
+        height: 61.576,
+        borderRadius: 30.795,
+        overflow: 'hidden',
+        justifyContent: 'center',
+        alignItems: 'center',
+        // Ensure SVG is clipped to circular shape
+        backgroundColor: 'transparent',
+    },
+    avatarSvgContainer: {
+        width: 61.576,
+        height: 61.576,
+        borderRadius: 30.795,
+        overflow: 'hidden',
         justifyContent: 'center',
         alignItems: 'center',
     },

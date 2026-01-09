@@ -34,11 +34,13 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         gap: 4,
         width: '100%',
+        alignSelf: 'stretch',
     },
     labelRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+        alignSelf: 'flex-start',
     },
     label: {
         ...typography.s2SemiBold,
