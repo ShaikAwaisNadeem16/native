@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, typography } from '../../styles/theme';
+import { CardSkeleton } from '../../components/common/SkeletonLoaders';
 import Header from '../home/components/Header';
 import BreadcrumbBar from '../assessments/components/BreadcrumbBar';
 import AssignmentHeaderCard from './components/AssignmentHeaderCard';
@@ -158,10 +159,12 @@ const AssignmentInstructionsScreen: React.FC = () => {
                     onNotificationPress={handleNotificationPress}
                     onLogoPress={handleLogoPress}
                 />
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.primaryBlue} />
-                    <Text style={styles.loadingText}>Loading assignment...</Text>
-                </View>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <CardSkeleton />
+                </ScrollView>
             </SafeAreaView>
         );
     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -15,6 +15,7 @@ import VerifyPhoneNumberModal from './components/VerifyPhoneNumberModal';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import useProfileStore from '../../store/useProfileStore';
 import ProfileService from '../../api/profile';
+import { InlineLoaderSkeleton } from '../../components/common/SkeletonLoaders';
 
 // Icons removed - will be added later
 
@@ -459,7 +460,7 @@ const EditPersonalDetailsScreen: React.FC = () => {
                             />
                             {loadingPincode && (
                                 <View style={styles.pincodeLoader}>
-                                    <ActivityIndicator size="small" color={colors.primaryBlue} />
+                                    <InlineLoaderSkeleton />
                                 </View>
                             )}
                         </View>
@@ -518,11 +519,9 @@ const EditPersonalDetailsScreen: React.FC = () => {
                             activeOpacity={0.7}
                             disabled={saving}
                         >
-                            {saving ? (
-                                <ActivityIndicator size="small" color={colors.white} />
-                            ) : (
-                                <Text style={styles.saveButtonText}>Save Changes</Text>
-                            )}
+                            <Text style={styles.saveButtonText}>
+                                {saving ? 'Saving...' : 'Save Changes'}
+                            </Text>
                         </TouchableOpacity>
 
                         <TouchableOpacity

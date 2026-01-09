@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Star, Flag, Check, X } from 'lucide-react-native';
 import { colors, typography, borderRadius } from '../../styles/theme';
@@ -182,10 +182,13 @@ const StemAssessmentReportScreen: React.FC = () => {
             <SafeAreaView style={styles.container} edges={['top']}>
                 <Header onProfilePress={handleProfilePress} onLogoPress={() => navigation.navigate('Home')} />
                 <BreadcrumbBar items={['STEM Assessment Report']} />
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.primaryBlue} />
-                    <Text style={styles.loadingText}>Loading report...</Text>
-                </View>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <CardSkeleton />
+                    <ListSkeleton count={2} />
+                </ScrollView>
             </SafeAreaView>
         );
     }

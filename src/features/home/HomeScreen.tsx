@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -17,6 +17,7 @@ import ComingSoonCourseCard from './components/ComingSoonCourseCard';
 import HomeSectionHeader from './components/HomeSectionHeader';
 import useProfileStore from '../../store/useProfileStore';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { HomeScreenSkeleton, ListSkeleton } from '../../components/common/SkeletonLoaders';
 
 // Icons removed - will be added later
 
@@ -524,15 +525,18 @@ const HomeScreen: React.FC = () => {
         console.warn('[HomeScreen] Relative URL not handled:', url, 'Course:', course?.title || 'Unknown');
     };
 
-    // Show loading indicator while fetching initial data
+    // Show skeleton loader while fetching initial data
     if (loading && !profileData) {
         return (
             <SafeAreaView style={styles.container} edges={['top']}>
                 <Header onProfilePress={handleProfilePress} onLogoPress={() => navigation.navigate('Home')} />
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.primaryBlue} />
-                    <Text style={styles.loadingText}>Loading...</Text>
-                </View>
+                <BreadcrumbBar items={['Your Learning Journey']} />
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <HomeScreenSkeleton />
+                </ScrollView>
             </SafeAreaView>
         );
     }
@@ -542,9 +546,9 @@ const HomeScreen: React.FC = () => {
         return (
             <SafeAreaView style={styles.container} edges={['top']}>
                 <Header onProfilePress={handleProfilePress} onLogoPress={() => navigation.navigate('Home')} />
-                <View style={styles.loadingContainer}>
+                <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>Error: {error}</Text>
-                    <Text style={styles.loadingText}>Please try again later</Text>
+                    <Text style={styles.errorSubtext}>Please try again later</Text>
                 </View>
             </SafeAreaView>
         );
@@ -811,17 +815,24 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.white,
     },
-    loadingContainer: {
+    errorContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        gap: 16,
-    },
-    loadingText: {
-        ...typography.p4,
-        color: colors.textGrey,
+        padding: 24,
     },
     errorText: {
+        ...typography.p3Bold,
+        color: colors.error,
+        marginBottom: 8,
+        textAlign: 'center',
+    },
+    errorSubtext: {
+        ...typography.p4,
+        color: colors.textGrey,
+        textAlign: 'center',
+    },
+    errorTextOld: {
         ...typography.p3Regular,
         color: colors.error || '#FF0000',
         textAlign: 'center',

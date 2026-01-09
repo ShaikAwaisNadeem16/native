@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -16,6 +16,7 @@ import WorkExperienceCard from './components/WorkExperienceCard';
 import CertificateCard from './components/CertificateCard';
 import SkillTag from './components/SkillTag';
 import useProfileStore from '../../store/useProfileStore';
+import { ProfileScreenSkeleton } from '../../components/common/SkeletonLoaders';
 
 // Icons removed - will be added later
 
@@ -236,16 +237,18 @@ const ProfileScreen: React.FC = () => {
         navigation.navigate('EditWorkInternshipDetails');
     };
 
-    // Show loading indicator while fetching data
+    // Show skeleton loader while fetching data
     if (loading && !profileData && !profileDetails) {
         return (
             <SafeAreaView style={styles.container} edges={['top']}>
                 <Header onProfilePress={handleProfilePress} onLogoPress={() => navigation.navigate('Home')} />
                 <BreadcrumbBar items={['Your Profile']} />
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.primaryBlue} />
-                    <Text style={styles.loadingText}>Loading profile...</Text>
-                </View>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
+                    <ProfileScreenSkeleton />
+                </ScrollView>
             </SafeAreaView>
         );
     }
@@ -486,16 +489,6 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.mainBgGrey,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 16,
-    },
-    loadingText: {
-        ...typography.p4,
-        color: colors.textGrey,
     },
     scrollContent: {
         flexGrow: 1,

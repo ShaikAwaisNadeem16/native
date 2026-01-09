@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -136,11 +136,6 @@ const LoginScreen: React.FC = () => {
                                     onPress={handleLogin}
                                     disabled={loading}
                                 />
-                                {loading && (
-                                    <View style={styles.loadingContainer}>
-                                        <ActivityIndicator size="small" color={colors.primaryBlue} />
-                                    </View>
-                                )}
                                 {/* Frame 16065 - Keep Me Logged In */}
                                 <View style={styles.checkboxContainer}>
                                     <Checkbox
