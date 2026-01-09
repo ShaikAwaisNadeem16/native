@@ -11,6 +11,7 @@ import FormInputWithLabel from './components/FormInputWithLabel';
 import DropdownWithLabel from './components/DropdownWithLabel';
 import LanguageEntry from './components/LanguageEntry';
 import DateField from '../../components/SignUp/DateField';
+import VerifyPhoneNumberModal from './components/VerifyPhoneNumberModal';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import useProfileStore from '../../store/useProfileStore';
 import ProfileService from '../../api/profile';
@@ -33,6 +34,7 @@ const EditPersonalDetailsScreen: React.FC = () => {
     const { profileData, profileDetails, initializeHome } = useProfileStore();
     const [saving, setSaving] = useState(false);
     const [phoneInputFocused, setPhoneInputFocused] = useState(false);
+    const [showVerifyModal, setShowVerifyModal] = useState(false);
 
     // Extract existing data from store
     const userData = profileDetails || profileData || {};
@@ -51,9 +53,15 @@ const EditPersonalDetailsScreen: React.FC = () => {
     const [nationality, setNationality] = useState(userData.nationality || '');
     const [state, setState] = useState(userData.state || '');
     const [city, setCity] = useState(userData.city || '');
+    const [district, setDistrict] = useState(userData.district || '');
+    const [locality, setLocality] = useState(userData.locality || '');
     const [permanentAddress, setPermanentAddress] = useState(userData.permanentAddress || userData.address || '');
     const [pinCode, setPinCode] = useState(userData.pinCode || userData.pin_code || '');
     const [linkedinUrl, setLinkedinUrl] = useState(userData.linkedinUrl || userData.linkedin_url || '');
+    
+    // Pincode API states
+    const [localityOptions, setLocalityOptions] = useState<string[]>([]);
+    const [loadingPincode, setLoadingPincode] = useState(false);
 
     // Languages state - initialized from store data
     const [languages, setLanguages] = useState<LanguageData[]>(() => {
@@ -85,10 +93,65 @@ const EditPersonalDetailsScreen: React.FC = () => {
         if (data.nationality) setNationality(data.nationality || '');
         if (data.state) setState(data.state || '');
         if (data.city) setCity(data.city || '');
+        if (data.district) setDistrict(data.district || '');
+        if (data.locality) setLocality(data.locality || '');
         if (data.permanentAddress || data.address) setPermanentAddress(data.permanentAddress || data.address || '');
         if (data.pinCode || data.pin_code) setPinCode(data.pinCode || data.pin_code || '');
         if (data.linkedinUrl || data.linkedin_url) setLinkedinUrl(data.linkedinUrl || data.linkedin_url || '');
     }, [profileData, profileDetails]);
+
+    // Fetch pincode data when pincode changes (debounced)
+    useEffect(() => {
+        const fetchPincodeData = async () => {
+            if (pinCode && pinCode.length === 6 && /^\d+$/.test(pinCode)) {
+                setLoadingPincode(true);
+                try {
+                    const pincodeData = await ProfileService.fetchPincodeData(pinCode);
+                    console.log('Pincode data received:', pincodeData);
+                    
+                    // Auto-update state and district
+                    if (pincodeData.state) {
+                        setState(pincodeData.state);
+                    }
+                    if (pincodeData.district) {
+                        setDistrict(pincodeData.district);
+                        // Also update city with district if city is empty
+                        setCity((prevCity) => prevCity || pincodeData.district);
+                    }
+                    // Update locality options
+                    if (Array.isArray(pincodeData.locality) && pincodeData.locality.length > 0) {
+                        setLocalityOptions(pincodeData.locality);
+                        // Auto-select first locality if none selected
+                        setLocality((prevLocality) => prevLocality || pincodeData.locality[0]);
+                    } else {
+                        setLocalityOptions([]);
+                    }
+                } catch (error: any) {
+                    console.error('Failed to fetch pincode data:', error);
+                    // Clear state/district/locality if pincode is invalid
+                    setState('');
+                    setDistrict('');
+                    setLocalityOptions([]);
+                    setLocality('');
+                } finally {
+                    setLoadingPincode(false);
+                }
+            } else {
+                // Clear data if pincode is not 6 digits
+                if (pinCode.length === 0) {
+                    setLocalityOptions([]);
+                    setLocality('');
+                }
+            }
+        };
+
+        // Debounce API call - wait 500ms after user stops typing
+        const timeoutId = setTimeout(() => {
+            fetchPincodeData();
+        }, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [pinCode]);
 
     // Dropdown options
     const genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say'];
@@ -105,7 +168,17 @@ const EditPersonalDetailsScreen: React.FC = () => {
     };
 
     const handleVerifyPhone = () => {
-        console.log('Verify phone number');
+        if (!phoneNumber) {
+            Alert.alert('Error', 'Please enter a phone number first');
+            return;
+        }
+        setShowVerifyModal(true);
+    };
+
+    const handleVerifySuccess = () => {
+        // TODO: Update phone verification status in profile
+        console.log('Phone number verified successfully');
+        Alert.alert('Success', 'Phone number verified successfully');
     };
 
     const handleAddLanguage = () => {
@@ -145,6 +218,8 @@ const EditPersonalDetailsScreen: React.FC = () => {
                 nationality,
                 state,
                 city,
+                district,
+                locality,
                 permanentAddress,
                 pinCode,
                 linkedinUrl,
@@ -340,6 +415,28 @@ const EditPersonalDetailsScreen: React.FC = () => {
                             options={cityOptions}
                         />
 
+                        {/* District - Auto-filled from pincode */}
+                        {district && (
+                            <FormInputWithLabel
+                                label="District"
+                                value={district}
+                                onChangeText={() => {}} // Read-only, auto-filled from pincode
+                                placeholder="District"
+                                disabled={true}
+                            />
+                        )}
+
+                        {/* Locality - Dropdown from pincode API */}
+                        {localityOptions.length > 0 && (
+                            <DropdownWithLabel
+                                label="Locality"
+                                value={locality}
+                                onValueChange={setLocality}
+                                placeholder="Select locality"
+                                options={localityOptions}
+                            />
+                        )}
+
                         {/* Permanent Address */}
                         <FormInputWithLabel
                             label="Permanent Address"
@@ -350,14 +447,22 @@ const EditPersonalDetailsScreen: React.FC = () => {
                         />
 
                         {/* Pin Code */}
-                        <FormInputWithLabel
-                            label="Pin Code"
-                            value={pinCode}
-                            onChangeText={setPinCode}
-                            placeholder="Enter pin code"
-                            keyboardType="numeric"
-                            required
-                        />
+                        <View style={styles.pincodeContainer}>
+                            <FormInputWithLabel
+                                label="Pin Code"
+                                value={pinCode}
+                                onChangeText={setPinCode}
+                                placeholder="Enter pin code"
+                                keyboardType="numeric"
+                                maxLength={6}
+                                required
+                            />
+                            {loadingPincode && (
+                                <View style={styles.pincodeLoader}>
+                                    <ActivityIndicator size="small" color={colors.primaryBlue} />
+                                </View>
+                            )}
+                        </View>
 
                         {/* Linkedin Profile URL */}
                         <FormInputWithLabel
@@ -405,7 +510,7 @@ const EditPersonalDetailsScreen: React.FC = () => {
                         </View>
                     </View>
 
-                    {/* Bottom Buttons */}
+                    {/* Bottom Buttons - Exact Figma styling */}
                     <View style={styles.buttonRow}>
                         <TouchableOpacity
                             style={[styles.saveButton, saving && styles.saveButtonDisabled]}
@@ -431,6 +536,14 @@ const EditPersonalDetailsScreen: React.FC = () => {
                     </View>
                 </View>
             </ScrollView>
+
+            {/* Verify Phone Number Modal */}
+            <VerifyPhoneNumberModal
+                visible={showVerifyModal}
+                phoneNumber={`${regionCode} ${phoneNumber}`}
+                onClose={() => setShowVerifyModal(false)}
+                onVerifySuccess={handleVerifySuccess}
+            />
         </SafeAreaView>
     );
 };
@@ -445,10 +558,11 @@ const styles = StyleSheet.create({
         paddingBottom: 32,
     },
     formCard: {
-        backgroundColor: colors.white,
-        paddingHorizontal: 16,
-        paddingVertical: 32,
+        backgroundColor: colors.white, // Figma: bg-[var(--white,white)]
+        paddingHorizontal: 16, // Figma: px-[16px]
+        paddingVertical: 32, // Figma: py-[32px]
         gap: 32, // Figma: gap-[32px] between main sections
+        width: '100%',
     },
     inputFieldsContainer: {
         width: '100%',
@@ -496,15 +610,15 @@ const styles = StyleSheet.create({
     },
     languagesSection: {
         width: '100%',
-        gap: 12, // Figma: gap-[12px] for languages section container
+        gap: 20, // Figma: gap-[20px] for languages section (from Frame 16108 structure)
     },
     languagesEntriesContainer: {
         width: '100%',
         gap: 32, // Figma: gap-[32px] between language entries
     },
     sectionTitle: {
-        ...typography.p3Bold,
-        color: colors.primaryDarkBlue,
+        ...typography.p2Bold, // Figma: Desktop/P2 Bold: 18px, weight 700, lineHeight 25
+        color: '#000000', // Figma: text-black (exact match)
     },
     addLanguageButton: {
         flexDirection: 'row',
@@ -518,31 +632,46 @@ const styles = StyleSheet.create({
     buttonRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 16,
-        paddingTop: 8,
+        gap: 24, // Figma: gap-[24px] between buttons (Frame 16014)
+        width: '100%', // Full width within padding (328px effective width on 360px screen)
+        maxWidth: 328, // Figma: w-[328px] exact width constraint
     },
     saveButton: {
-        backgroundColor: colors.primaryBlue,
-        borderRadius: borderRadius.input,
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        minWidth: 120,
+        backgroundColor: colors.primaryBlue, // Figma: bg-[var(--primary-blue,#0b6aea)]
+        borderRadius: borderRadius.input, // Figma: rounded-[8px]
+        paddingHorizontal: 24, // Figma: px-[24px]
+        paddingVertical: 12, // Figma: py-[12px]
+        minHeight: 44, // Figma: h-[44px]
+        flex: 1, // Figma: flex-[1_0_0]
+        minWidth: 140, // Figma: min-w-[140px]
         alignItems: 'center',
+        justifyContent: 'center',
     },
     saveButtonDisabled: {
         opacity: 0.7,
     },
     saveButtonText: {
-        ...typography.p4SemiBold,
-        color: colors.white,
+        ...typography.p4SemiBold, // Figma: Desktop/P4 SemiBold: 14px, weight 600, lineHeight 20
+        color: colors.white, // Figma: text-[color:var(--white,white)]
     },
     discardButton: {
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        flex: 1, // Figma: flex-[1_0_0]
+        paddingHorizontal: 0, // Text only, no padding
+        paddingVertical: 12, // Align with save button
     },
     discardButtonText: {
-        ...typography.p4SemiBold,
-        color: colors.primaryBlue,
+        ...typography.p4SemiBold, // Figma: Desktop/P4 SemiBold: 14px, weight 600, lineHeight 20
+        color: colors.primaryBlue, // Figma: text-[color:var(--primary-blue,#0b6aea)]
+    },
+    pincodeContainer: {
+        width: '100%',
+        position: 'relative',
+    },
+    pincodeLoader: {
+        position: 'absolute',
+        right: 20,
+        top: 40, // Position below the label
+        zIndex: 1,
     },
 });
 

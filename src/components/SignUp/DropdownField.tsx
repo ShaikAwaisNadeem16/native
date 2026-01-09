@@ -69,7 +69,7 @@ const DropdownField: React.FC<DropdownFieldProps> = ({
 
     const labelColor = labelAnimation.interpolate({
         inputRange: [0, 1],
-        outputRange: [variantStyles.placeholderColor, isOpen ? colors.textGrey : colors.primaryDarkBlue],
+        outputRange: [variantStyles.placeholderColor, colors.primaryDarkBlue], // Figma: label always primaryDarkBlue when floated
     });
 
     const handleSelect = (option: string) => {
@@ -137,14 +137,19 @@ const DropdownField: React.FC<DropdownFieldProps> = ({
                         <FlatList
                             data={options}
                             keyExtractor={(item, index) => `${item}-${index}`}
-                            renderItem={({ item }) => (
+                            renderItem={({ item, index }) => (
                                 <TouchableOpacity
-                                    style={styles.dropdownItem}
+                                    style={[
+                                        styles.dropdownItem,
+                                        index < options.length - 1 && styles.dropdownItemWithGap
+                                    ]}
                                     onPress={() => handleSelect(item)}
                                 >
                                     <Text style={styles.dropdownItemText}>{item}</Text>
                                 </TouchableOpacity>
                             )}
+                            showsVerticalScrollIndicator={true} // Figma: Show scrollbar
+                            scrollIndicatorInsets={{ right: 3 }} // Position scrollbar
                         />
                     </View>
                 </TouchableOpacity>
@@ -185,26 +190,36 @@ const styles = StyleSheet.create({
     },
     dropdownList: {
         backgroundColor: colors.white,
-        borderRadius: borderRadius.card,
+        borderRadius: 12, // Figma: rounded-[12px]
         borderWidth: 1,
-        borderColor: colors.primaryBlue,
-        padding: 8,
+        borderColor: colors.primaryBlue, // Figma: border-[var(--primary-blue,#0b6aea)]
+        padding: 8, // Figma: px-[8px] py-0
+        paddingVertical: 0, // Figma: py-0
         maxHeight: 300,
-        width: '80%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
+        width: 200, // Figma: w-[200px]
+        shadowColor: '#092C4C', // Figma: shadow-[0px_8px_16px_-12px_rgba(9,44,76,0.22)]
+        shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.22,
         shadowRadius: 12,
         elevation: 8,
+        overflow: 'hidden', // Ensure scrollbar is visible
     },
     dropdownItem: {
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 4,
+        paddingHorizontal: 12, // Figma: px-[12px]
+        paddingVertical: 8, // Figma: py-[8px]
+        borderRadius: 4, // Figma: rounded-[4px]
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8, // Figma: gap-[8px] (internal spacing)
+    },
+    dropdownItemWithGap: {
+        marginBottom: 4, // Figma: gap-[4px] between items
     },
     dropdownItemText: {
-        ...typography.p3Regular,
-        color: colors.textGrey,
+        ...typography.p3Regular, // Figma: Desktop/P3 Regular, 16px, line-height 25px, weight 400
+        color: colors.textGrey, // Figma: text-[color:var(--text-grey,#696a6f)]
+        flex: 1, // Figma: flex-[1_0_0] - takes available space
+        minWidth: 0, // Allow flex shrinking
     },
     errorText: {
         ...inputBaseStyles.errorText,

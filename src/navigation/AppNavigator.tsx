@@ -15,6 +15,9 @@ import EngineeringSystemsAssessmentScreen from '../features/assessments/Engineer
 import ProfileScreen from '../features/profile/ProfileScreen';
 import EditPersonalDetailsScreen from '../features/profile/EditPersonalDetailsScreen';
 import EditEducationDetailsScreen from '../features/profile/EditEducationDetailsScreen';
+import EditWorkInternshipDetailsScreen from '../features/profile/EditWorkInternshipDetailsScreen';
+import EditTechnicalCompetenciesScreen from '../features/profile/EditTechnicalCompetenciesScreen';
+import EditCertificatesScreen from '../features/profile/EditCertificatesScreen';
 import AutomotiveAwarenessScreen from '../features/home/AutomotiveAwarenessScreen';
 import CourseDetailsScreen from '../features/home/CourseDetailsScreen';
 import ReadDifferentPlayersScreen from '../features/home/ReadDifferentPlayersScreen';
@@ -46,6 +49,9 @@ export type RootStackParamList = {
     Profile: undefined;
     EditPersonalDetails: undefined;
     EditEducationDetails: undefined;
+    EditWorkInternshipDetails: undefined;
+    EditTechnicalCompetencies: undefined;
+    EditCertificates: undefined;
     AutomotiveAwareness: undefined;
     CourseDetails: { courseId?: string; courseTitle?: string } | undefined;
     ReadDifferentPlayers: undefined;
@@ -106,6 +112,9 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="Profile" component={ProfileScreen} />
                 <Stack.Screen name="EditPersonalDetails" component={EditPersonalDetailsScreen} />
                 <Stack.Screen name="EditEducationDetails" component={EditEducationDetailsScreen} />
+                <Stack.Screen name="EditWorkInternshipDetails" component={EditWorkInternshipDetailsScreen} />
+                <Stack.Screen name="EditTechnicalCompetencies" component={EditTechnicalCompetenciesScreen} />
+                <Stack.Screen name="EditCertificates" component={EditCertificatesScreen} />
                 <Stack.Screen name="AutomotiveAwareness" component={AutomotiveAwarenessScreen} />
                 <Stack.Screen name="CourseDetails" component={CourseDetailsScreen} />
                 <Stack.Screen name="ReadDifferentPlayers" component={ReadDifferentPlayersScreen} />

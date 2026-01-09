@@ -13,8 +13,12 @@ interface ProfileState {
     badgeCount: number;
     loading: boolean;
     error: string | null;
+    skills: Array<{ skillId: number; skillName: string }> | null;
+    branches: Array<{ branchId: number; branch: string }> | null;
+    diplomaBranches: Array<{ branchId: number; branch: string }> | null;
     initializeHome: () => Promise<void>;
     initializeBadgeCount: () => void;
+    fetchProfileDropdownData: () => Promise<void>;
 }
 
 const useProfileStore = create<ProfileState>((set, get) => ({
@@ -27,6 +31,9 @@ const useProfileStore = create<ProfileState>((set, get) => ({
     badgeCount: 0,
     loading: false,
     error: null,
+    skills: null,
+    branches: null,
+    diplomaBranches: null,
 
     /**
      * Initialize Home: Execute APIs in strict sequential order
@@ -40,9 +47,24 @@ const useProfileStore = create<ProfileState>((set, get) => ({
             // STEP 1: Fetch Basic User Profile
             // GET https://apis.dev.cream-collar.com/api/student/user-profile/data
             console.log('[DATA FETCH] STEP 1: Fetching basic profile data...');
-            const profileData = await ProfileService.fetchProfileData();
-            console.log('[DATA FETCH] STEP 1: Profile data received:', JSON.stringify(profileData, null, 2));
-            set({ profileData });
+            const profileDataResponse = await ProfileService.fetchProfileData();
+            console.log('[DATA FETCH] STEP 1: Profile data received:', JSON.stringify(profileDataResponse, null, 2));
+            
+            // Extract skills, branches, and diplomaBranches from response
+            const skills = Array.isArray(profileDataResponse.skills) ? profileDataResponse.skills : null;
+            const branches = Array.isArray(profileDataResponse.branches) ? profileDataResponse.branches : null;
+            const diplomaBranches = Array.isArray(profileDataResponse.diplomaBranches) ? profileDataResponse.diplomaBranches : null;
+            
+            console.log('[DATA FETCH] STEP 1: Skills extracted:', skills?.length || 0);
+            console.log('[DATA FETCH] STEP 1: Branches extracted:', branches?.length || 0);
+            console.log('[DATA FETCH] STEP 1: Diploma Branches extracted:', diplomaBranches?.length || 0);
+            
+            set({ 
+                profileData: profileDataResponse,
+                skills,
+                branches,
+                diplomaBranches,
+            });
 
             // STEP 2: Check Enrollment Status
             // POST https://apis.dev.cream-collar.com/api/student/v1/home/check-enrol
@@ -69,15 +91,47 @@ const useProfileStore = create<ProfileState>((set, get) => ({
             try {
                 console.log('[DATA FETCH] STEP 3: Fetching profile details...');
                 profileDetails = await ProfileService.fetchProfileDetails();
-                console.log('[DATA FETCH] STEP 3: Profile details received:', JSON.stringify(profileDetails, null, 2));
-                // Merge with basic profile data safely
-                set({
-                    profileDetails,
-                    profileData: { ...profileData, ...profileDetails }
-                });
-            } catch (error) {
+                
+                // Validate response
+                if (!profileDetails) {
+                    console.warn('[DATA FETCH] STEP 3: Profile details is null/undefined');
+                    profileDetails = null;
+                } else if (typeof profileDetails === 'object' && Object.keys(profileDetails).length === 0) {
+                    console.warn('[DATA FETCH] STEP 3: Profile details is empty object');
+                    profileDetails = null;
+                }
+                
+                if (profileDetails) {
+                    console.log('[DATA FETCH] STEP 3: Profile details received:', JSON.stringify(profileDetails, null, 2));
+                    console.log('[DATA FETCH] STEP 3: technicalSkills:', profileDetails?.technicalSkills?.length || 0);
+                    console.log('[DATA FETCH] STEP 3: educationalDetails:', profileDetails?.educationalDetails?.length || 0);
+                    console.log('[DATA FETCH] STEP 3: workExperience:', profileDetails?.workExperience?.length || 0);
+                    console.log('[DATA FETCH] STEP 3: certificate:', profileDetails?.certificate?.length || 0);
+                    
+                    // Merge with basic profile data safely
+                    // Get current profileData from store state
+                    const currentProfileData = get().profileData || {};
+                    set({
+                        profileDetails,
+                        profileData: { ...currentProfileData, ...profileDetails }
+                    });
+                } else {
+                    console.warn('[DATA FETCH] STEP 3: No profile details data, keeping existing profileData');
+                    // Don't overwrite profileData, set profileDetails to null
+                    set({ profileDetails: null });
+                }
+            } catch (error: any) {
                 console.error('[DATA FETCH] STEP 3: Failed to fetch profile details:', error);
-                // Non-blocking - continue flow
+                console.error('[DATA FETCH] STEP 3: Error type:', typeof error);
+                console.error('[DATA FETCH] STEP 3: Error message:', error?.message);
+                console.error('[DATA FETCH] STEP 3: Error response:', error?.response);
+                console.error('[DATA FETCH] STEP 3: Error response data:', error?.response?.data);
+                console.error('[DATA FETCH] STEP 3: Error response status:', error?.response?.status);
+                
+                // Non-blocking - continue flow, set profileDetails to null (not empty object)
+                // This way ProfileScreen can fall back to profileData
+                console.warn('[DATA FETCH] STEP 3: Setting profileDetails to null, will use profileData as fallback');
+                set({ profileDetails: null });
             }
 
             // STEP 4: Fetch Notifications
@@ -201,6 +255,36 @@ const useProfileStore = create<ProfileState>((set, get) => ({
             const today = notifications.today?.filter((notif: any) => !notif.isRead) || [];
             const count = older.length + yesterday.length + today.length;
             set({ badgeCount: count });
+        }
+    },
+
+    /**
+     * Fetch Profile Dropdown Data
+     * Fetches skills, branches, and diplomaBranches from /api/student/user-profile/data
+     * This is called when profile page loads to ensure dropdown data is available
+     */
+    fetchProfileDropdownData: async () => {
+        try {
+            console.log('[DATA FETCH] Fetching profile dropdown data...');
+            const profileDataResponse = await ProfileService.fetchProfileData();
+            
+            // Extract skills, branches, and diplomaBranches from response
+            const skills = Array.isArray(profileDataResponse.skills) ? profileDataResponse.skills : null;
+            const branches = Array.isArray(profileDataResponse.branches) ? profileDataResponse.branches : null;
+            const diplomaBranches = Array.isArray(profileDataResponse.diplomaBranches) ? profileDataResponse.diplomaBranches : null;
+            
+            console.log('[DATA FETCH] Skills extracted:', skills?.length || 0);
+            console.log('[DATA FETCH] Branches extracted:', branches?.length || 0);
+            console.log('[DATA FETCH] Diploma Branches extracted:', diplomaBranches?.length || 0);
+            
+            set({ 
+                skills,
+                branches,
+                diplomaBranches,
+            });
+        } catch (error) {
+            console.error('[DATA FETCH] Failed to fetch profile dropdown data:', error);
+            // Non-blocking - continue with existing data
         }
     },
 }));

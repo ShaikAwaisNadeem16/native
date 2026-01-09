@@ -12,6 +12,8 @@ import SectionHeader from './components/SectionHeader';
 import ProfileField from './components/ProfileField';
 import LanguageTable from './components/LanguageTable';
 import EducationCard from './components/EducationCard';
+import WorkExperienceCard from './components/WorkExperienceCard';
+import CertificateCard from './components/CertificateCard';
 import SkillTag from './components/SkillTag';
 import useProfileStore from '../../store/useProfileStore';
 
@@ -21,7 +23,12 @@ type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 const ProfileScreen: React.FC = () => {
     const navigation = useNavigation<NavigationProp>();
-    const { profileData, profileDetails, profilePercentage, loading } = useProfileStore();
+    const { profileData, profileDetails, profilePercentage, loading, fetchProfileDropdownData } = useProfileStore();
+
+    // Fetch dropdown data when profile screen loads
+    useEffect(() => {
+        fetchProfileDropdownData();
+    }, [fetchProfileDropdownData]);
 
     // Debug: Log data when it changes
     useEffect(() => {
@@ -29,45 +36,140 @@ const ProfileScreen: React.FC = () => {
         console.log('[ProfileScreen] Profile details updated:', profileDetails ? 'Data exists' : 'No data');
         console.log('[ProfileScreen] Profile percentage:', profilePercentage);
         console.log('[ProfileScreen] Loading state:', loading);
+        
+        // Log detailed data for debugging
+        const hasProfileDetails = profileDetails && Object.keys(profileDetails).length > 0;
+        const userData = hasProfileDetails ? profileDetails : (profileData || {});
+        console.log('[ProfileScreen] profileDetails exists:', !!profileDetails);
+        console.log('[ProfileScreen] profileDetails keys:', profileDetails ? Object.keys(profileDetails) : []);
+        console.log('[ProfileScreen] profileData exists:', !!profileData);
+        console.log('[ProfileScreen] profileData keys:', profileData ? Object.keys(profileData) : []);
+        console.log('[ProfileScreen] User data keys:', Object.keys(userData));
+        console.log('[ProfileScreen] technicalSkills:', userData.technicalSkills);
+        console.log('[ProfileScreen] educationalDetails:', userData?.educationalDetails);
+        console.log('[ProfileScreen] workExperience:', userData.workExperience);
+        console.log('[ProfileScreen] certificate:', userData.certificate);
+        console.log('[ProfileScreen] languages:', userData.languages);
     }, [profileData, profileDetails, profilePercentage, loading]);
 
 
-    // Extract profile data from store or use defaults
-    const userData = profileDetails || profileData || {};
-    const firstName = userData.firstName || userData.first_name || 'Steven';
-    const lastName = userData.lastName || userData.last_name || 'Quadros';
-    const fullName = `${firstName} ${userData.middleName || ''} ${lastName}`.trim() || 'Steven Melwyn Quadros';
-    const collegeName = userData.collegeName || userData.college_name || 'St. Francis Institute Of Technology';
-    const aboutYou = userData.aboutYou || userData.about_you || 'Lorem ipsum dolor sit amet consectetur. Nisl viverra pulvinar cursus morbi aliquet gravida tincidunt lobortis non. Sed ut leo magna pulvinar odio amet in. Enim consectetur cras tellus magnis nunc condimentum aenean. Tincidunt sapien vulputate interdum pellentesque orci est viverra id vulputate.';
-    const gender = userData.gender || 'Male';
-    const phoneNumber = userData.phoneNumber || userData.phone_number || '+91 435 543 2564';
-    const emailId = userData.email || userData.emailId || 'stevenabcquadros@gmail.com';
-    const city = userData.city || 'Mumbai';
-    const nationality = userData.nationality || 'India';
-    const dateOfBirth = userData.dateOfBirth || userData.dob || '14 Feb 1995';
-    const linkedinUrl = userData.linkedinUrl || userData.linkedin_url || 'Pending...';
+    // Extract profile data from store
+    // Use profileDetails if it exists and has data, otherwise fall back to profileData
+    // Merge both to ensure we have all available data
+    const userData = {
+        ...(profileData || {}),
+        ...(profileDetails && Object.keys(profileDetails).length > 0 ? profileDetails : {})
+    };
+    
+    // Helper function to format date from "YYYY-MM-DD" to "DD MMM YYYY"
+    const formatDateOfBirth = (dateStr: string | null | undefined): string => {
+        if (!dateStr) return '';
+        try {
+            const parts = dateStr.split('-');
+            if (parts.length >= 3) {
+                const year = parts[0];
+                const month = parseInt(parts[1]) - 1;
+                const day = parts[2];
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                return `${day} ${monthNames[month] || ''} ${year}`;
+            } else if (parts.length === 2) {
+                const year = parts[0];
+                const month = parseInt(parts[1]) - 1;
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                return `${monthNames[month] || ''} ${year}`;
+            }
+            return dateStr;
+        } catch (error) {
+            return dateStr;
+        }
+    };
+    
+    // Personal Details - Safe extraction with null checks
+    const firstName = userData?.firstName || userData?.first_name || '';
+    const lastName = userData?.lastName || userData.last_name || '';
+    const fullName = `${firstName} ${userData?.middleName || ''} ${lastName}`.trim();
+    // Get college name from educationalDetails if available
+    const educationalDetailsArray = Array.isArray(userData?.educationalDetails) ? userData?.educationalDetails : [];
+    const latestEducation = educationalDetailsArray.length > 0 ? educationalDetailsArray[0] : null;
+    const collegeName = latestEducation?.collegeName || userData?.collegeName || userData.college_name || '';
+    const aboutYou = userData?.aboutYou || userData.about_you || '';
+    const gender = userData?.gender || '';
+    const phoneNumber = userData?.phoneNumber || userData.phone_number || '';
+    const emailId = userData?.email || userData?.emailId || '';
+    const city = userData?.city || '';
+    const nationality = userData?.nationality || '';
+    const dateOfBirth = formatDateOfBirth(userData?.dob || userData?.dateOfBirth);
+    const linkedinUrl = userData?.linkedinLink || userData?.linkedin_url || '';
+    const state = userData?.state || '';
+    const permanentAddress = userData?.permanentAddress || '';
+    const pinCode = userData?.pinCode || '';
+    const district = userData?.district || '';
+    const locality = userData?.locality || '';
 
-    // Extract percentage from store
+    // Extract percentage from store - API returns: personalPercentage, educationPercentage, workPercentage, skillPercentage, certificatePercentage, overallPercentage
     const percentageValue = profilePercentage?.overallPercentage || profilePercentage?.percentage || 70;
-    const personalDetailsPercentage = profilePercentage?.personalDetailsPercentage || 20;
+    const personalDetailsPercentage = profilePercentage?.personalPercentage || profilePercentage?.personalDetailsPercentage || 0;
+    const educationPercentage = profilePercentage?.educationPercentage || 0;
+    const workPercentage = profilePercentage?.workPercentage || 0;
+    const skillPercentage = profilePercentage?.skillPercentage || 0;
+    const certificatePercentage = profilePercentage?.certificatePercentage || 0;
 
-    // Languages data from store or defaults
-    const languages = Array.isArray(userData.languages) ? userData.languages : [
-        { language: 'English', proficiency: 'Proficient' },
-        { language: 'Marathi', proficiency: 'Basic' },
-    ];
+    // Languages data from store - API can return null, so handle it properly
+    const languages = Array.isArray(userData?.languages) && userData.languages.length > 0 
+        ? userData.languages 
+        : [];
 
     // Skills data from store or defaults
-    const rawSkills = userData.skills || userData.technicalCompetencies;
-    const skills = Array.isArray(rawSkills) ? rawSkills : [
-        { skill: 'Photoshop', isHighlighted: false },
-        { skill: 'Illustrator', isHighlighted: false },
-        { skill: 'Figma', isHighlighted: true },
-        { skill: 'inDesign', isHighlighted: true },
-        { skill: 'Sketch', isHighlighted: true },
-        { skill: 'Hotjar', isHighlighted: true },
-        { skill: 'VWO', isHighlighted: true },
-    ];
+    // technicalSkills from API is array of { skillId, skillName } objects
+    const rawSkills = userData?.technicalSkills || userData?.skills || userData?.technicalCompetencies || null;
+    const skills = Array.isArray(rawSkills) && rawSkills.length > 0
+        ? rawSkills
+            .filter((item: any) => item !== null && item !== undefined) // Filter out null/undefined items
+            .map((item: any) => {
+                // Handle both API format { skillId, skillName } and legacy format { skill, isHighlighted }
+                if (item && typeof item === 'object' && item.skillName) {
+                    return { skill: item.skillName || '', isHighlighted: false };
+                } else if (typeof item === 'string') {
+                    return { skill: item, isHighlighted: false };
+                } else if (item && typeof item === 'object') {
+                    return { skill: item.skill || item.name || '', isHighlighted: item.isHighlighted || false };
+                }
+                return { skill: '', isHighlighted: false };
+            })
+            .filter((skill: any) => skill.skill !== '') // Remove empty skills
+        : [];
+
+    // Work Experience data from store - Safe array extraction
+    const workExperienceArray = Array.isArray(userData?.workExperience) ? userData.workExperience : [];
+
+    // Certificates data from store - Safe array extraction
+    const certificatesArray = Array.isArray(userData?.certificate) ? userData.certificate : [];
+
+    // Helper function to format date from "YYYY-MM" to "MMM YYYY"
+    const formatDate = (dateStr: string): string => {
+        if (!dateStr || dateStr.length !== 7) return '';
+        const [year, month] = dateStr.split('-');
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthName = monthNames[parseInt(month) - 1] || '';
+        return `${monthName} ${year}`;
+    };
+
+    // Helper function to format date range - Safe with null checks
+    const formatDateRange = (workExp: any): string => {
+        if (!workExp || typeof workExp !== 'object') return '';
+        const startDate = workExp?.workStartDate ? formatDate(workExp.workStartDate) : '';
+        if (workExp?.isWorking === true) {
+            return startDate ? `${startDate} - Present` : 'Present';
+        }
+        const endDate = workExp?.workEndDate ? formatDate(workExp.workEndDate) : '';
+        if (startDate && endDate) {
+            return `${startDate} - ${endDate}`;
+        }
+        return startDate || endDate || '';
+    };
 
     const handleProfilePress = () => {
         console.log('Profile pressed');
@@ -78,13 +180,15 @@ const ProfileScreen: React.FC = () => {
     };
 
     const handleAddEducation = () => {
-        console.log('Add education');
+        // Navigate to EditEducationDetails screen to add new education
+        navigation.navigate('EditEducationDetails');
     };
 
     const handleEditEducation = () => {
-        // Navigate to EditEducationDetails screen when Edit button is clicked
-        // IMPORTANT: This is triggered ONLY by the Edit button inside EducationCard
-        // Clicking the card container or section does NOTHING - this is intentional
+        // Navigate to EditEducationDetails screen when Edit icon/button is clicked
+        // This can be triggered by:
+        // 1. Edit icon in SectionHeader (when there's existing data)
+        // 2. Edit button inside EducationCard
         navigation.navigate('EditEducationDetails');
     };
 
@@ -93,11 +197,33 @@ const ProfileScreen: React.FC = () => {
     };
 
     const handleAddTechnicalCompetencies = () => {
-        console.log('Add technical competencies');
+        // Navigate to EditTechnicalCompetencies screen to add/edit skills
+        navigation.navigate('EditTechnicalCompetencies');
     };
 
     const handleEditTechnicalCompetencies = () => {
-        console.log('Edit technical competencies');
+        // Navigate to EditTechnicalCompetencies screen when Edit icon/button is clicked
+        navigation.navigate('EditTechnicalCompetencies');
+    };
+
+    const handleAddCertificates = () => {
+        // Navigate to EditCertificates screen to add/edit certificates
+        navigation.navigate('EditCertificates');
+    };
+
+    const handleEditCertificates = () => {
+        // Navigate to EditCertificates screen when Edit icon/button is clicked
+        navigation.navigate('EditCertificates');
+    };
+
+    const handleAddWorkInternship = () => {
+        // Navigate to EditWorkInternshipDetails screen to add new work/internship
+        navigation.navigate('EditWorkInternshipDetails');
+    };
+
+    const handleEditWorkInternship = () => {
+        // Navigate to EditWorkInternshipDetails screen when Edit icon/button is clicked
+        navigation.navigate('EditWorkInternshipDetails');
     };
 
     // Show loading indicator while fetching data
@@ -143,7 +269,7 @@ const ProfileScreen: React.FC = () => {
                 <View style={styles.sectionCard}>
                     <SectionHeader
                         title="Personal Details"
-                        completionPercentage={personalDetailsPercentage}
+                        completionPercentage={Math.round(personalDetailsPercentage)}
                         onEditPress={handleEditPersonalDetails}
                     />
                     <View style={styles.fieldsContainer}>
@@ -157,10 +283,15 @@ const ProfileScreen: React.FC = () => {
                         <ProfileField label="Phone Number" value={phoneNumber} />
                         <ProfileField label="Email ID" value={emailId} />
                         <ProfileField label="Full Name" value={fullName} />
+                        {state ? <ProfileField label="State" value={state} /> : null}
                         <ProfileField label="City" value={city} />
+                        {district ? <ProfileField label="District" value={district} /> : null}
+                        {locality ? <ProfileField label="Locality" value={locality} /> : null}
+                        {pinCode ? <ProfileField label="Pin Code" value={pinCode} /> : null}
+                        {permanentAddress ? <ProfileField label="Permanent Address" value={permanentAddress} /> : null}
                         <ProfileField label="Nationality" value={nationality} />
-                        <ProfileField label="Date of Birth" value={dateOfBirth} />
-                        <ProfileField label="Linkedin Profile URL" value={linkedinUrl} />
+                        {dateOfBirth ? <ProfileField label="Date of Birth" value={dateOfBirth} /> : null}
+                        {linkedinUrl ? <ProfileField label="Linkedin Profile URL" value={linkedinUrl} /> : null}
                     </View>
 
                     {/* Languages Section */}
@@ -170,61 +301,172 @@ const ProfileScreen: React.FC = () => {
                     </View>
                 </View>
 
-                {/* Education Details Section - Empty */}
-                <View style={styles.sectionCard}>
-                    <SectionHeader
-                        title="Education Details"
-                        completionPercentage={0}
-                        onAddPress={handleAddEducation}
-                        showAddIcon={true}
-                    />
-                </View>
-
-                {/* Education Details Section - With Data */}
-                <View style={styles.sectionCard}>
-                    <SectionHeader
-                        title="Education Details"
-                        completionPercentage={20}
-                        onAddPress={handleAddEducation}
-                        showAddIcon={true}
-                    />
-                    <View style={styles.educationCardContainer}>
-                        <EducationCard
-                            title="Class X"
-                            subtitle="Maharashtra Board - 2023"
+                {/* Education Details Section */}
+                {educationalDetailsArray.length > 0 ? (
+                    <View style={styles.sectionCard}>
+                        <SectionHeader
+                            title="Education Details"
+                            completionPercentage={Math.round(educationPercentage)}
                             onEditPress={handleEditEducation}
-                            onDeletePress={handleDeleteEducation}
+                            showAddIcon={false}
+                        />
+                        <View style={styles.educationCardContainer}>
+                            {educationalDetailsArray
+                                .filter((edu: any) => edu !== null && edu !== undefined)
+                                .map((edu: any, index: number) => {
+                                    // Format end date from "YYYY-MM" to "MMM YYYY" - Safe with null checks
+                                    const formattedEndDate = edu?.collegeEndDate ? formatDate(edu.collegeEndDate) : '';
+                                    const collegeName = edu?.collegeName || '';
+                                    const subtitle = [collegeName, formattedEndDate].filter(Boolean).join(' - ');
+                                    
+                                    return (
+                                        <EducationCard
+                                            key={edu?.id || `edu-${index}`}
+                                            title={edu?.courses || edu?.educationLevel || ''}
+                                            subtitle={subtitle}
+                                            onEditPress={handleEditEducation}
+                                            onDeletePress={handleDeleteEducation}
+                                        />
+                                    );
+                                })}
+                        </View>
+                    </View>
+                ) : (
+                    <View style={styles.sectionCard}>
+                        <SectionHeader
+                            title="Education Details"
+                            completionPercentage={Math.round(educationPercentage)}
+                            onAddPress={handleAddEducation}
+                            showAddIcon={true}
                         />
                     </View>
-                </View>
+                )}
 
-                {/* Technical Competencies Section - Empty */}
-                <View style={styles.sectionCard}>
-                    <SectionHeader
-                        title="Technical Competencies"
-                        completionPercentage={0}
-                        onAddPress={handleAddTechnicalCompetencies}
-                        showAddIcon={true}
-                    />
-                </View>
-
-                {/* Technical Competencies Section - With Data */}
-                <View style={styles.sectionCard}>
-                    <SectionHeader
-                        title="Technical Competencies"
-                        completionPercentage={20}
-                        onEditPress={handleEditTechnicalCompetencies}
-                    />
-                    <View style={styles.skillsContainer}>
-                        {skills.map((skill: { skill?: string; isHighlighted?: boolean }, index: number) => (
-                            <SkillTag
-                                key={index}
-                                skill={skill?.skill || ''}
-                                isHighlighted={skill?.isHighlighted || false}
-                            />
-                        ))}
+                {/* Work/Internship Details Section */}
+                {workExperienceArray.length > 0 ? (
+                    <View style={styles.sectionCard}>
+                        <SectionHeader
+                            title="Work/Internship Details"
+                            completionPercentage={Math.round(workPercentage)}
+                            onEditPress={handleEditWorkInternship}
+                            showAddIcon={false}
+                        />
+                        <View style={styles.workExperienceCardContainer}>
+                            {workExperienceArray
+                                .filter((workExp: any) => workExp !== null && workExp !== undefined)
+                                .map((workExp: any, index: number) => (
+                                    <WorkExperienceCard
+                                        key={workExp?.id || `work-${index}`}
+                                        companyName={workExp?.companyName || ''}
+                                        designation={workExp?.designation || ''}
+                                        employmentType={workExp?.empType || ''}
+                                        dateRange={formatDateRange(workExp)}
+                                        onEditPress={handleEditWorkInternship}
+                                        onDeletePress={() => console.log('Delete work experience:', workExp?.id)}
+                                    />
+                                ))}
+                        </View>
                     </View>
-                </View>
+                ) : (
+                    <View style={styles.sectionCard}>
+                        <SectionHeader
+                            title="Work/Internship Details"
+                            completionPercentage={Math.round(workPercentage)}
+                            onAddPress={handleAddWorkInternship}
+                            showAddIcon={true}
+                        />
+                    </View>
+                )}
+
+                {/* Technical Competencies Section */}
+                {skills.length > 0 ? (
+                    <View style={styles.sectionCard}>
+                        <SectionHeader
+                            title="Technical Competencies"
+                            completionPercentage={Math.round(skillPercentage)}
+                            onEditPress={handleEditTechnicalCompetencies}
+                            showAddIcon={false}
+                        />
+                        <View style={styles.skillsContainer}>
+                            {skills
+                                .filter((skill: any) => skill && skill.skill && skill.skill !== '')
+                                .map((skill: { skill?: string; isHighlighted?: boolean }, index: number) => (
+                                    <SkillTag
+                                        key={`skill-${index}`}
+                                        skill={skill?.skill || ''}
+                                        isHighlighted={skill?.isHighlighted || false}
+                                    />
+                                ))}
+                        </View>
+                    </View>
+                ) : (
+                    <View style={styles.sectionCard}>
+                        <SectionHeader
+                            title="Technical Competencies"
+                            completionPercentage={Math.round(skillPercentage)}
+                            onAddPress={handleAddTechnicalCompetencies}
+                            showAddIcon={true}
+                        />
+                    </View>
+                )}
+
+                {/* Certificates Section */}
+                {certificatesArray.length > 0 ? (
+                    <View style={styles.sectionCard}>
+                        <SectionHeader
+                            title="Certificates"
+                            completionPercentage={Math.round(certificatePercentage)}
+                            onEditPress={handleEditCertificates}
+                            showAddIcon={false}
+                        />
+                        <View style={styles.certificateCardContainer}>
+                            {certificatesArray
+                                .filter((cert: any) => cert !== null && cert !== undefined)
+                                .map((cert: any, index: number) => {
+                                    // Format date from "YYYY-MM-DD" or "YYYY-MM" to "MMM YYYY" - Safe with null checks
+                                    let formattedDate = '';
+                                    const dateStr = cert?.certDate || cert?.completedOn || cert?.issueDate || cert?.completedOnDate;
+                                    if (dateStr && typeof dateStr === 'string') {
+                                        try {
+                                            const parts = dateStr.split('-');
+                                            if (parts.length >= 2) {
+                                                const year = parts[0];
+                                                const month = parts[1];
+                                                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                                                                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                                const monthIndex = parseInt(month) - 1;
+                                                formattedDate = `${monthNames[monthIndex >= 0 && monthIndex < 12 ? monthIndex : 0] || ''} ${year}`;
+                                            } else {
+                                                formattedDate = dateStr;
+                                            }
+                                        } catch (error) {
+                                            formattedDate = dateStr;
+                                        }
+                                    }
+                                    
+                                    return (
+                                        <CertificateCard
+                                            key={cert?.id || `cert-${index}`}
+                                            certificateName={cert?.certCourseName || cert?.courseName || cert?.certificateName || cert?.name || ''}
+                                            issuingOrganization={cert?.certProvider || cert?.issuingOrganisation || cert?.issuingOrganization || cert?.organization || ''}
+                                            issueDate={formattedDate}
+                                            onEditPress={handleEditCertificates}
+                                            onDeletePress={() => console.log('Delete certificate:', cert?.id)}
+                                        />
+                                    );
+                                })}
+                        </View>
+                    </View>
+                ) : (
+                    <View style={styles.sectionCard}>
+                        <SectionHeader
+                            title="Certificates"
+                            completionPercentage={Math.round(certificatePercentage)}
+                            onAddPress={handleAddCertificates}
+                            showAddIcon={true}
+                        />
+                    </View>
+                )}
             </ScrollView>
         </SafeAreaView>
     );
@@ -300,6 +542,15 @@ const styles = StyleSheet.create({
     },
     educationCardContainer: {
         width: '100%',
+        gap: 16,
+    },
+    workExperienceCardContainer: {
+        width: '100%',
+        gap: 16,
+    },
+    certificateCardContainer: {
+        width: '100%',
+        gap: 16,
     },
     skillsContainer: {
         flexDirection: 'row',

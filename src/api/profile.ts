@@ -33,8 +33,22 @@ export const ProfileService = {
                 { userId }
             );
 
+            // Check if response and response.data exist
+            if (!response) {
+                throw new Error('No response received from server');
+            }
+
+            if (!response.data) {
+                console.warn('[ProfileService] Response data is undefined, returning empty object');
+                return {};
+            }
+
             // Transform data to handle JSON strings in response (from existing pattern)
             const transformData = (item: any): any => {
+                if (!item || typeof item !== 'object') {
+                    return item || {};
+                }
+
                 for (const key in item) {
                     if (
                         item.hasOwnProperty(key) &&
@@ -54,9 +68,20 @@ export const ProfileService = {
 
             const finalData = transformData(response.data);
             return finalData;
-        } catch (error) {
-            console.error('Failed to fetch profile details:', error);
-            throw error;
+        } catch (error: any) {
+            console.error('[ProfileService] Failed to fetch profile details:', error);
+            console.error('[ProfileService] Error details:', {
+                message: error?.message,
+                response: error?.response?.data,
+                status: error?.response?.status,
+                statusText: error?.response?.statusText,
+            });
+            
+            // Re-throw with more context
+            const errorMessage = error?.response?.data?.message || 
+                                error?.message || 
+                                'Failed to fetch profile details';
+            throw new Error(errorMessage);
         }
     },
 
@@ -103,24 +128,57 @@ export const ProfileService = {
     },
 
     /**
-     * POST /api/student/user-profile/update
-     * Updates user profile personal details
-     * Request body: profile data object
+     * PUT /api/student/user-profile
+     * Updates user profile details
+     * Request body: profile data object with email, userId, and other fields
      */
     updateProfileDetails: async (profileData: any) => {
         try {
             const userId = await Storage.getItem('userId');
+            const email = await Storage.getItem('username'); // Using username as email from login
+
             if (!userId) {
                 throw new Error('User ID not found');
             }
 
-            const response = await GlobalAxiosConfig.post(
-                '/api/student/user-profile/update',
-                { ...profileData, userId }
+            if (!email) {
+                throw new Error('Email not found');
+            }
+
+            // Prepare payload with email and userId
+            const payload = {
+                email,
+                userId,
+                ...profileData,
+            };
+
+            const response = await GlobalAxiosConfig.put(
+                '/api/student/user-profile',
+                payload
             );
             return response.data;
         } catch (error) {
             console.error('Failed to update profile details:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * GET /api/auth/post-office/pincode/{pincode}
+     * Fetches state, district, and locality data for a given pincode
+     */
+    fetchPincodeData: async (pincode: string) => {
+        try {
+            if (!pincode || pincode.length !== 6) {
+                throw new Error('Invalid pincode');
+            }
+
+            const response = await GlobalAxiosConfig.get(
+                `/api/auth/post-office/pincode/${pincode}`
+            );
+            return response.data;
+        } catch (error) {
+            console.error('Failed to fetch pincode data:', error);
             throw error;
         }
     },
