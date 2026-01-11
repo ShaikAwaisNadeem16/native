@@ -12,6 +12,8 @@ import StemAssessmentReportScreen from '../features/assessments/StemAssessmentRe
 import StemAssessmentInstructionsScreen from '../features/assessments/StemAssessmentInstructionsScreen';
 import StemAssessmentTestScreen from '../features/assessments/StemAssessmentTestScreen';
 import EngineeringSystemsAssessmentScreen from '../features/assessments/EngineeringSystemsAssessmentScreen';
+import EngineeringAssessmentInstructionsScreen from '../features/assessments/EngineeringAssessmentInstructionsScreen';
+import SurveyAssessmentQuestions from '../features/assessments/SurveyAssessmentQuestions';
 import ProfileScreen from '../features/profile/ProfileScreen';
 import EditPersonalDetailsScreen from '../features/profile/EditPersonalDetailsScreen';
 import EditEducationDetailsScreen from '../features/profile/EditEducationDetailsScreen';
@@ -46,6 +48,8 @@ export type RootStackParamList = {
     StemAssessmentInstructions: undefined;
     StemAssessmentTest: { lessonId?: string; moodleCourseId?: string } | undefined;
     EngineeringSystemsAssessment: undefined;
+    EngineeringAssessmentInstructions: { lessonId?: string; moodleCourseId?: string } | undefined;
+    SurveyAssessmentQuestions: { lessonId?: string; moodleCourseId?: string } | undefined;
     Profile: undefined;
     EditPersonalDetails: undefined;
     EditEducationDetails: undefined;
@@ -109,6 +113,8 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="StemAssessmentInstructions" component={StemAssessmentInstructionsScreen} />
                 <Stack.Screen name="StemAssessmentTest" component={StemAssessmentTestScreen} />
                 <Stack.Screen name="EngineeringSystemsAssessment" component={EngineeringSystemsAssessmentScreen} />
+                <Stack.Screen name="EngineeringAssessmentInstructions" component={EngineeringAssessmentInstructionsScreen} />
+                <Stack.Screen name="SurveyAssessmentQuestions" component={SurveyAssessmentQuestions} />
                 <Stack.Screen name="Profile" component={ProfileScreen} />
                 <Stack.Screen name="EditPersonalDetails" component={EditPersonalDetailsScreen} />
                 <Stack.Screen name="EditEducationDetails" component={EditEducationDetailsScreen} />

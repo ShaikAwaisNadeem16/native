@@ -189,9 +189,6 @@ const EngineeringSystemsAssessmentScreen: React.FC = () => {
                         </Text>
                     </View>
                     <View style={styles.startButtonContainer}>
-                        <View style={styles.assessmentLogoContainer}>
-                            <AssessmentLogo size={40} />
-                        </View>
                         <View style={styles.startButtonWrapper}>
                             <PrimaryButton
                                 label="Start The Test"
@@ -542,19 +539,10 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     startButtonContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
         width: '100%',
     },
-    assessmentLogoContainer: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     startButtonWrapper: {
-        flex: 1,
+        width: '100%',
     },
 });
 

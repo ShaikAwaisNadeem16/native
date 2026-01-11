@@ -418,6 +418,20 @@ const HomeScreen: React.FC = () => {
     const totalCount = normalizedCourses.length;
 
     const handleOpenMoodleUrl = (url?: string, course?: any) => {
+        // Check if this is Automotive Awareness course - check both URL and course title/subtitle
+        // This check should happen even if URL is missing, as we can identify by title
+        const courseTitle = (course?.title || '').toLowerCase();
+        const courseSubtitle = (course?.subTitle || '').toLowerCase();
+        const isAutomotiveAwareness = (courseTitle.includes('automotive') && 
+                                      (courseTitle.includes('awareness') || courseSubtitle.includes('awareness'))) ||
+                                     (url && (url.includes('/automotive') && url.includes('/awareness')));
+        
+        if (isAutomotiveAwareness) {
+            console.log('[HomeScreen] Navigating to AutomotiveAwareness for course:', course?.title);
+            navigation.navigate('AutomotiveAwareness');
+            return;
+        }
+        
         if (!url) return;
         
         // Check if this is an assignment - check both URL and course contentType
@@ -480,6 +494,27 @@ const HomeScreen: React.FC = () => {
             return;
         }
         
+        // Check for Survey URL pattern
+        if (url.includes('/student/student-survey-intro') || 
+            url.includes('student-survey-intro') || 
+            url.includes('/survey') ||
+            course?.title?.toLowerCase().includes('survey') ||
+            course?.subTitle?.toLowerCase().includes('survey')) {
+            // Extract moodleCourseId to use as lessonId for API calls
+            const moodleCourseId = course?.moodleCourseId || course?.lessonId;
+            
+            if (moodleCourseId) {
+                console.log('[HomeScreen] Navigating to EngineeringAssessmentInstructions for survey with lessonId:', moodleCourseId);
+                navigation.navigate('EngineeringAssessmentInstructions', {
+                    lessonId: moodleCourseId,
+                    moodleCourseId: moodleCourseId,
+                });
+            } else {
+                console.warn('[HomeScreen] Survey detected but no moodleCourseId found. URL:', url, 'Course:', course?.title);
+            }
+            return;
+        }
+        
         // Check for Engineering Systems Assessment URL pattern
         if (url.includes('/student/engIntro') || url.includes('engIntro')) {
             console.log('[HomeScreen] Navigating to EngineeringSystemsAssessment for URL:', url);
@@ -498,16 +533,25 @@ const HomeScreen: React.FC = () => {
                                    course.contentType.toUpperCase().includes('ASSESSMENT'));
         
         if (isAssessmentUrl || isAssessmentCourse) {
-            // Navigate to appropriate assessment screen based on course data
-            // For now, default to Engineering Systems Assessment if it's an engineering-related course
-            if (course?.title?.toLowerCase().includes('engineering') || 
-                course?.subTitle?.toLowerCase().includes('engineering')) {
-                console.log('[HomeScreen] Navigating to EngineeringSystemsAssessment for engineering course');
-                navigation.navigate('EngineeringSystemsAssessment');
+            // Extract moodleCourseId to use as lessonId for API calls
+            const moodleCourseId = course?.moodleCourseId || course?.lessonId;
+            
+            if (moodleCourseId) {
+                console.log('[HomeScreen] Navigating to EngineeringAssessmentInstructions for assessment with lessonId:', moodleCourseId);
+                navigation.navigate('EngineeringAssessmentInstructions', {
+                    lessonId: moodleCourseId,
+                    moodleCourseId: moodleCourseId,
+                });
             } else {
-                // Default to STEM Assessment Instructions for other assessments
-                console.log('[HomeScreen] Navigating to StemAssessmentInstructions for assessment course');
-                navigation.navigate('StemAssessmentInstructions');
+                // Fallback to old navigation if no moodleCourseId
+                if (course?.title?.toLowerCase().includes('engineering') || 
+                    course?.subTitle?.toLowerCase().includes('engineering')) {
+                    console.log('[HomeScreen] Navigating to EngineeringSystemsAssessment for engineering course');
+                    navigation.navigate('EngineeringSystemsAssessment');
+                } else {
+                    console.log('[HomeScreen] Navigating to StemAssessmentInstructions for assessment course');
+                    navigation.navigate('StemAssessmentInstructions');
+                }
             }
             return;
         }
@@ -598,6 +642,9 @@ const HomeScreen: React.FC = () => {
                                     const isAssessment = contentTypeUpper.includes('ASSESSMENT') || contentTypeUpper.includes('TEST');
                                     
                                     if (isAssessment) {
+                                        // Extract moodleCourseId to use as lessonId for API calls
+                                        const moodleCourseId = course?.moodleCourseId || course?.lessonId;
+                                        
                                         return (
                                             <EngineeringAssessmentCard
                                                 key={course.id}
@@ -606,14 +653,25 @@ const HomeScreen: React.FC = () => {
                                                 description={course.description || 'You need to clear the test by scoring at least 7/10 in-order to access the next activity in your journey'}
                                                 level={course.subTitle || 'Beginner'}
                                                 duration={course.duration || '3 hours'}
-                                                buttonLabel="Test Details"
+                                                buttonLabel="Start Assessment"
                                                 onButtonPress={() => {
-                                                    // Check if it's Engineering Systems Assessment
-                                                    if (course.title?.toLowerCase().includes('engineering') || 
-                                                        course.subTitle?.toLowerCase().includes('engineering')) {
-                                                        navigation.navigate('EngineeringSystemsAssessment');
+                                                    // Navigate to Assessment Instructions screen for ALL assessments
+                                                    // Uses same API call: POST /api/lms/lesson/contents with { lessonId: moodleCourseId, userId }
+                                                    if (moodleCourseId) {
+                                                        console.log('[HomeScreen] Navigating to EngineeringAssessmentInstructions with lessonId:', moodleCourseId, 'for assessment:', course.title);
+                                                        navigation.navigate('EngineeringAssessmentInstructions', {
+                                                            lessonId: moodleCourseId,
+                                                            moodleCourseId: moodleCourseId,
+                                                        });
                                                     } else {
-                                                        handleTakeTheTest();
+                                                        console.warn('[HomeScreen] No moodleCourseId found for assessment:', course.title);
+                                                        // Fallback to old navigation (should not happen for properly configured assessments)
+                                                        if (course.title?.toLowerCase().includes('engineering') || 
+                                                            course.subTitle?.toLowerCase().includes('engineering')) {
+                                                            navigation.navigate('EngineeringSystemsAssessment');
+                                                        } else {
+                                                            handleTakeTheTest();
+                                                        }
                                                     }
                                                 }}
                                             />
@@ -704,6 +762,12 @@ const HomeScreen: React.FC = () => {
 
                                     // Use EngineeringAssessmentCard for assessments, JourneyBlock for assignments
                                     if (isAssessment) {
+                                        // Extract moodleCourseId to use as lessonId for API calls
+                                        const moodleCourseId = course?.moodleCourseId || 
+                                                              course?.lessonId ||
+                                                              course?.Courses?.moodleCourseId ||
+                                                              course?.raw?.moodleCourseId;
+                                        
                                         return (
                                             <EngineeringAssessmentCard
                                                 key={course?.id || course?.courseId || course?.Courses?.courseId || index}
@@ -712,14 +776,25 @@ const HomeScreen: React.FC = () => {
                                                 description={courseDescription || 'You need to clear the test by scoring at least 7/10 in-order to access the next activity in your journey'}
                                                 level={courseLevel}
                                                 duration={courseDuration}
-                                                buttonLabel={isReattempt ? (course?.reattemptMessage || 'Reattempt in 60 Days') : 'Test Details'}
+                                                buttonLabel={isReattempt ? (course?.reattemptMessage || 'Reattempt in 60 Days') : 'Start Assessment'}
                                                 onButtonPress={isReattempt ? handleReattempt : (() => {
-                                                    // Check if it's Engineering Systems Assessment
-                                                    if (courseTitle?.toLowerCase().includes('engineering') || 
-                                                        course?.subTitle?.toLowerCase().includes('engineering')) {
-                                                        navigation.navigate('EngineeringSystemsAssessment');
+                                                    // Navigate to Assessment Instructions screen for ALL assessments
+                                                    // Uses same API call: POST /api/lms/lesson/contents with { lessonId: moodleCourseId, userId }
+                                                    if (moodleCourseId) {
+                                                        console.log('[HomeScreen] Navigating to EngineeringAssessmentInstructions with lessonId:', moodleCourseId, 'for assessment:', courseTitle);
+                                                        navigation.navigate('EngineeringAssessmentInstructions', {
+                                                            lessonId: moodleCourseId,
+                                                            moodleCourseId: moodleCourseId,
+                                                        });
                                                     } else {
-                                                        handleTakeTheTest();
+                                                        console.warn('[HomeScreen] No moodleCourseId found for assessment:', courseTitle);
+                                                        // Fallback to old navigation (should not happen for properly configured assessments)
+                                                        if (courseTitle?.toLowerCase().includes('engineering') || 
+                                                            course?.subTitle?.toLowerCase().includes('engineering')) {
+                                                            navigation.navigate('EngineeringSystemsAssessment');
+                                                        } else {
+                                                            handleTakeTheTest();
+                                                        }
                                                     }
                                                 })}
                                             />
