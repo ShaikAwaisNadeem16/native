@@ -102,10 +102,14 @@ const DropdownWithLabel: React.FC<DropdownWithLabelProps> = ({
                                 <TouchableOpacity
                                     style={styles.dropdownItem}
                                     onPress={() => handleSelect(item)}
+                                    activeOpacity={0.7}
                                 >
                                     <Text style={styles.dropdownItemText}>{item}</Text>
                                 </TouchableOpacity>
                             )}
+                            showsVerticalScrollIndicator={true}
+                            scrollEnabled={true}
+                            nestedScrollEnabled={true}
                         />
                     </View>
                 </TouchableOpacity>
@@ -152,13 +156,14 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: colors.primaryBlue,
         padding: 8,
-        maxHeight: 300,
+        maxHeight: 400,
         width: '80%',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.22,
         shadowRadius: 12,
         elevation: 8,
+        overflow: 'hidden',
     },
     dropdownItem: {
         paddingHorizontal: 12,

@@ -5,8 +5,9 @@ interface AssessmentHeaderCardProps {
     shortName?: string; // "Assessment" or "SURVEY"
     title: string; // "Engineering Assessment"
     description: string;
-    duration?: string; // "1 Hour 30 Mins"
-    questions?: string; // "60 Questions"
+    duration?: string; // "1 Hour 30 Mins" or "2 Hours"
+    questions?: string; // "60 Questions" or "10 Questions per part"
+    section?: string; // "4 Parts" or similar
 }
 
 /**
@@ -20,6 +21,7 @@ const AssessmentHeaderCard: React.FC<AssessmentHeaderCardProps> = ({
     description,
     duration,
     questions,
+    section,
 }) => {
     return (
         <HeaderCard
@@ -29,7 +31,8 @@ const AssessmentHeaderCard: React.FC<AssessmentHeaderCardProps> = ({
             description={description}
             duration={duration}
             questions={questions}
-            showIcon={false}
+            section={section}
+            showIcon={true}
         />
     );
 };

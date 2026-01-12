@@ -2,10 +2,13 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, typography, borderRadius } from '../../../styles/theme';
 
+type AnswerOptionState = 'attempted' | 'notAttempted' | 'skipped';
+
 interface AnswerOptionProps {
     optionText: string;
     optionNumber: string;
     isSelected?: boolean;
+    state?: AnswerOptionState; // New prop for question state
     onPress?: () => void;
 }
 
@@ -13,8 +16,38 @@ const AnswerOption: React.FC<AnswerOptionProps> = ({
     optionText,
     optionNumber,
     isSelected = false,
+    state = 'notAttempted', // Default to not attempted
     onPress,
 }) => {
+    // Determine container style based on state
+    const getContainerStyle = () => {
+        if (isSelected) {
+            return [styles.optionContainer, styles.optionSelected];
+        }
+        switch (state) {
+            case 'attempted':
+                return [styles.optionContainer, styles.optionAttempted];
+            case 'skipped':
+                return [styles.optionContainer, styles.optionSkipped];
+            case 'notAttempted':
+            default:
+                return styles.optionContainer;
+        }
+    };
+
+    // Determine background shadow style based on state
+    const getBackgroundShadowStyle = () => {
+        switch (state) {
+            case 'attempted':
+                return [styles.backgroundShadow, styles.backgroundShadowAttempted];
+            case 'skipped':
+                return [styles.backgroundShadow, styles.backgroundShadowSkipped];
+            case 'notAttempted':
+            default:
+                return styles.backgroundShadow;
+        }
+    };
+
     return (
         <TouchableOpacity
             style={styles.container}
@@ -22,9 +55,9 @@ const AnswerOption: React.FC<AnswerOptionProps> = ({
             activeOpacity={0.7}
         >
             {/* Background shadow layer */}
-            <View style={styles.backgroundShadow} />
+            <View style={getBackgroundShadowStyle()} />
             {/* Option container */}
-            <View style={[styles.optionContainer, isSelected && styles.optionSelected]}>
+            <View style={getContainerStyle()}>
                 <Text style={styles.optionText} numberOfLines={2}>
                     {optionText}
                 </Text>
@@ -67,6 +100,22 @@ const styles = StyleSheet.create({
     optionSelected: {
         borderColor: colors.primaryBlue,
         borderWidth: 2,
+    },
+    optionAttempted: {
+        backgroundColor: '#E6F3FF', // Light blue background for attempted
+        borderColor: colors.primaryBlue,
+    },
+    optionSkipped: {
+        backgroundColor: '#FFF4E6', // Light orange/yellow background for skipped
+        borderColor: colors.reviewOrange,
+    },
+    backgroundShadowAttempted: {
+        backgroundColor: '#E6F3FF', // Light blue shadow for attempted
+        borderColor: colors.primaryBlue,
+    },
+    backgroundShadowSkipped: {
+        backgroundColor: '#FFF4E6', // Light orange/yellow shadow for skipped
+        borderColor: colors.reviewOrange,
     },
     optionText: {
         ...typography.p4,

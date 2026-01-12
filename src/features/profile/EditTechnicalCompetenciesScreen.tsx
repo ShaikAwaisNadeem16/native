@@ -91,14 +91,23 @@ const EditTechnicalCompetenciesScreen: React.FC = () => {
         try {
             // Map skills to format with skillId and skillName
             // Match skill names with skills from store/API to get correct skillId
-            const technicalSkills = skills.map((skillName) => {
-                // Find matching skill from store to get skillId
-                const matchingSkill = skillsFromStore?.find(skill => skill.skillName === skillName);
-                return {
-                    skillId: matchingSkill?.skillId || 0,
-                    skillName: skillName,
-                };
-            });
+            // Only include skills that have a valid skillId (greater than 0)
+            const technicalSkills = skills
+                .map((skillName) => {
+                    // Find matching skill from store to get skillId
+                    const matchingSkill = skillsFromStore?.find(skill => skill.skillName === skillName);
+                    const skillId = matchingSkill?.skillId;
+                    
+                    // Only include if we have a valid skillId
+                    if (skillId && skillId > 0) {
+                        return {
+                            skillId: skillId,
+                            skillName: skillName,
+                        };
+                    }
+                    return null;
+                })
+                .filter((skill): skill is { skillId: number; skillName: string } => skill !== null);
 
             // Prepare payload for PUT /api/student/user-profile
             const profileUpdateData = {
@@ -108,7 +117,10 @@ const EditTechnicalCompetenciesScreen: React.FC = () => {
             console.log('Saving technical competencies:', JSON.stringify(profileUpdateData, null, 2));
 
             // Call API to update technical competencies
-            await ProfileService.updateProfileDetails(profileUpdateData);
+            // Get existing profile data to merge with update
+            const existingData = profileDetails || profileData || {};
+            
+            await ProfileService.updateProfileDetails(profileUpdateData, existingData);
 
             // Refresh profile data after successful update
             await initializeHome();

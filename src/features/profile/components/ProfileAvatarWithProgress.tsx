@@ -124,8 +124,8 @@ const styles = StyleSheet.create({
         minWidth: 72, // Ensure minimum width
         minHeight: 75.471, // Ensure minimum height
         position: 'relative',
-        justifyContent: 'center',
-        alignItems: 'center',
+        justifyContent: 'center', // Center content vertically
+        alignItems: 'center', // Center content horizontally
         // Ensure container is visible
         zIndex: 1,
         overflow: 'visible', // Ensure all child elements are visible
@@ -237,6 +237,10 @@ const styles = StyleSheet.create({
         height: 24,
         top: -3,
         left: -3,
+        borderRadius: 12,
+        backgroundColor: colors.primaryBlue,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     editIconBgImage: {
         width: '100%',

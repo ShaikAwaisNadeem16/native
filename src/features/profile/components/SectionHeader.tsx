@@ -10,6 +10,7 @@ interface SectionHeaderProps {
     onEditPress?: () => void;
     onAddPress?: () => void;
     showAddIcon?: boolean; // If true, shows add icon, otherwise shows edit icon
+    showBothIcons?: boolean; // If true, shows both add and edit icons
 }
 
 const SectionHeader: React.FC<SectionHeaderProps> = ({
@@ -18,9 +19,9 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
     onEditPress,
     onAddPress,
     showAddIcon = false,
+    showBothIcons = false,
 }) => {
 
-    const handlePress = showAddIcon ? onAddPress : onEditPress;
     // Ensure completionPercentage is a valid number
     const safePercentage = typeof completionPercentage === 'number' && !isNaN(completionPercentage) ? completionPercentage : 0;
 
@@ -30,21 +31,32 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
                 <Text style={styles.title}>{title || ''}</Text>
                 <Text style={styles.completionText}>{safePercentage}% complete</Text>
             </View>
-            {(onEditPress || onAddPress) && (
-                <TouchableOpacity
-                    style={styles.iconButton}
-                    onPress={handlePress}
-                    activeOpacity={0.7}
-                >
-                    <View style={styles.iconContainer}>
-                        {showAddIcon ? (
+            <View style={styles.iconsContainer}>
+                {/* Show add icon if onAddPress is provided and (showAddIcon is true OR showBothIcons is true) */}
+                {onAddPress && (showAddIcon || showBothIcons) && (
+                    <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={onAddPress}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.iconContainer}>
                             <PlusIcon size={16} />
-                        ) : (
+                        </View>
+                    </TouchableOpacity>
+                )}
+                {/* Show edit icon if onEditPress is provided and (showAddIcon is false OR showBothIcons is true) */}
+                {onEditPress && (!showAddIcon || showBothIcons) && (
+                    <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={onEditPress}
+                        activeOpacity={0.7}
+                    >
+                        <View style={styles.iconContainer}>
                             <EditPencilIcon size={16} />
-                        )}
-                    </View>
-                </TouchableOpacity>
-            )}
+                        </View>
+                    </TouchableOpacity>
+                )}
+            </View>
         </View>
     );
 };
@@ -71,6 +83,12 @@ const styles = StyleSheet.create({
         ...typography.interRegular12,
         color: '#697077', // From Figma
         lineHeight: 13.56, // 1.13 * 12
+    },
+    iconsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        flexShrink: 0,
     },
     iconButton: {
         width: 32,

@@ -20,6 +20,7 @@ interface CollegeData {
     district: string;
     pinCode: string;
     collegeId?: string;
+    collegeLogo?: string;
 }
 
 const SignUpScreen: React.FC = () => {
@@ -46,28 +47,40 @@ const SignUpScreen: React.FC = () => {
                     setCollegeData(null);
 
                     try {
+                        console.log('[SignUpScreen] Calling authorizeEmail API with email:', emailValue);
                         const response = await AuthService.authorizeEmail(emailValue);
-                        if (response.authorized === false) {
+                        console.log('[SignUpScreen] AuthorizeEmail API Response:', JSON.stringify(response, null, 2));
+                        
+                        // Check if email is authorized based on API response structure
+                        const isAuthorizedEmail = response.authorizedEmail?.authorized === true || 
+                                                 response.message === 'Email found' ||
+                                                 (response.authorizedEmail && response.authorizedEmail.authorized !== false);
+                        
+                        if (!isAuthorizedEmail || !response.authorizedEmail) {
                             setIsAuthorized(false);
                             setCollegeData(null);
                             setEmailError(response.message || 'Email not authorized');
                         } else {
                             setIsAuthorized(true);
                             const college = response.authorizedEmail?.college || {};
+                            console.log('[SignUpScreen] College data from API:', JSON.stringify(college, null, 2));
+                            
                             setCollegeData({
-                                collegeName: college.collegeName || '',
+                                collegeName: college.college || college.collegeName || '',
                                 state: college.state || '',
                                 district: college.district || '',
-                                pinCode: college.pinCode || '',
+                                pinCode: college.pincode || college.pinCode || '',
                                 collegeId: response.authorizedEmail?.collegeId,
+                                collegeLogo: college.logo || '',
                             });
                             setEmailError('');
                         }
                     } catch (error: any) {
-                        console.error('Authorization error:', error);
+                        console.error('[SignUpScreen] Authorization error:', error);
+                        console.error('[SignUpScreen] Error response:', error?.response?.data);
                         setIsAuthorized(false);
                         setCollegeData(null);
-                        setEmailError(error?.message || 'Failed to verify email');
+                        setEmailError(error?.response?.data?.message || error?.message || 'Failed to verify email');
                     } finally {
                         setIsLoading(false);
                     }
@@ -124,8 +137,10 @@ const SignUpScreen: React.FC = () => {
             setEmailError('Please enter a valid authorized email');
             return;
         }
-        // Navigate to Verification OTP screen
-        navigation.navigate('VerificationOTP');
+        
+        // Navigate to Personal Details screen with email
+        console.log('[SignUpScreen] "This Is My College" clicked - Navigating to PersonalDetails with email:', email);
+        navigation.navigate('PersonalDetails', { email: email });
     };
 
     return (
@@ -181,17 +196,20 @@ const SignUpScreen: React.FC = () => {
                                         state={collegeData.state}
                                         district={collegeData.district}
                                         pinCode={collegeData.pinCode}
+                                        collegeImageUrl={collegeData.collegeLogo}
                                     />
                                 )}
                             </View>
 
-                        {/* Frame 16390 - Button Section */}
-                        <View style={styles.buttonSection}>
-                            <PrimaryButton
-                                label="This Is My College"
-                                onPress={handleCollegeConfirm}
-                            />
-                        </View>
+                        {/* Frame 16390 - Button Section - Only show if college data is available */}
+                        {isAuthorized && collegeData && (
+                            <View style={styles.buttonSection}>
+                                <PrimaryButton
+                                    label="This Is My College"
+                                    onPress={handleCollegeConfirm}
+                                />
+                            </View>
+                        )}
                     </View>
 
                     {/* Frame 16142 - Footer Text */}

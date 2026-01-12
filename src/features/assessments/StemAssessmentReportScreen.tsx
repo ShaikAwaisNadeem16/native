@@ -1,18 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Star, Flag, Check, X } from 'lucide-react-native';
+import { Star, Flag, Check, X, BarChart2, Target, Clock, Lock } from 'lucide-react-native';
 import { colors, typography, borderRadius } from '../../styles/theme';
 import Header from '../home/components/Header';
 import BreadcrumbBar from './components/BreadcrumbBar';
 import SummaryTable from './components/SummaryTable';
 import PrimaryButton from '../../components/SignUp/PrimaryButton';
+import SecondaryButton from '../../components/SignUp/SecondaryButton';
 import AssessmentLogo from '../../components/common/AssessmentLogo';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import AssessmentService from '../../api/assessment';
 import Storage from '../../utils/storage';
+import TrophySvg from '../../../assets/trophy.svg';
+import ErrorRocketSvg from '../../../assets/Error Rocket Destroyed.svg';
+import { CardSkeleton, ListSkeleton } from '../../components/common/SkeletonLoaders';
 
 // Icons removed - will be added later
 
@@ -76,38 +80,119 @@ const StemAssessmentReportScreen: React.FC = () => {
         fetchQuizReport();
     }, [lessonId]);
 
-    // Extract data from API response
-    const finalData = reportData?.final || {};
-    const questionsData = reportData?.questions || {};
-    const overallData = questionsData?.overall || {};
-    const sectionDetailsRaw = questionsData?.sectionDetails || {};
+    // Extract data from API response - handle multiple possible response structures
+    const finalData = reportData?.final || reportData?.result?.final || reportData?.quizResult?.final || {};
+    const questionsData = reportData?.questions || reportData?.result?.questions || reportData?.quizResult?.questions || {};
+    const overallData = questionsData?.overall || questionsData?.summary || {};
+    const sectionDetailsRaw = questionsData?.sectionDetails || questionsData?.sections || reportData?.sectionDetails || {};
 
-    // Determine if result is Pass or Fail
+    console.log('[StemAssessmentReportScreen] Extracted data:', {
+        finalData: JSON.stringify(finalData, null, 2),
+        overallData: JSON.stringify(overallData, null, 2),
+        sectionDetailsRaw: JSON.stringify(sectionDetailsRaw, null, 2),
+    });
+
+    // Determine if result is Pass or Fail - check multiple possible fields
     const isPass = finalData?.pass === true || 
                    reportData?.pass === true ||
+                   reportData?.result?.pass === true ||
+                   reportData?.quizResult?.pass === true ||
+                   finalData?.quizStatus?.toLowerCase() === 'pass' ||
+                   finalData?.quizStatus?.toLowerCase() === 'cleared' ||
                    finalData?.quizStatus?.toLowerCase().includes('cleared') ||
-                   (finalData?.quizStatus !== 'Fail' && finalData?.pass !== false && 
-                    finalData?.message?.toLowerCase().includes('pass'));
+                   finalData?.status?.toLowerCase() === 'pass' ||
+                   (finalData?.quizStatus !== 'Fail' && 
+                    finalData?.status !== 'Fail' &&
+                    finalData?.pass !== false && 
+                    (finalData?.message?.toLowerCase().includes('pass') ||
+                     finalData?.message?.toLowerCase().includes('cleared') ||
+                     finalData?.message?.toLowerCase().includes('success')));
     
     const finalResult = isPass ? 'Pass' : 'Fail';
-    // Use scoredMarks and totalMarks from overall data
-    const scoredMarks = overallData?.scoredMarks || 0;
-    const totalMarks = overallData?.totalMarks || 0;
-    const finalScoreDisplay = `${scoredMarks}/${totalMarks}`;
+    // Use scoredMarks and totalMarks from overall data - check multiple possible fields
+    const scoredMarks = overallData?.scoredMarks || 
+                       overallData?.marksScored || 
+                       finalData?.scoredMarks || 
+                       finalData?.marksScored ||
+                       reportData?.scoredMarks || 
+                       0;
+    const totalMarks = overallData?.totalMarks || 
+                      overallData?.totalMarks || 
+                      finalData?.totalMarks || 
+                      reportData?.totalMarks || 
+                      0;
+    const finalScoreDisplay = totalMarks > 0 ? `${scoredMarks}/${totalMarks}` : '0/0';
+
+    // Calculate percentage score for success screen
+    const percentageScore = totalMarks > 0 ? Math.round((scoredMarks / totalMarks) * 100) : 0;
+    const finalScorePercentage = `${percentageScore}%`;
 
     // Message from API - use API message or fallback based on pass/fail
     const message = finalData?.message || 
-                    (isPass ? 'Congratulations on clearing the assessment!' : 'You did not pass this assessment. Please review and try again.');
+                   reportData?.message ||
+                   finalData?.resultMessage ||
+                   (isPass ? 'Congratulations on clearing the assessment!' : 'You did not pass this assessment. Please review and try again.');
     
     // Failure reason from API (if present)
-    const failReason = finalData?.failReason || '';
+    const failReason = finalData?.failReason || 
+                      finalData?.failureReason || 
+                      reportData?.failReason || 
+                      '';
 
-    // Time taken from API
-    const timeTaken = finalData?.timeTaken || '';
+    // Time taken from API - format for display - check multiple possible fields
+    const timeTakenRaw = finalData?.timeTaken || 
+                        finalData?.timeSpent || 
+                        reportData?.timeTaken || 
+                        reportData?.timeSpent ||
+                        overallData?.timeTaken ||
+                        '';
+    // Format time taken (e.g., "01m 15s" or "1h 30m")
+    const formatTimeTaken = (timeStr: string): string => {
+        if (!timeStr) return '00m 00s';
+        // If already formatted, return as is
+        if (timeStr.includes('m') || timeStr.includes('s') || timeStr.includes('h')) {
+            return timeStr;
+        }
+        // If it's a number (seconds), convert to mm:ss format
+        const seconds = parseInt(timeStr, 10);
+        if (!isNaN(seconds)) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+        }
+        return timeStr;
+    };
+    const timeTaken = formatTimeTaken(timeTakenRaw);
 
-    // Correct answers
-    const correctAnswers = finalData?.correctAnswers || overallData?.correctQuestions || 0;
-    const totalQuestions = overallData?.totalQuestions || 0;
+    // Correct answers - format as "X/Y" - check multiple possible fields
+    const correctAnswers = finalData?.correctAnswers || 
+                          finalData?.correctQuestions ||
+                          overallData?.correctAnswers || 
+                          overallData?.correctQuestions || 
+                          reportData?.correctAnswers ||
+                          scoredMarks;
+    const totalQuestions = overallData?.totalQuestions || 
+                          overallData?.totalQuestionsCount ||
+                          finalData?.totalQuestions ||
+                          reportData?.totalQuestions ||
+                          totalMarks || 
+                          0;
+    const correctAnswersDisplay = totalQuestions > 0 ? `${correctAnswers}/${totalQuestions}` : '0/0';
+
+    // Reattempt days from API (default to 60 days)
+    const reattemptDays = finalData?.reattemptDays || 
+                         finalData?.retryAfterDays ||
+                         reportData?.reattemptDays || 
+                         reportData?.retryAfterDays ||
+                         60;
+    const reattemptDaysDisplay = `${reattemptDays} Days`;
+
+    // Minimum score required (from API or default 50%)
+    const minimumScore = finalData?.minimumScore || 
+                        finalData?.passingScore ||
+                        reportData?.minimumScore || 
+                        reportData?.passingScore ||
+                        50;
 
     // Build table data from sectionDetails
     // sectionDetails can be an object (key-value pairs) or an array
@@ -231,6 +316,167 @@ const StemAssessmentReportScreen: React.FC = () => {
     // Render main report screen (with or without data - will show loading if data is being fetched)
     console.log('[StemAssessmentReportScreen] Rendering report screen - loading:', loading, 'hasData:', !!reportData, 'error:', error);
     
+    // If assessment is failed, show failed screen matching Figma design
+    if (!isPass && !loading && reportData) {
+        return (
+            <SafeAreaView style={styles.failedContainer} edges={['top', 'bottom']}>
+                {/* Main Content - Centered */}
+                <View style={styles.failedContent}>
+                    {/* Rocket Section */}
+                    <View style={styles.rocketSection}>
+                        <ErrorRocketSvg width={138} height={211} />
+                    </View>
+
+                    {/* Title and Stats Section */}
+                    <View style={styles.failedStatsSection}>
+                        {/* Title */}
+                        <View style={styles.failedTitleContainer}>
+                            <Text style={styles.failedTitle}>Assessment Failed</Text>
+                        </View>
+
+                        {/* Warning Message Box */}
+                        <View style={styles.failedWarningBox}>
+                            <Text style={styles.failedWarningText}>
+                                <Text>You must </Text>
+                                <Text style={styles.failedWarningBold}>score at least {minimumScore}% </Text>
+                                <Text>in-order to clear the test. You must now reattempt the STEM Assessment and the Engineering Systems Assessment in </Text>
+                                <Text style={styles.failedWarningBold}>{reattemptDaysDisplay}</Text>
+                            </Text>
+                        </View>
+
+                        {/* Statistics Cards */}
+                        <View style={styles.failedStatsContainer}>
+                            {/* Final Score */}
+                            <View style={styles.failedStatCard}>
+                                <Text style={styles.failedStatLabel}>Final Score</Text>
+                                <View style={styles.failedStatValueContainer}>
+                                    <BarChart2 size={24} color={colors.primaryBlue} />
+                                    <Text style={styles.failedStatValue}>{finalScorePercentage}</Text>
+                                </View>
+                            </View>
+
+                            {/* Correct Answers */}
+                            <View style={styles.failedStatCard}>
+                                <Text style={styles.failedStatLabel}>Correct Answers</Text>
+                                <View style={styles.failedStatValueContainer}>
+                                    <Target size={24} color={colors.primaryBlue} />
+                                    <Text style={styles.failedStatValue}>{correctAnswersDisplay}</Text>
+                                </View>
+                            </View>
+
+                            {/* Time Taken */}
+                            <View style={styles.failedStatCard}>
+                                <Text style={styles.failedStatLabel}>Time Taken</Text>
+                                <View style={styles.failedStatValueContainer}>
+                                    <Clock size={24} color={colors.primaryBlue} />
+                                    <Text style={styles.failedStatValue}>{timeTaken}</Text>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Bottom Action Buttons */}
+                <View style={styles.failedActionsContainer}>
+                    <View style={styles.failedButtonWrapper}>
+                        <TouchableOpacity
+                            style={styles.reattemptButton}
+                            disabled={true}
+                            activeOpacity={0.7}
+                        >
+                            <Lock size={24} color="#72818c" />
+                            <Text style={styles.reattemptButtonText}>
+                                Reattempt in {reattemptDaysDisplay}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                    <View style={styles.failedButtonWrapper}>
+                        <SecondaryButton
+                            label="Home"
+                            onPress={handleBackToHomepage}
+                        />
+                    </View>
+                </View>
+            </SafeAreaView>
+        );
+    }
+    
+    // If assessment is passed, show success screen matching Figma design
+    if (isPass && !loading && reportData) {
+        return (
+            <SafeAreaView style={styles.successContainer} edges={['top', 'bottom']}>
+                {/* Main Content - Centered */}
+                <View style={styles.successContent}>
+                    {/* Trophy with Confetti Section */}
+                    <View style={styles.trophySection}>
+                        <View style={styles.confettiContainer}>
+                            {/* Confetti background - placeholder for now */}
+                            <View style={styles.confettiPlaceholder} />
+                        </View>
+                        <View style={styles.trophyContainer}>
+                            <TrophySvg width={190} height={190} />
+                        </View>
+                    </View>
+
+                    {/* Title and Stats Section */}
+                    <View style={styles.successStatsSection}>
+                        {/* Title */}
+                        <View style={styles.successTitleContainer}>
+                            <Text style={styles.successTitle}>Assessment Cleared!</Text>
+                        </View>
+
+                        {/* Statistics Cards */}
+                        <View style={styles.successStatsContainer}>
+                            {/* Final Score */}
+                            <View style={styles.successStatCard}>
+                                <Text style={styles.successStatLabel}>Final Score</Text>
+                                <View style={styles.successStatValueContainer}>
+                                    <BarChart2 size={24} color={colors.primaryBlue} />
+                                    <Text style={styles.successStatValue}>{finalScorePercentage}</Text>
+                                </View>
+                            </View>
+
+                            {/* Correct Answers */}
+                            <View style={styles.successStatCard}>
+                                <Text style={styles.successStatLabel}>Correct Answers</Text>
+                                <View style={styles.successStatValueContainer}>
+                                    <Target size={24} color={colors.primaryBlue} />
+                                    <Text style={styles.successStatValue}>{correctAnswersDisplay}</Text>
+                                </View>
+                            </View>
+
+                            {/* Time Taken */}
+                            <View style={styles.successStatCard}>
+                                <Text style={styles.successStatLabel}>Time Taken</Text>
+                                <View style={styles.successStatValueContainer}>
+                                    <Clock size={24} color={colors.primaryBlue} />
+                                    <Text style={styles.successStatValue}>{timeTaken}</Text>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Bottom Action Buttons */}
+                <View style={styles.successActionsContainer}>
+                    <View style={styles.successButtonWrapper}>
+                        <PrimaryButton
+                            label="Continue"
+                            onPress={handleBackToHomepage}
+                        />
+                    </View>
+                    <View style={styles.successButtonWrapper}>
+                        <SecondaryButton
+                            label="Home"
+                            onPress={handleBackToHomepage}
+                        />
+                    </View>
+                </View>
+            </SafeAreaView>
+        );
+    }
+    
+    // Render regular report screen for failed assessments or when data is not ready
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
@@ -537,6 +783,218 @@ const styles = StyleSheet.create({
     failReasonText: {
         ...typography.p4,
         color: colors.error || '#EB5757',
+        textAlign: 'center',
+    },
+    // Success Screen Styles (Figma design node 7875-74947)
+    successContainer: {
+        flex: 1,
+        backgroundColor: colors.white,
+    },
+    successContent: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        gap: 48,
+    },
+    trophySection: {
+        width: 328.227,
+        height: 211.98,
+        position: 'relative',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    confettiContainer: {
+        position: 'absolute',
+        width: 328.321,
+        height: 182.219,
+        top: 14.89, // Centered vertically
+        left: -0.047, // Centered horizontally
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    confettiPlaceholder: {
+        width: '100%',
+        height: '100%',
+        // Confetti will be added as an image asset later
+        // For now, using a subtle background
+        backgroundColor: 'transparent',
+    },
+    trophyContainer: {
+        position: 'absolute',
+        width: 190,
+        height: 190,
+        top: 11, // Positioned below confetti
+        left: 69.14, // Centered horizontally
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    successStatsSection: {
+        width: '100%',
+        alignItems: 'center',
+        gap: 16,
+    },
+    successTitleContainer: {
+        alignItems: 'center',
+        gap: 4,
+    },
+    successTitle: {
+        ...typography.h6, // 20px Bold, line-height 24px
+        color: colors.primaryDarkBlue,
+        textAlign: 'center',
+    },
+    successStatsContainer: {
+        width: '100%',
+        gap: 16,
+    },
+    successStatCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 18,
+        borderWidth: 2,
+        borderColor: colors.lightGrey,
+        borderRadius: borderRadius.input, // 8px
+        backgroundColor: colors.white,
+        gap: 32,
+        minHeight: 56,
+    },
+    successStatLabel: {
+        ...typography.p4, // 14px Regular, line-height 20px
+        color: colors.textGrey,
+        flex: 1,
+    },
+    successStatValueContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 7,
+    },
+    successStatValue: {
+        ...typography.p3Bold, // 16px Bold, line-height 23px
+        color: colors.primaryBlue,
+    },
+    successActionsContainer: {
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+        gap: 16,
+        borderTopWidth: 1,
+        borderTopColor: colors.lightGrey,
+        backgroundColor: colors.white,
+    },
+    successButtonWrapper: {
+        width: '100%',
+        minWidth: 140,
+    },
+    // Failed Screen Styles (Figma design node 7875-75038)
+    failedContainer: {
+        flex: 1,
+        backgroundColor: colors.white,
+    },
+    failedContent: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        gap: 48,
+    },
+    rocketSection: {
+        width: 138,
+        height: 211,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    failedStatsSection: {
+        width: 328,
+        alignItems: 'center',
+        gap: 32,
+    },
+    failedTitleContainer: {
+        alignItems: 'center',
+        gap: 4,
+    },
+    failedTitle: {
+        ...typography.h6, // 20px Bold, line-height 24px
+        color: colors.primaryDarkBlue,
+        textAlign: 'center',
+    },
+    failedWarningBox: {
+        backgroundColor: '#fcefdc', // Light orange background
+        borderWidth: 0.5,
+        borderColor: '#eb5757', // Red/orange border
+        borderRadius: borderRadius.input, // 8px
+        padding: 12,
+        width: '100%',
+        gap: 12,
+    },
+    failedWarningText: {
+        ...typography.p4, // 14px Regular, line-height 20px
+        color: '#eb5757', // Red/orange text
+        textAlign: 'left',
+    },
+    failedWarningBold: {
+        ...typography.p4SemiBold, // 14px SemiBold
+        color: '#eb5757',
+    },
+    failedStatsContainer: {
+        width: '100%',
+        gap: 16,
+    },
+    failedStatCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 16,
+        paddingVertical: 18,
+        borderWidth: 2,
+        borderColor: colors.lightGrey,
+        borderRadius: borderRadius.input, // 8px
+        backgroundColor: colors.white,
+        gap: 32,
+        minHeight: 56,
+    },
+    failedStatLabel: {
+        ...typography.p4, // 14px Regular, line-height 20px
+        color: colors.textGrey,
+        flex: 1,
+    },
+    failedStatValueContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 7,
+    },
+    failedStatValue: {
+        ...typography.p3Bold, // 16px Bold, line-height 23px
+        color: colors.primaryBlue,
+    },
+    failedActionsContainer: {
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+        gap: 16,
+        borderTopWidth: 1,
+        borderTopColor: colors.lightGrey,
+        backgroundColor: colors.white,
+    },
+    failedButtonWrapper: {
+        width: '100%',
+        minWidth: 140,
+    },
+    reattemptButton: {
+        backgroundColor: '#ededed', // Light gray background
+        borderRadius: borderRadius.input, // 8px
+        paddingHorizontal: 24,
+        paddingVertical: 10,
+        width: '100%',
+        minWidth: 140,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        opacity: 1, // Disabled state
+    },
+    reattemptButtonText: {
+        ...typography.p4SemiBold, // 14px SemiBold
+        color: '#72818c', // Gray text
         textAlign: 'center',
     },
 });

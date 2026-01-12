@@ -18,6 +18,7 @@ interface PhoneInputFieldProps {
     countryFlag?: string;
     error?: string;
     disabled?: boolean;
+    onValidationChange?: (isValid: boolean, errorMessage?: string) => void;
 }
 
 const PhoneInputField: React.FC<PhoneInputFieldProps> = ({
@@ -26,7 +27,8 @@ const PhoneInputField: React.FC<PhoneInputFieldProps> = ({
     countryCode = '+91',
     countryFlag = 'https://www.figma.com/api/mcp/asset/6c4d43ed-16ac-4867-a1e9-20b023ca4da8', // India flag from Figma
     error,
-    disabled = false
+    disabled = false,
+    onValidationChange
 }) => {
     const [isFocused, setIsFocused] = useState(false);
     const [showCountryPicker, setShowCountryPicker] = useState(false);

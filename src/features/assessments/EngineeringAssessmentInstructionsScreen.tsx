@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { colors, typography, borderRadius } from '../../styles/theme';
+import { colors, typography } from '../../styles/theme';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { AssignmentService } from '../../api/assignment';
+import { AssessmentService } from '../../api/assessment';
 import AssessmentHeaderCard from './components/AssessmentHeaderCard';
-import AssessmentInstructionsSection from './components/AssessmentInstructionsSection';
+import AssessmentInstructionsCard from './components/AssessmentInstructionsCard';
+import AssessmentInstructionsFooter from './components/AssessmentInstructionsFooter';
 import { CardSkeleton } from '../../components/common/SkeletonLoaders';
+import { parseInstructionsFromHTML, InstructionItem } from './utils/htmlParser';
+import { Bookmark } from 'lucide-react-native';
+import TestQuestionTag from './components/TestQuestionTag';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'EngineeringAssessmentInstructions'>;
@@ -24,84 +28,11 @@ interface QuizData {
     btntext?: string;
     questions?: string;
     html?: string;
+    isXPShow?: boolean;
+    eligible?: boolean;
+    warnMsg?: string;
 }
 
-interface LessonContentsResponse {
-    quiz_data?: QuizData;
-}
-
-/**
- * Parses HTML content to extract instructions
- * Extracts "About The Assessment" and "Instructions" sections from HTML
- */
-const parseInstructionsFromHTML = (html: string): {
-    aboutText?: string;
-    instructions: Array<{ text: string }>;
-} => {
-    if (!html) {
-        return { instructions: [] };
-    }
-
-    const instructions: Array<{ text: string }> = [];
-    let aboutText: string | undefined;
-
-    try {
-        // Extract "About The Assessment" section - match the pattern from the API response
-        // Pattern: <div style="...">About The Assessment</div><p style="...">...</p>
-        const aboutMatch = html.match(/<div[^>]*>About The Assessment<\/div>\s*<p[^>]*>([^<]+)<\/p>/i);
-        if (aboutMatch && aboutMatch[1]) {
-            aboutText = aboutMatch[1].trim();
-        }
-
-        // Extract "Instructions" section - find the section after "Instructions" heading
-        // Pattern: <p style="...">Instructions</p><ul style="...">...</ul>
-        const instructionsSectionMatch = html.match(/<p[^>]*>Instructions<\/p>\s*<ul[^>]*>([\s\S]*?)<\/ul>/i);
-        
-        if (instructionsSectionMatch && instructionsSectionMatch[1]) {
-            const instructionsHTML = instructionsSectionMatch[1];
-            // Extract all <li> items from the instructions section
-            const liMatches = instructionsHTML.matchAll(/<li[^>]*>([^<]+)<\/li>/gi);
-            for (const match of liMatches) {
-                if (match[1]) {
-                    const text = match[1].trim();
-                    if (text.length > 0) {
-                        instructions.push({ text });
-                    }
-                }
-            }
-        } else {
-            // Fallback: Extract all <li> tags from the entire HTML
-            const liMatches = html.matchAll(/<li[^>]*>([^<]+)<\/li>/gi);
-            for (const match of liMatches) {
-                if (match[1]) {
-                    const text = match[1].trim();
-                    // Skip if it's part of "About The Assessment" section or empty
-                    if (!text.toLowerCase().includes('about') && text.length > 0) {
-                        instructions.push({ text });
-                    }
-                }
-            }
-        }
-
-        // If still no instructions found, try alternative patterns
-        if (instructions.length === 0) {
-            // Try to find any list items that might be instructions
-            const allLiMatches = html.matchAll(/<li[^>]*style[^>]*>([^<]+)<\/li>/gi);
-            for (const match of allLiMatches) {
-                if (match[1]) {
-                    const text = match[1].trim();
-                    if (text.length > 0 && !text.toLowerCase().includes('about')) {
-                        instructions.push({ text });
-                    }
-                }
-            }
-        }
-    } catch (error) {
-        console.error('[EngineeringAssessmentInstructions] Error parsing HTML:', error);
-    }
-
-    return { aboutText, instructions };
-};
 
 /**
  * Engineering Assessment Instructions Screen
@@ -112,9 +43,12 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
     const route = useRoute<RouteProps>();
     const [loading, setLoading] = useState(true);
     const [quizData, setQuizData] = useState<QuizData | null>(null);
-    const [aboutText, setAboutText] = useState<string | undefined>();
-    const [instructions, setInstructions] = useState<Array<{ text: string }>>([]);
+    const [aboutItems, setAboutItems] = useState<InstructionItem[]>([]);
+    const [instructions, setInstructions] = useState<InstructionItem[]>([]);
+    const [procedureItems, setProcedureItems] = useState<InstructionItem[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [agreementChecked, setAgreementChecked] = useState(false);
+    const [startingQuiz, setStartingQuiz] = useState(false);
 
     // Extract lessonId (moodleCourseId) from route params
     const lessonId = route.params?.lessonId || route.params?.moodleCourseId;
@@ -131,51 +65,215 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                 setLoading(true);
                 setError(null);
 
+                console.log('========================================');
+                console.log('[EngineeringAssessmentInstructions] ===== API CALL START =====');
                 console.log('[EngineeringAssessmentInstructions] Fetching lesson contents for lessonId:', lessonId);
+                console.log('[EngineeringAssessmentInstructions] Route params:', JSON.stringify(route.params, null, 2));
 
-                const response: LessonContentsResponse = await AssignmentService.getLessonContents(lessonId);
+                // Use the new API endpoint /api/lms/lj/contents/lesson
+                const response = await AssessmentService.getLessonContents(lessonId);
 
-                console.log('[EngineeringAssessmentInstructions] Response received:', JSON.stringify(response, null, 2));
+                console.log('========================================');
+                console.log('[EngineeringAssessmentInstructions] ===== API RESPONSE RECEIVED =====');
+                console.log('[EngineeringAssessmentInstructions] Full API Response:', JSON.stringify(response, null, 2));
+                console.log('[EngineeringAssessmentInstructions] Response type:', typeof response);
+                console.log('[EngineeringAssessmentInstructions] Response keys:', response ? Object.keys(response) : 'null/undefined');
 
-                if (response.quiz_data) {
-                    setQuizData(response.quiz_data);
+                // Log individual fields from response
+                if (response) {
+                    console.log('[EngineeringAssessmentInstructions] shortName:', response.shortName);
+                    console.log('[EngineeringAssessmentInstructions] title:', response.title);
+                    console.log('[EngineeringAssessmentInstructions] description:', response.description);
+                    console.log('[EngineeringAssessmentInstructions] duration:', response.duration);
+                    console.log('[EngineeringAssessmentInstructions] questions:', response.questions);
+                    console.log('[EngineeringAssessmentInstructions] btntext:', response.btntext);
+                    console.log('[EngineeringAssessmentInstructions] terms:', response.terms);
+                    console.log('[EngineeringAssessmentInstructions] html length:', response.html ? response.html.length : 'null/undefined');
+                    console.log('[EngineeringAssessmentInstructions] html preview:', response.html ? response.html.substring(0, 200) + '...' : 'null/undefined');
+                }
+
+                // The new API returns data directly (not wrapped in quiz_data)
+                if (response) {
+                    // Map the response to quizData format
+                    const quizData: QuizData = {
+                        shortName: response.shortName,
+                        title: response.title,
+                        description: response.description,
+                        duration: response.duration,
+                        quizDetails: response.quizDetails,
+                        section: response.section,
+                        terms: response.terms,
+                        btntext: response.btntext,
+                        questions: response.questions,
+                        html: response.html,
+                    };
+                    
+                    console.log('========================================');
+                    console.log('[EngineeringAssessmentInstructions] ===== QUIZ DATA MAPPED =====');
+                    console.log('[EngineeringAssessmentInstructions] Mapped QuizData:', JSON.stringify(quizData, null, 2));
+                    console.log('[EngineeringAssessmentInstructions] QuizData keys:', Object.keys(quizData));
+                    
+                    setQuizData(quizData);
 
                     // Parse HTML to extract instructions
-                    if (response.quiz_data.html) {
-                        const parsed = parseInstructionsFromHTML(response.quiz_data.html);
-                        setAboutText(parsed.aboutText || response.quiz_data.description);
-                        setInstructions(parsed.instructions);
+                    if (response.html) {
+                        console.log('[EngineeringAssessmentInstructions] Parsing HTML for instructions...');
+                        const parsed = parseInstructionsFromHTML(response.html);
+                        console.log('[EngineeringAssessmentInstructions] Parsed aboutItems:', parsed.aboutItems?.length || 0);
+                        console.log('[EngineeringAssessmentInstructions] Parsed instructions:', parsed.instructions?.length || 0);
+                        console.log('[EngineeringAssessmentInstructions] Parsed procedureItems:', parsed.procedureItems?.length || 0);
+                        
+                        setAboutItems(parsed.aboutItems || []);
+                        setInstructions(parsed.instructions || []);
+                        setProcedureItems(parsed.procedureItems || []);
                     } else {
-                        // Fallback: use description as about text
-                        setAboutText(response.quiz_data.description);
+                        console.log('[EngineeringAssessmentInstructions] No HTML found');
                     }
+                    
+                    console.log('========================================');
+                    console.log('[EngineeringAssessmentInstructions] ===== STATE UPDATED =====');
+                    console.log('[EngineeringAssessmentInstructions] Final aboutText:', aboutText || response.description);
+                    console.log('[EngineeringAssessmentInstructions] Final instructions count:', instructions.length);
+                    console.log('[EngineeringAssessmentInstructions] Button text will be: "Start Assessment" (hardcoded)');
+                    console.log('========================================');
                 } else {
-                    setError('No quiz data found in response');
+                    console.error('[EngineeringAssessmentInstructions] ERROR: No data found in response');
+                    setError('No data found in response');
                 }
             } catch (err: any) {
-                console.error('[EngineeringAssessmentInstructions] Error fetching lesson contents:', err);
+                console.error('========================================');
+                console.error('[EngineeringAssessmentInstructions] ===== ERROR OCCURRED =====');
+                console.error('[EngineeringAssessmentInstructions] Error type:', typeof err);
+                console.error('[EngineeringAssessmentInstructions] Error message:', err?.message);
+                console.error('[EngineeringAssessmentInstructions] Error stack:', err?.stack);
+                console.error('[EngineeringAssessmentInstructions] Error response:', err?.response ? JSON.stringify(err.response, null, 2) : 'No response');
+                console.error('[EngineeringAssessmentInstructions] Error response data:', err?.response?.data ? JSON.stringify(err.response.data, null, 2) : 'No response data');
+                console.error('[EngineeringAssessmentInstructions] Error response status:', err?.response?.status);
+                console.error('[EngineeringAssessmentInstructions] Full error object:', JSON.stringify(err, null, 2));
+                console.error('========================================');
+                
+                // Check if this is a STEM assessment (500 error might mean API doesn't support this lessonId)
+                // Check lessonId pattern or route params to determine if it's STEM
+                const isStemAssessment = lessonId?.includes('LID-A-0019') || 
+                                        lessonId?.includes('STEM') ||
+                                        route.params?.title?.toLowerCase().includes('stem');
+                
+                if (isStemAssessment && err?.response?.status === 500) {
+                    console.log('[EngineeringAssessmentInstructions] Detected STEM assessment with 500 error, navigating to StemAssessmentInstructions');
+                    // Navigate to STEM Assessment Instructions screen (doesn't require API)
+                    navigation.replace('StemAssessmentInstructions');
+                    return;
+                }
+                
                 setError(err?.message || 'Failed to load assessment instructions');
                 Alert.alert('Error', 'Failed to load assessment instructions. Please try again.');
             } finally {
                 setLoading(false);
+                console.log('[EngineeringAssessmentInstructions] Loading set to false');
             }
         };
 
         fetchLessonContents();
     }, [lessonId]);
 
-    const handleStartAssessment = () => {
+    const handleStartAssessment = async () => {
+        if (!agreementChecked) {
+            Alert.alert('Required', 'Please read and agree to the terms before starting the assessment.');
+            return;
+        }
+        console.log('========================================');
+        console.log('[EngineeringAssessmentInstructions] ===== START ASSESSMENT BUTTON CLICKED =====');
+        console.log('[EngineeringAssessmentInstructions] Current lessonId:', lessonId);
+        console.log('[EngineeringAssessmentInstructions] Current quizData:', quizData ? JSON.stringify(quizData, null, 2) : 'null');
+        console.log('[EngineeringAssessmentInstructions] Current aboutText:', aboutText);
+        console.log('[EngineeringAssessmentInstructions] Current instructions count:', instructions.length);
+        
         if (!lessonId) {
+            console.error('[EngineeringAssessmentInstructions] ERROR: No lesson ID available');
             Alert.alert('Error', 'No lesson ID available');
             return;
         }
 
-        // Navigate to Survey Assessment Questions screen
-        console.log('[EngineeringAssessmentInstructions] Starting assessment with lessonId:', lessonId);
-        navigation.navigate('SurveyAssessmentQuestions', {
-            lessonId,
-            moodleCourseId: lessonId,
-        });
+        try {
+            setStartingQuiz(true);
+            
+            // Call API to start the quiz attempt
+            console.log('========================================');
+            console.log('[EngineeringAssessmentInstructions] ===== CALLING START QUIZ API =====');
+            console.log('[EngineeringAssessmentInstructions] API: POST /api/lms/attempt/quiz');
+            console.log('[EngineeringAssessmentInstructions] Payload:', JSON.stringify({
+                lessonId,
+                page: 'start',
+            }, null, 2));
+
+            const startQuizResponse = await AssessmentService.attemptQuiz({
+                lessonId,
+                page: 'start',
+            });
+
+            console.log('========================================');
+            console.log('[EngineeringAssessmentInstructions] ===== START QUIZ API RESPONSE =====');
+            console.log('[EngineeringAssessmentInstructions] Full API Response:', JSON.stringify(startQuizResponse, null, 2));
+            console.log('[EngineeringAssessmentInstructions] Response type:', typeof startQuizResponse);
+            console.log('[EngineeringAssessmentInstructions] Response keys:', startQuizResponse ? Object.keys(startQuizResponse) : 'null/undefined');
+
+            // Log questionData structure
+            if (startQuizResponse?.questionData) {
+                console.log('[EngineeringAssessmentInstructions] QuestionData exists');
+                console.log('[EngineeringAssessmentInstructions] QuestionData keys (sections):', Object.keys(startQuizResponse.questionData));
+                console.log('[EngineeringAssessmentInstructions] QuestionData:', JSON.stringify(startQuizResponse.questionData, null, 2));
+                
+                // Log question counts per section
+                Object.keys(startQuizResponse.questionData).forEach((section) => {
+                    const questions = startQuizResponse.questionData[section];
+                    console.log(`[EngineeringAssessmentInstructions] Section "${section}": ${Array.isArray(questions) ? questions.length : 0} questions`);
+                });
+            } else {
+                console.warn('[EngineeringAssessmentInstructions] WARNING: questionData not found in response');
+            }
+
+            // Log attemptId and result
+            if (startQuizResponse?.attemptId) {
+                console.log('[EngineeringAssessmentInstructions] AttemptId:', startQuizResponse.attemptId);
+            }
+            if (startQuizResponse?.result) {
+                console.log('[EngineeringAssessmentInstructions] Result:', JSON.stringify(startQuizResponse.result, null, 2));
+            }
+
+            // Navigate to Survey Assessment Questions screen with question data
+            console.log('========================================');
+            console.log('[EngineeringAssessmentInstructions] ===== NAVIGATING TO QUESTIONS SCREEN =====');
+            console.log('[EngineeringAssessmentInstructions] Navigation params:');
+            console.log('[EngineeringAssessmentInstructions] - lessonId:', lessonId);
+            console.log('[EngineeringAssessmentInstructions] - moodleCourseId:', lessonId);
+            console.log('[EngineeringAssessmentInstructions] - attemptId:', startQuizResponse?.attemptId);
+            console.log('[EngineeringAssessmentInstructions] - questionData exists:', !!startQuizResponse?.questionData);
+            console.log('[EngineeringAssessmentInstructions] - result exists:', !!startQuizResponse?.result);
+            console.log('========================================');
+            
+            navigation.navigate('SurveyAssessmentQuestions', {
+                lessonId,
+                moodleCourseId: lessonId,
+                attemptId: startQuizResponse?.attemptId,
+                questionData: startQuizResponse?.questionData,
+                quizResult: startQuizResponse?.result,
+            });
+        } catch (error: any) {
+            console.error('========================================');
+            console.error('[EngineeringAssessmentInstructions] ===== ERROR STARTING QUIZ =====');
+            console.error('[EngineeringAssessmentInstructions] Error type:', typeof error);
+            console.error('[EngineeringAssessmentInstructions] Error message:', error?.message);
+            console.error('[EngineeringAssessmentInstructions] Error stack:', error?.stack);
+            console.error('[EngineeringAssessmentInstructions] Error response:', error?.response ? JSON.stringify(error.response, null, 2) : 'No response');
+            console.error('[EngineeringAssessmentInstructions] Error response data:', error?.response?.data ? JSON.stringify(error.response.data, null, 2) : 'No response data');
+            console.error('[EngineeringAssessmentInstructions] Error response status:', error?.response?.status);
+            console.error('[EngineeringAssessmentInstructions] Full error object:', JSON.stringify(error, null, 2));
+            console.error('========================================');
+            
+            Alert.alert('Error', 'Failed to start assessment. Please try again.');
+        } finally {
+            setStartingQuiz(false);
+        }
     };
 
     if (loading) {
@@ -218,6 +316,30 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
         },
     ];
 
+    // Legend items
+    const legendItems = [
+        {
+            tag: <TestQuestionTag questionNo="1" state="Unanswered" />,
+            label: 'Not Visited/Unanswered Question',
+        },
+        {
+            tag: <TestQuestionTag questionNo="1" state="Selected" />,
+            label: 'Current Question',
+        },
+        {
+            tag: <TestQuestionTag questionNo="1" state="Answered" />,
+            label: 'Answered Question',
+        },
+        {
+            tag: <TestQuestionTag questionNo="1" state="Review Unanswered" />,
+            label: 'Unanswered and Marked for Review',
+        },
+        {
+            tag: <TestQuestionTag questionNo="1" state="Review Answered" />,
+            label: 'Answered and Marked for Review',
+        },
+    ];
+
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <ScrollView
@@ -231,27 +353,29 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                     description={quizData.description || ''}
                     duration={quizData.duration}
                     questions={questionsText}
+                    section={quizData.section}
                 />
 
-                {/* Instructions Section */}
+                {/* Instructions Card */}
                 <View style={styles.instructionsContainer}>
-                    <AssessmentInstructionsSection
-                        aboutText={aboutText || quizData.description}
+                    <AssessmentInstructionsCard
+                        aboutItems={aboutItems}
                         instructions={instructions}
+                        procedureItems={procedureItems}
                         navigationItems={navigationItems}
+                        legendItems={legendItems}
                     />
                 </View>
 
-                {/* Start Assessment Button */}
-                <TouchableOpacity
-                    style={styles.startButton}
-                    onPress={handleStartAssessment}
-                    activeOpacity={0.7}
-                >
-                    <Text style={styles.startButtonText}>
-                        {quizData.btntext || 'Start Assessment'}
-                    </Text>
-                </TouchableOpacity>
+                {/* Footer: Checkbox + Start Quiz Button */}
+                <AssessmentInstructionsFooter
+                    termsText={quizData.terms || 'I have read all the instructions carefully and have understood them. I agree not to cheat or use unfair means in this examination. I understand that using unfair means of any sort for my own or someone else\'s advantage will lead to my immediate disqualification. The decision of creamcollar.com will be final in these matters and cannot be appealed.'}
+                    buttonLabel="Start Assessment"
+                    checked={agreementChecked}
+                    onCheckboxToggle={() => setAgreementChecked(!agreementChecked)}
+                    onStartQuiz={handleStartAssessment}
+                    loading={startingQuiz}
+                />
             </ScrollView>
         </SafeAreaView>
     );
@@ -269,23 +393,6 @@ const styles = StyleSheet.create({
     instructionsContainer: {
         padding: 16,
         width: '100%',
-    },
-    startButton: {
-        backgroundColor: colors.primaryBlue,
-        borderRadius: borderRadius.input,
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginHorizontal: 16,
-        marginTop: 16,
-    },
-    startButtonText: {
-        fontFamily: 'Inter',
-        fontSize: 14,
-        fontWeight: '600' as const,
-        lineHeight: 20,
-        color: colors.white,
     },
     errorContainer: {
         flex: 1,

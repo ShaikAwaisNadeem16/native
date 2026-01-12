@@ -7,25 +7,12 @@ import { colors, typography, borderRadius } from '../../styles/theme';
 import Header from '../home/components/Header';
 import BreadcrumbBar from '../assessments/components/BreadcrumbBar';
 import DropdownField from '../../components/SignUp/DropdownField';
+import TextInputField from '../../components/SignUp/TextInputField';
+import Checkbox from '../../components/SignUp/Checkbox';
+import RadioButton from '../../components/SignUp/RadioButton';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import useProfileStore from '../../store/useProfileStore';
 import ProfileService from '../../api/profile';
-
-/**
- * EditEducationDetailsScreen Component
- * Displays the edit form for Education Details section
- *
- * This screen appears when the Edit button is clicked on the
- * Education Details card in the Profile screen.
- *
- * Form Fields (per Figma design):
- * - education: Education level (10th, 12th, etc.)
- * - board: Board name (Mumbai, etc.)
- * - schoolMedium: School medium (English, etc.)
- * - gradingSystem: Grading system
- * - passingMonth: Passing out month
- * - passingYear: Passing out year
- */
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -37,7 +24,6 @@ const EditEducationDetailsScreen: React.FC = () => {
 
     // Extract existing education data from store
     const userData = profileDetails || profileData || {};
-    // educationalDetails is an array, get the first entry or empty object
     const educationalDetailsArray = Array.isArray(userData.educationalDetails) ? userData.educationalDetails : [];
     const educationData = educationalDetailsArray.length > 0 ? educationalDetailsArray[0] : {};
     
@@ -50,21 +36,25 @@ const EditEducationDetailsScreen: React.FC = () => {
         return { month: monthNames[parseInt(month) - 1] || '', year: year || '' };
     };
 
-    // Parse collegeStartDate and collegeEndDate from API response
+    // Parse dates from API response
     const startDateParsed = educationData.collegeStartDate ? parseDate(educationData.collegeStartDate) : { month: '', year: '' };
     const endDateParsed = educationData.collegeEndDate ? parseDate(educationData.collegeEndDate) : { month: '', year: '' };
 
-    // Form state - initialized from store data
-    // Map API fields to form fields (keeping form field names for UI compatibility)
+    // Form state - matching Figma design
     const [education, setEducation] = useState(educationData.educationLevel || educationData.courses || '');
-    const [board, setBoard] = useState(educationData.collegeName || '');
-    const [schoolMedium, setSchoolMedium] = useState(educationData.schoolMedium || '');
-    const [gradingSystem, setGradingSystem] = useState(educationData.gradingSystem || '');
+    const [universityCollege, setUniversityCollege] = useState(educationData.collegeName || '');
+    const [course, setCourse] = useState(educationData.courses || '');
     const [specialization, setSpecialization] = useState(educationData.specialization?.branch || '');
-    const [passingMonth, setPassingMonth] = useState(endDateParsed.month);
-    const [passingYear, setPassingYear] = useState(endDateParsed.year);
+    const [startMonth, setStartMonth] = useState(startDateParsed.month);
+    const [startYear, setStartYear] = useState(startDateParsed.year);
+    const [endMonth, setEndMonth] = useState(endDateParsed.month);
+    const [endYear, setEndYear] = useState(endDateParsed.year);
+    const [currentlyPursuing, setCurrentlyPursuing] = useState(!educationData.collegeEndDate || educationData.collegeEndDate === '');
+    const [gradingSystem, setGradingSystem] = useState(educationData.gradingSystem || '');
+    const [aggregateCGPA, setAggregateCGPA] = useState(educationData.grade || educationData.percentage || '');
+    const [courseType, setCourseType] = useState<'Full time' | 'Part time' | 'Correspondence/Distance learning'>('Full time');
 
-    // Fetch branches from API if not in store, and update branch options based on education level
+    // Fetch branches from API if not in store
     useEffect(() => {
         const fetchBranches = async () => {
             let branches = branchesFromStore;
@@ -96,9 +86,8 @@ const EditEducationDetailsScreen: React.FC = () => {
 
     // Dropdown options
     const educationOptions = ['10th', '12th', 'Diploma', 'Graduation', 'Post Graduation', 'PhD'];
-    const boardOptions = ['Mumbai', 'CBSE', 'ICSE', 'State Board', 'Maharashtra Board', 'Mumbai University', 'Pune University', 'Other'];
-    const schoolMediumOptions = ['English', 'Hindi', 'Marathi', 'Gujarati', 'Kannada', 'Tamil', 'Telugu', 'Other'];
-    const gradingSystemOptions = ['Percentage', 'CGPA (out of 10)', 'CGPA (out of 4)', 'Grade', 'Other'];
+    const courseOptions = ['B.Tech', 'B.E.', 'B.Sc', 'B.Com', 'B.A.', 'M.Tech', 'M.E.', 'M.Sc', 'M.Com', 'M.A.', 'MBA', 'Other'];
+    const gradingSystemOptions = ['CGPA', 'Percentage', 'Grade'];
     const monthOptions = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const yearOptions = Array.from({ length: 30 }, (_, i) => String(2024 - i));
 
@@ -119,34 +108,73 @@ const EditEducationDetailsScreen: React.FC = () => {
                 return months[monthName] || '01';
             };
 
-            // Format end date as "YYYY-MM"
-            const formattedEndDate = passingYear && passingMonth 
-                ? `${passingYear}-${monthNameToNumber(passingMonth)}`
-                : '';
+            // Format start date as "YYYY-MM"
+            const formattedStartDate = startYear && startMonth 
+                ? `${startYear}-${monthNameToNumber(startMonth)}`
+                : null;
+
+            // Format end date as "YYYY-MM" (null if currently pursuing)
+            const formattedEndDate = currentlyPursuing || !endYear || !endMonth
+                ? null
+                : `${endYear}-${monthNameToNumber(endMonth)}`;
 
             // Find branchId for selected specialization
-            let branchId = '';
+            let branchId: number | null = null;
             if (specialization) {
                 if (education === 'Diploma' && diplomaBranchesFromStore) {
                     const foundBranch = diplomaBranchesFromStore.find((b: any) => b.branch === specialization);
-                    branchId = foundBranch?.branchId?.toString() || '';
+                    branchId = foundBranch?.branchId ? Number(foundBranch.branchId) : null;
                 } else if ((education === 'Graduation' || education === 'Post Graduation') && branchesFromStore) {
                     const foundBranch = branchesFromStore.find((b: any) => b.branch === specialization);
-                    branchId = foundBranch?.branchId?.toString() || '';
+                    branchId = foundBranch?.branchId ? Number(foundBranch.branchId) : null;
                 }
             }
 
             // Prepare educationalDetails array in API format
-            const educationalDetails = [{
-                courses: education || '',
-                educationLevel: education || '',
-                collegeName: board || '',
-                collegeEndDate: formattedEndDate,
-                collegeStartDate: '', // Start date not in current form - can be added later
-                specialization: specialization ? {
+            const existingId = educationData.id || undefined;
+            
+            // Handle specialization - only include if we have both branch and branchId
+            let specializationObj: any = null;
+            if (specialization && branchId !== null && branchId > 0) {
+                specializationObj = {
                     branch: specialization,
-                    branchId: branchId || educationData.specialization?.branchId || '',
-                } : educationData.specialization || undefined,
+                    branchId: branchId,
+                };
+            } else if (educationData.specialization && 
+                      educationData.specialization.branch && 
+                      educationData.specialization.branchId) {
+                const existingBranchId = Number(educationData.specialization.branchId);
+                if (existingBranchId > 0) {
+                    specializationObj = {
+                        branch: educationData.specialization.branch,
+                        branchId: existingBranchId,
+                    };
+                }
+            }
+
+            // Map grading system and CGPA/percentage
+            let grade: string | null = null;
+            let percentage: number | null = null;
+            if (gradingSystem === 'CGPA' && aggregateCGPA) {
+                grade = aggregateCGPA;
+            } else if (gradingSystem === 'Percentage' && aggregateCGPA) {
+                percentage = parseFloat(aggregateCGPA) || null;
+            } else if (gradingSystem === 'Grade' && aggregateCGPA) {
+                grade = aggregateCGPA;
+            }
+            
+            const educationalDetails = [{
+                ...(existingId && { id: existingId }),
+                courses: course || education || '',
+                educationLevel: education || '',
+                collegeName: universityCollege || '',
+                collegeStartDate: formattedStartDate,
+                collegeEndDate: formattedEndDate,
+                schoolMedium: null, // Not in new design
+                gradingSystem: gradingSystem || null,
+                grade: grade,
+                percentage: percentage,
+                ...(specializationObj && { specialization: specializationObj }),
             }];
 
             // Prepare payload for PUT /api/student/user-profile
@@ -154,10 +182,18 @@ const EditEducationDetailsScreen: React.FC = () => {
                 educationalDetails: educationalDetails,
             };
 
-            console.log('Saving education details:', JSON.stringify(profileUpdateData, null, 2));
+            // Validate required fields
+            if (!education || !universityCollege) {
+                Alert.alert('Error', 'Please fill in all required fields (Education and University/College)');
+                setSaving(false);
+                return;
+            }
+
+            console.log('[EditEducationDetailsScreen] Saving education details payload:', JSON.stringify(profileUpdateData, null, 2));
 
             // Call API to update education details
-            await ProfileService.updateProfileDetails(profileUpdateData);
+            const existingData = profileDetails || profileData || {};
+            await ProfileService.updateProfileDetails(profileUpdateData, existingData);
 
             // Refresh profile data after successful update
             await initializeHome();
@@ -165,8 +201,14 @@ const EditEducationDetailsScreen: React.FC = () => {
             Alert.alert('Success', 'Education details updated successfully');
             navigation.goBack();
         } catch (error: any) {
-            console.error('Failed to save education details:', error);
-            Alert.alert('Error', error?.message || 'Failed to update education details. Please try again.');
+            console.error('[EditEducationDetailsScreen] Failed to save education details:', error);
+            console.error('[EditEducationDetailsScreen] Error response:', error?.response?.data);
+            console.error('[EditEducationDetailsScreen] Error status:', error?.response?.status);
+            const errorMessage = error?.response?.data?.message || 
+                                error?.response?.data?.error || 
+                                error?.message || 
+                                'Failed to update education details. Please try again.';
+            Alert.alert('Error', errorMessage);
         } finally {
             setSaving(false);
         }
@@ -178,101 +220,168 @@ const EditEducationDetailsScreen: React.FC = () => {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            {/* Header */}
             <Header onProfilePress={handleProfilePress} onLogoPress={() => navigation.navigate('Home')} />
-
-            {/* Breadcrumb Bar */}
             <BreadcrumbBar items={['Your Profile', 'Edit Education Details']} />
 
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Form Card - matches Figma: padding 16px horizontal, 32px vertical, gap 32px between sections */}
                 <View style={styles.formCard}>
-                    {/* Title - matches Figma: 18px Bold, black, gap 32px below */}
+                    {/* Title - Figma: 18px Bold, primaryDarkBlue */}
                     <Text style={styles.title}>Educational Details</Text>
 
-                    {/* Form Fields Container - matches Figma spacing */}
+                    {/* Form Fields Container - gap 28px between rows */}
                     <View style={styles.formFieldsContainer}>
-                        {/* First Row: Education and Board - side by side with 32px gap */}
-                        <View style={styles.firstRow}>
-                            <View style={styles.firstRowField}>
+                        {/* Row 1: Education | University/College */}
+                        <View style={styles.row}>
+                            <View style={styles.rowField}>
                                 <DropdownField
                                     value={education}
                                     onValueChange={setEducation}
-                                    placeholder="Education*"
+                                    placeholder="Education"
                                     options={educationOptions}
                                 />
                             </View>
-                            <View style={styles.firstRowField}>
-                                <DropdownField
-                                    value={board}
-                                    onValueChange={setBoard}
-                                    placeholder="Board*"
-                                    options={boardOptions}
+                            <View style={styles.rowField}>
+                                <TextInputField
+                                    value={universityCollege}
+                                    onChangeText={setUniversityCollege}
+                                    placeholder="University/College"
                                 />
                             </View>
                         </View>
 
-                        {/* Second Row: School Medium - full width, 32px gap from first row */}
-                        <View style={styles.secondRow}>
-                            <DropdownField
-                                value={schoolMedium}
-                                onValueChange={setSchoolMedium}
-                                placeholder="School Medium*"
-                                options={schoolMediumOptions}
-                            />
-                        </View>
-
-                        {/* Third Row: Grading System - full width, 28px gap from School Medium */}
-                        <View style={styles.thirdRow}>
-                            <DropdownField
-                                value={gradingSystem}
-                                onValueChange={setGradingSystem}
-                                placeholder="Grading System*"
-                                options={gradingSystemOptions}
-                            />
-                        </View>
-
-                        {/* Fourth Row: Specialization/Branch - full width, 28px gap from Grading System (only show for Diploma, Graduation, Post Graduation) */}
-                        {(education === 'Diploma' || education === 'Graduation' || education === 'Post Graduation') && branchOptions.length > 0 && (
-                            <View style={styles.fourthRow}>
+                        {/* Row 2: Course | Specialisation */}
+                        <View style={styles.row}>
+                            <View style={styles.rowField}>
                                 <DropdownField
-                                    value={specialization}
-                                    onValueChange={setSpecialization}
-                                    placeholder="Specialization/Branch*"
-                                    options={branchOptions}
+                                    value={course}
+                                    onValueChange={setCourse}
+                                    placeholder="Course"
+                                    options={courseOptions}
                                 />
                             </View>
-                        )}
+                            <View style={styles.rowField}>
+                                {(education === 'Diploma' || education === 'Graduation' || education === 'Post Graduation') && branchOptions.length > 0 ? (
+                                    <DropdownField
+                                        value={specialization}
+                                        onValueChange={setSpecialization}
+                                        placeholder="Specialisation"
+                                        options={branchOptions}
+                                    />
+                                ) : (
+                                    <View style={styles.disabledField}>
+                                        <Text style={styles.disabledText}>Specialisation</Text>
+                                    </View>
+                                )}
+                            </View>
+                        </View>
 
-                        {/* Passing Out Date Section - matches Figma: label 14px SemiBold, primaryDarkBlue, gap 12px below */}
-                        <View style={styles.passingOutDateSection}>
-                            <Text style={styles.passingOutDateLabel}>Passing Out Date</Text>
-                            <View style={styles.passingOutDateFields}>
-                                {/* Month and Year side by side with 16px gap */}
-                                <View style={styles.dateField}>
-                                    <DropdownField
-                                        value={passingMonth}
-                                        onValueChange={setPassingMonth}
-                                        placeholder="Select Month*"
-                                        options={monthOptions}
-                                    />
+                        {/* Row 3: Start Date | End Date + Currently Pursuing */}
+                        <View style={styles.row}>
+                            <View style={styles.rowField}>
+                                <View style={styles.dateSection}>
+                                    <Text style={styles.dateLabel}>Start Date</Text>
+                                    <View style={styles.dateFields}>
+                                        <View style={styles.dateField}>
+                                            <DropdownField
+                                                value={startMonth}
+                                                onValueChange={setStartMonth}
+                                                placeholder="Select Month"
+                                                options={monthOptions}
+                                            />
+                                        </View>
+                                        <View style={styles.dateField}>
+                                            <DropdownField
+                                                value={startYear}
+                                                onValueChange={setStartYear}
+                                                placeholder="Select Year"
+                                                options={yearOptions}
+                                            />
+                                        </View>
+                                    </View>
                                 </View>
-                                <View style={styles.dateField}>
-                                    <DropdownField
-                                        value={passingYear}
-                                        onValueChange={setPassingYear}
-                                        placeholder="Select Year*"
-                                        options={yearOptions}
-                                    />
+                            </View>
+                            <View style={styles.rowField}>
+                                <View style={styles.dateSection}>
+                                    <Text style={styles.dateLabel}>End Date</Text>
+                                    <View style={styles.dateFields}>
+                                        <View style={styles.dateField}>
+                                            <DropdownField
+                                                value={endMonth}
+                                                onValueChange={setEndMonth}
+                                                placeholder="Select Month"
+                                                options={monthOptions}
+                                                disabled={currentlyPursuing}
+                                            />
+                                        </View>
+                                        <View style={styles.dateField}>
+                                            <DropdownField
+                                                value={endYear}
+                                                onValueChange={setEndYear}
+                                                placeholder="Select Year"
+                                                options={yearOptions}
+                                                disabled={currentlyPursuing}
+                                            />
+                                        </View>
+                                    </View>
+                                    <View style={styles.checkboxContainer}>
+                                        <Checkbox
+                                            checked={currentlyPursuing}
+                                            onToggle={() => setCurrentlyPursuing(!currentlyPursuing)}
+                                            size={16}
+                                        />
+                                        <Text style={styles.checkboxLabel}>Currently Pursuing</Text>
+                                    </View>
                                 </View>
+                            </View>
+                        </View>
+
+                        {/* Row 4: Grading System | Aggregate CGPA */}
+                        <View style={styles.row}>
+                            <View style={styles.rowField}>
+                                <DropdownField
+                                    value={gradingSystem}
+                                    onValueChange={setGradingSystem}
+                                    placeholder="Grading System"
+                                    options={gradingSystemOptions}
+                                />
+                            </View>
+                            <View style={styles.rowField}>
+                                <TextInputField
+                                    value={aggregateCGPA}
+                                    onChangeText={setAggregateCGPA}
+                                    placeholder="Aggregate CGPA"
+                                    disabled={!gradingSystem}
+                                />
+                            </View>
+                        </View>
+
+                        {/* Course Type Section */}
+                        <View style={styles.courseTypeSection}>
+                            <Text style={styles.courseTypeLabel}>Course Type</Text>
+                            <View style={styles.radioGroup}>
+                                <RadioButton
+                                    selected={courseType === 'Full time'}
+                                    onPress={() => setCourseType('Full time')}
+                                    label="Full time"
+                                />
+                                <RadioButton
+                                    selected={courseType === 'Part time'}
+                                    onPress={() => setCourseType('Part time')}
+                                    label="Part time"
+                                />
+                                <RadioButton
+                                    selected={courseType === 'Correspondence/Distance learning'}
+                                    onPress={() => setCourseType('Correspondence/Distance learning')}
+                                    label="Correspondence/Distance learning"
+                                />
                             </View>
                         </View>
                     </View>
 
-                    {/* Bottom Buttons - matches Figma: gap 24px between buttons, 32px gap from form */}
+                    {/* Bottom Buttons */}
                     <View style={styles.buttonRow}>
                         <TouchableOpacity
                             style={[styles.saveButton, saving && styles.saveButtonDisabled]}
@@ -311,61 +420,81 @@ const styles = StyleSheet.create({
     },
     formCard: {
         backgroundColor: colors.white,
-        paddingHorizontal: 16, // Figma: px-[16px]
+        paddingHorizontal: 32, // Figma: px-[32px]
         paddingVertical: 32, // Figma: py-[32px]
-        gap: 32, // Figma: gap-[32px] between main sections (title to form, form to buttons)
+        gap: 32, // Figma: gap-[32px] between main sections
     },
     title: {
         ...typography.p2Bold, // Figma: Desktop/P2 Bold, 18px, line-height 25px, weight 700
-        color: '#000000', // Figma: text-black
+        color: colors.primaryDarkBlue, // Figma: text-[color:var(--primary-dark-blue,#00213d)]
     },
     formFieldsContainer: {
         width: '100%',
-        gap: 32, // Figma: gap-[32px] between main sections
+        gap: 28, // Figma: gap-[28px] between rows
     },
-    // First Row: Education and Board side by side
-    firstRow: {
+    row: {
         flexDirection: 'row',
-        gap: 32, // Figma: gap-[32px] between Education and Board
+        gap: 32, // Figma: gap-[32px] between fields in row
         width: '100%',
     },
-    firstRowField: {
+    rowField: {
         flex: 1,
-        minWidth: 0, // Allow flex shrinking
+        minWidth: 0,
     },
-    // Second Row: School Medium full width, 32px gap from first row
-    secondRow: {
-        width: '100%',
-    },
-    // Third Row: Grading System full width, 28px gap from School Medium (adjusted from 32px)
-    thirdRow: {
-        width: '100%',
-        marginTop: -4, // Adjust to get 28px gap instead of 32px (32px - 4px = 28px)
-    },
-    // Fourth Row: Specialization/Branch full width, 28px gap from Grading System
-    fourthRow: {
-        width: '100%',
-        marginTop: -4, // Adjust to get 28px gap instead of 32px
-    },
-    // Passing Out Date Section
-    passingOutDateSection: {
+    dateSection: {
         width: '100%',
         gap: 12, // Figma: gap-[12px] between label and fields
     },
-    passingOutDateLabel: {
+    dateLabel: {
         ...typography.p4SemiBold, // Figma: Desktop/P4 SemiBold, 14px, line-height 20px, weight 600
-        color: colors.primaryDarkBlue, // Figma: text-[color:var(--primary-dark-blue,#00213d)]
+        color: colors.primaryDarkBlue,
     },
-    passingOutDateFields: {
+    dateFields: {
         flexDirection: 'row',
         gap: 16, // Figma: gap-[16px] between Month and Year
         width: '100%',
     },
     dateField: {
         flex: 1,
-        minWidth: 0, // Allow flex shrinking
+        minWidth: 0,
     },
-    // Bottom Buttons
+    checkboxContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 8,
+    },
+    checkboxLabel: {
+        ...typography.p4,
+        color: colors.textGrey,
+    },
+    disabledField: {
+        backgroundColor: '#ededed',
+        borderWidth: 1,
+        borderColor: colors.lightGrey,
+        borderRadius: 8,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        minHeight: 48,
+        justifyContent: 'center',
+    },
+    disabledText: {
+        ...typography.p4,
+        color: '#80919f',
+    },
+    courseTypeSection: {
+        width: '100%',
+        gap: 8, // Figma: gap-[8px] between label and radio buttons
+    },
+    courseTypeLabel: {
+        ...typography.p4SemiBold,
+        color: colors.primaryDarkBlue,
+    },
+    radioGroup: {
+        flexDirection: 'row',
+        gap: 32, // Figma: gap-[32px] between radio buttons
+        width: '100%',
+    },
     buttonRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -373,11 +502,11 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     saveButton: {
-        backgroundColor: colors.primaryBlue, // Figma: bg-[var(--primary-blue,#0b6aea)]
-        borderRadius: borderRadius.input, // Figma: rounded-[8px]
-        paddingHorizontal: 24, // Figma: px-[24px]
-        paddingVertical: 12, // Figma: py-[12px]
-        minWidth: 140, // Figma: min-w-[140px]
+        backgroundColor: colors.primaryBlue,
+        borderRadius: borderRadius.input,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        minWidth: 140,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -385,17 +514,17 @@ const styles = StyleSheet.create({
         opacity: 0.7,
     },
     saveButtonText: {
-        ...typography.p4SemiBold, // Figma: Desktop/P4 SemiBold, 14px, line-height 20px, weight 600
-        color: colors.white, // Figma: text-[color:var(--white,white)]
+        ...typography.p4SemiBold,
+        color: colors.white,
         textAlign: 'center',
     },
     discardButton: {
-        paddingHorizontal: 0, // No padding, just text
-        paddingVertical: 12, // Match save button vertical padding
+        paddingHorizontal: 0,
+        paddingVertical: 12,
     },
     discardButtonText: {
-        ...typography.p4SemiBold, // Figma: Desktop/P4 SemiBold, 14px, line-height 20px, weight 600
-        color: colors.primaryBlue, // Figma: text-[color:var(--primary-blue,#0b6aea)]
+        ...typography.p4SemiBold,
+        color: colors.primaryBlue,
     },
 });
 

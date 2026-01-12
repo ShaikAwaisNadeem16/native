@@ -40,17 +40,30 @@ import { AssignmentAttemptData, AssignmentAttemptInfo } from '../api/assignment'
 export type RootStackParamList = {
     Login: undefined;
     Register: undefined;
-    VerificationOTP: undefined;
-    PersonalDetails: undefined;
-    CollegeCourseDetails: undefined;
+    VerificationOTP: { 
+        phoneNumber?: string; 
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+        password?: string;
+    };
+    PersonalDetails: { email?: string } | undefined;
+    CollegeCourseDetails: { 
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+        mobileNumber?: string;
+        password?: string;
+        branches?: Array<{ branchId: number; branch: string }>;
+    } | undefined;
     AccountCreatedSuccess: undefined;
     Home: undefined;
-    StemAssessmentReport: { finalResult?: 'Pass' | 'Fail'; lessonId?: string; moodleCourseId?: string } | undefined;
-    StemAssessmentInstructions: undefined;
+    StemAssessmentReport: { finalResult?: 'Pass' | 'Fail'; lessonId?: string; moodleCourseId?: string; assignmentData?: any } | undefined;
+    StemAssessmentInstructions: { lessonId?: string } | undefined;
     StemAssessmentTest: { lessonId?: string; moodleCourseId?: string } | undefined;
     EngineeringSystemsAssessment: undefined;
     EngineeringAssessmentInstructions: { lessonId?: string; moodleCourseId?: string } | undefined;
-    SurveyAssessmentQuestions: { lessonId?: string; moodleCourseId?: string } | undefined;
+    SurveyAssessmentQuestions: { lessonId?: string; moodleCourseId?: string; attemptId?: string; questionData?: any; quizResult?: any } | undefined;
     Profile: undefined;
     EditPersonalDetails: undefined;
     EditEducationDetails: undefined;
@@ -58,10 +71,10 @@ export type RootStackParamList = {
     EditTechnicalCompetencies: undefined;
     EditCertificates: undefined;
     AutomotiveAwareness: undefined;
-    CourseDetails: { courseId?: string; courseTitle?: string } | undefined;
-    ReadDifferentPlayers: undefined;
-    ReadingCompletion: undefined;
-    AutomotiveQuizInstructions: undefined;
+    CourseDetails: { courseId?: string; courseTitle?: string; lessonId?: string; parentCourseId?: string } | undefined;
+    ReadDifferentPlayers: { courseId?: string; lessonId?: string } | undefined;
+    ReadingCompletion: { courseId?: string; lessonId?: string } | undefined;
+    AutomotiveQuizInstructions: { courseId?: string; lessonId?: string } | undefined;
     AutomotiveTest: undefined;
     QuizCompleted: { accuracy: number; timeTaken: string } | undefined;
     QuizFailed: { accuracy: number; timeTaken: string } | undefined;

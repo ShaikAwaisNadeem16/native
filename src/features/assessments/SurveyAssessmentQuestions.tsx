@@ -1,17 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { X } from 'lucide-react-native';
+import { Bookmark } from 'lucide-react-native';
 import { colors, typography, borderRadius } from '../../styles/theme';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { AssessmentService } from '../../api/assessment';
-import { AssignmentService } from '../../api/assignment';
+import TimerProgress from './components/TimerProgress';
+import TestQuestionTag from './components/TestQuestionTag';
+import AnswerOption from './components/AnswerOption';
 import PrimaryButton from '../../components/SignUp/PrimaryButton';
 import SecondaryButton from '../../components/SignUp/SecondaryButton';
+import SubmitTestConfirmationModal from './components/SubmitTestConfirmationModal';
+import DownwardArrow from '../../components/common/DownwardArrow';
 import { CardSkeleton } from '../../components/common/SkeletonLoaders';
-import SubmitSurveyConfirmationModal from './components/SubmitSurveyConfirmationModal';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 type RouteProps = RouteProp<RootStackParamList, 'SurveyAssessmentQuestions'>;
@@ -20,38 +23,46 @@ interface Question {
     questionId: string;
     questionText: string;
     questionType?: string;
-    options?: Array<{ value: number; label?: string }>;
-    selectedAnswer?: number;
-}
-
-interface SurveyQuestionsResponse {
-    questions?: Question[];
-    attemptId?: string;
-    totalQuestions?: number;
-    currentQuestionIndex?: number;
+    type?: string;
+    choices?: string[];
+    page?: number;
+    slot?: number;
+    status?: string;
+    maxMark?: number;
 }
 
 /**
  * SurveyAssessmentQuestions Screen
- * Displays survey/assessment questions with numbered options (1-10 scale)
- * Matches Figma design with progress bar, questions, and navigation buttons
+ * Displays assessment questions with multiple choice options
+ * Matches Figma design: node-id=7875-74126
  */
 const SurveyAssessmentQuestions: React.FC = () => {
     const navigation = useNavigation<NavigationProp>();
     const route = useRoute<RouteProps>();
-    const scrollViewRef = useRef<ScrollView>(null);
     
     const [loading, setLoading] = useState(true);
     const [questions, setQuestions] = useState<Question[]>([]);
-    const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
+    const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
+    const [markedForReview, setMarkedForReview] = useState<Set<string>>(new Set());
+    const [skippedQuestions, setSkippedQuestions] = useState<Set<string>>(new Set());
     const [attemptId, setAttemptId] = useState<string | null>(null);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
     const [error, setError] = useState<string | null>(null);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isMenuExpanded, setIsMenuExpanded] = useState(true);
+    const [timeRemaining, setTimeRemaining] = useState('02:00:00'); // Format: "HH:MM:SS"
+    const [timeRemainingSeconds, setTimeRemainingSeconds] = useState(0); // Total seconds remaining
+    const [startTime, setStartTime] = useState<Date | null>(null);
+    const [totalDurationSeconds, setTotalDurationSeconds] = useState(0); // Total duration in seconds
+    
+    // Ref for ScrollView to scroll to top when question changes
+    const scrollViewRef = useRef<ScrollView>(null);
 
-    // Extract lessonId (moodleCourseId) from route params
+    // Extract lessonId (moodleCourseId) and questionData from route params
     const lessonId = route.params?.lessonId || route.params?.moodleCourseId;
+    const routeAttemptId = route.params?.attemptId;
+    const routeQuestionData = route.params?.questionData;
 
     useEffect(() => {
         const fetchQuestions = async () => {
@@ -65,45 +76,102 @@ const SurveyAssessmentQuestions: React.FC = () => {
                 setLoading(true);
                 setError(null);
 
-                console.log('[SurveyAssessmentQuestions] Starting assessment with lessonId:', lessonId);
+                console.log('========================================');
+                console.log('[SurveyAssessmentQuestions] ===== INITIALIZING QUESTIONS =====');
+                console.log('[SurveyAssessmentQuestions] Route params:', JSON.stringify(route.params, null, 2));
+                console.log('[SurveyAssessmentQuestions] LessonId:', lessonId);
+                console.log('[SurveyAssessmentQuestions] Route attemptId:', routeAttemptId);
+                console.log('[SurveyAssessmentQuestions] Route questionData exists:', !!routeQuestionData);
 
-                // Start the assessment/quiz to get questions
-                // Using the attemptQuiz API with page: 'start'
-                const response: SurveyQuestionsResponse = await AssessmentService.attemptQuiz({
-                    page: 'start',
-                    lessonId: lessonId,
-                });
-
-                console.log('[SurveyAssessmentQuestions] Response received:', JSON.stringify(response, null, 2));
-
-                if (response.questions && Array.isArray(response.questions)) {
-                    setQuestions(response.questions);
-                    setAttemptId(response.attemptId || null);
-                    setCurrentQuestionIndex(response.currentQuestionIndex || 0);
-                } else if (response.qdata && Array.isArray(response.qdata)) {
-                    // Alternative response format - convert qdata to questions
-                    const convertedQuestions: Question[] = response.qdata.map((item: any, index: number) => ({
-                        questionId: item.questionId || `q${index + 1}`,
-                        questionText: item.questionText || item.question || `Question ${index + 1}`,
-                        questionType: item.questionType || 'SINGLE CHOICE QUESTION',
-                        options: Array.from({ length: 10 }, (_, i) => ({ value: i + 1 })),
-                    }));
-                    setQuestions(convertedQuestions);
-                    setAttemptId(response.attemptId || null);
+                // Always call the start API to get questions (even if route params exist)
+                // This ensures we always have the latest question data from the API
+                console.log('[SurveyAssessmentQuestions] Calling start API to get questions');
+                
+                // Use attemptId from route params if available
+                let response;
+                if (routeAttemptId) {
+                    console.log('[SurveyAssessmentQuestions] AttemptId from route params:', routeAttemptId);
+                    response = await AssessmentService.attemptQuiz({
+                        page: 'start',
+                        lessonId: lessonId,
+                        attemptId: routeAttemptId,
+                    });
                 } else {
-                    // If no questions in response, create default questions structure
-                    // This is a fallback - in production, the API should return questions
-                    console.warn('[SurveyAssessmentQuestions] No questions in response, using fallback');
-                    const fallbackQuestions: Question[] = [
-                        {
-                            questionId: 'q1',
-                            questionText: 'Who among the following is sitting opposite to the person who is sitting second to the left of T',
-                            questionType: 'SINGLE CHOICE QUESTION',
-                            options: Array.from({ length: 10 }, (_, i) => ({ value: i + 1 })),
-                        },
-                    ];
-                    setQuestions(fallbackQuestions);
+                    response = await AssessmentService.attemptQuiz({
+                        page: 'start',
+                        lessonId: lessonId,
+                    });
                 }
+
+                console.log('[SurveyAssessmentQuestions] Start API Response received:', JSON.stringify(response, null, 2));
+
+                // Extract start time and duration from API response
+                if (response.result?.attempt?.startTime) {
+                    const startTimeStr = response.result.attempt.startTime;
+                    setStartTime(new Date(startTimeStr));
+                    console.log('[SurveyAssessmentQuestions] Start time from API:', startTimeStr);
+                } else {
+                    // If no start time in API, use current time
+                    setStartTime(new Date());
+                    console.log('[SurveyAssessmentQuestions] No start time in API, using current time');
+                }
+
+                // Parse duration from API response (format: "1 Hour 30 Mins" or "90 Minutes" or seconds)
+                let durationSeconds = 0;
+                if (response.result?.attempt?.duration) {
+                    // If duration is in seconds or minutes
+                    durationSeconds = parseInt(response.result.attempt.duration) || 0;
+                    // If it's less than 100, assume it's in minutes, convert to seconds
+                    if (durationSeconds < 100) {
+                        durationSeconds = durationSeconds * 60;
+                    }
+                } else if (response.duration) {
+                    // Parse duration string like "1 Hour 30 Mins" or "90 Minutes"
+                    const durationStr = response.duration.toLowerCase();
+                    const hoursMatch = durationStr.match(/(\d+)\s*hour/i);
+                    const minsMatch = durationStr.match(/(\d+)\s*min/i);
+                    const hours = hoursMatch ? parseInt(hoursMatch[1]) : 0;
+                    const mins = minsMatch ? parseInt(minsMatch[1]) : 0;
+                    durationSeconds = (hours * 3600) + (mins * 60);
+                    console.log('[SurveyAssessmentQuestions] Parsed duration:', hours, 'hours', mins, 'minutes =', durationSeconds, 'seconds');
+                } else {
+                    // Default to 2 hours if not provided
+                    durationSeconds = 2 * 3600;
+                    console.log('[SurveyAssessmentQuestions] No duration in API, using default 2 hours');
+                }
+                setTotalDurationSeconds(durationSeconds);
+
+                if (response.questionData) {
+                    // Handle questionData structure (organized by sections)
+                    console.log('[SurveyAssessmentQuestions] Processing questionData structure');
+                    const allQuestions: Question[] = [];
+                    Object.keys(response.questionData).forEach((section) => {
+                        const sectionQuestions = response.questionData[section];
+                        if (Array.isArray(sectionQuestions)) {
+                            sectionQuestions.forEach((q: any) => {
+                                allQuestions.push({
+                                    questionId: q.questionId,
+                                    questionText: q.questionText,
+                                    questionType: q.type || 'mcq',
+                                    type: q.type || 'mcq',
+                                    choices: q.choices || [],
+                                    page: q.page,
+                                    slot: q.slot,
+                                    status: q.status || 'notStarted',
+                                    maxMark: q.maxMark,
+                                });
+                            });
+                        }
+                    });
+                    // Sort by page number if available
+                    allQuestions.sort((a, b) => (a.page || 0) - (b.page || 0));
+                    setQuestions(allQuestions);
+                    setAttemptId(response.attemptId || null);
+                    setCurrentQuestionIndex(0);
+                } else {
+                    setError('No questions found in response');
+                }
+                console.log('========================================');
             } catch (err: any) {
                 console.error('[SurveyAssessmentQuestions] Error fetching questions:', err);
                 setError(err?.message || 'Failed to load questions');
@@ -114,51 +182,242 @@ const SurveyAssessmentQuestions: React.FC = () => {
         };
 
         fetchQuestions();
-    }, [lessonId]);
+    }, [lessonId, routeAttemptId, routeQuestionData]);
 
-    const handleAnswerSelect = (questionId: string, answer: number) => {
+    // Timer countdown effect
+    useEffect(() => {
+        if (!startTime || totalDurationSeconds === 0) {
+            return;
+        }
+
+        const updateTimer = () => {
+            const now = new Date();
+            const elapsedSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000);
+            const remainingSeconds = Math.max(0, totalDurationSeconds - elapsedSeconds);
+
+            setTimeRemainingSeconds(remainingSeconds);
+
+            // Format time as HH:MM:SS
+            const hours = Math.floor(remainingSeconds / 3600);
+            const minutes = Math.floor((remainingSeconds % 3600) / 60);
+            const seconds = remainingSeconds % 60;
+            const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            setTimeRemaining(formattedTime);
+
+            // Auto-submit when time runs out
+            if (remainingSeconds === 0 && !isSubmitting && attemptId && lessonId) {
+                console.log('[SurveyAssessmentQuestions] Time is up! Auto-submitting assessment...');
+                handleConfirmSubmit();
+            }
+        };
+
+        // Update immediately
+        updateTimer();
+
+        // Update every second
+        const interval = setInterval(updateTimer, 1000);
+
+        return () => clearInterval(interval);
+    }, [startTime, totalDurationSeconds, isSubmitting, attemptId, lessonId]);
+
+    // Get current question
+    const currentQuestion = questions[currentQuestionIndex] || null;
+    
+    // Scroll to top when question changes
+    useEffect(() => {
+        if (scrollViewRef.current && questions.length > 0) {
+            scrollViewRef.current.scrollTo({ y: 0, animated: true });
+        }
+    }, [currentQuestionIndex, questions.length]);
+
+    // Determine question states for tags
+    const questionStates = useMemo(() => {
+        return questions.map((q, index) => {
+            const isSelected = index === currentQuestionIndex;
+            const isAnswered = !!selectedAnswers[q.questionId];
+            const isMarked = markedForReview.has(q.questionId);
+            
+            if (isSelected) {
+                return 'Selected';
+            }
+            if (isMarked && !isAnswered) {
+                return 'Review Unanswered';
+            }
+            if (isMarked && isAnswered) {
+                return 'Review Answered';
+            }
+            if (isAnswered) {
+                return 'Answered';
+            }
+            return 'Unanswered';
+        });
+    }, [questions, currentQuestionIndex, selectedAnswers, markedForReview]);
+
+    // Calculate unanswered and review-marked question counts
+    const unansweredCount = useMemo(() => {
+        return questionStates.filter(state => state === 'Unanswered').length;
+    }, [questionStates]);
+
+    const reviewMarkedCount = useMemo(() => {
+        return questionStates.filter(state => 
+            state === 'Review Unanswered' || state === 'Review Answered'
+        ).length;
+    }, [questionStates]);
+
+    const handleAnswerSelect = (optionNumber: string) => {
+        if (!currentQuestion) return;
+        const questionId = currentQuestion.questionId;
+        
         setSelectedAnswers((prev) => ({
             ...prev,
-            [questionId]: answer,
+            [questionId]: optionNumber,
         }));
+        
+        // Remove from skipped when answer is selected
+        setSkippedQuestions((prev) => {
+            const newSet = new Set(prev);
+            newSet.delete(questionId);
+            return newSet;
+        });
     };
 
-    const handleBackToTop = () => {
-        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    const handleMarkForReview = async () => {
+        if (!currentQuestion || !attemptId || !lessonId) return;
+        
+        const questionId = currentQuestion.questionId;
+        const isCurrentlyMarked = markedForReview.has(questionId);
+        const hasAnswer = !!selectedAnswers[questionId];
+        
+        // Toggle mark for review state
+        setMarkedForReview((prev) => {
+            const newSet = new Set(prev);
+            if (newSet.has(questionId)) {
+                newSet.delete(questionId);
+            } else {
+                newSet.add(questionId);
+            }
+            return newSet;
+        });
+        
+        // Call API to submit the mark for review status
+        try {
+            const chosenAnswer = hasAnswer ? [selectedAnswers[questionId]] : [];
+            const status = !isCurrentlyMarked 
+                ? 'toReview' 
+                : (hasAnswer ? 'submitted' : 'notSubmitted');
+
+            console.log('[SurveyAssessmentQuestions] Marking question for review - API call');
+            console.log('[SurveyAssessmentQuestions] QuestionId:', questionId);
+            console.log('[SurveyAssessmentQuestions] IsMarked:', !isCurrentlyMarked);
+            console.log('[SurveyAssessmentQuestions] Payload:', JSON.stringify({
+                page: 'question-submit',
+                lessonId: lessonId,
+                attemptId: attemptId,
+                questionId: questionId,
+                chosenAnswer: chosenAnswer,
+                status: status,
+            }, null, 2));
+
+            await AssessmentService.attemptQuiz({
+                page: 'question-submit',
+                lessonId: lessonId,
+                attemptId: attemptId,
+                questionId: questionId,
+                chosenAnswer: chosenAnswer,
+                status: status,
+            });
+
+            console.log('[SurveyAssessmentQuestions] Question marked for review successfully');
+        } catch (err: any) {
+            console.error('[SurveyAssessmentQuestions] Error marking question for review:', err);
+            // Revert the state change on error
+            setMarkedForReview((prev) => {
+                const newSet = new Set(prev);
+                if (isCurrentlyMarked) {
+                    newSet.add(questionId);
+                } else {
+                    newSet.delete(questionId);
+                }
+                return newSet;
+            });
+            Alert.alert('Error', 'Failed to mark question for review. Please try again.');
+        }
+    };
+
+    const handlePrevious = () => {
+        if (currentQuestionIndex > 0 && questions.length > 0) {
+            const newIndex = currentQuestionIndex - 1;
+            setCurrentQuestionIndex(newIndex);
+            console.log('[SurveyAssessmentQuestions] Navigated to previous question. Index:', newIndex, 'QuestionId:', questions[newIndex]?.questionId);
+        }
     };
 
     const handleNext = async () => {
-        if (!attemptId || !lessonId) {
+        if (!attemptId || !lessonId || !currentQuestion) {
             Alert.alert('Error', 'Missing attempt ID or lesson ID');
             return;
         }
 
         try {
-            // Submit current answers
-            const qdata = questions.map((q) => ({
-                questionId: q.questionId,
-                chosenAnswer: selectedAnswers[q.questionId] ? [String(selectedAnswers[q.questionId])] : [],
-                status: selectedAnswers[q.questionId] ? 'submitted' : 'notSubmitted',
-            }));
-
-            // If there are more questions, move to next
-            if (currentQuestionIndex < questions.length - 1) {
-                const response = await AssessmentService.attemptQuiz({
-                    page: 'question-submit',
-                    lessonId: lessonId,
-                    attemptId: attemptId,
-                    qdata: qdata,
-                });
-
-                setCurrentQuestionIndex(currentQuestionIndex + 1);
-                scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+            const questionId = currentQuestion.questionId;
+            const hasAnswer = !!selectedAnswers[questionId];
+            
+            // If no answer selected, mark as skipped
+            if (!hasAnswer) {
+                setSkippedQuestions((prev) => new Set(prev).add(questionId));
             } else {
-                // Last question - show submit confirmation modal
+                // Remove from skipped if answered
+                setSkippedQuestions((prev) => {
+                    const newSet = new Set(prev);
+                    newSet.delete(questionId);
+                    return newSet;
+                });
+            }
+
+            // Submit current answer
+            // Based on API spec: {page: "question-submit", attemptId, questionId, chosenAnswer, status}
+            const chosenAnswer = hasAnswer ? [selectedAnswers[questionId]] : [];
+            const status = hasAnswer 
+                ? (markedForReview.has(questionId) ? 'toReview' : 'submitted')
+                : (markedForReview.has(questionId) ? 'toReview' : 'notSubmitted');
+
+            console.log('[SurveyAssessmentQuestions] Submitting answer via API');
+            console.log('[SurveyAssessmentQuestions] QuestionId:', questionId);
+            console.log('[SurveyAssessmentQuestions] AttemptId:', attemptId);
+            console.log('[SurveyAssessmentQuestions] ChosenAnswer:', chosenAnswer);
+            console.log('[SurveyAssessmentQuestions] Status:', status);
+
+            await AssessmentService.attemptQuiz({
+                page: 'question-submit',
+                lessonId: lessonId,
+                attemptId: attemptId,
+                questionId: questionId,
+                chosenAnswer: chosenAnswer,
+                status: status,
+            });
+
+            // Move to next question
+            if (currentQuestionIndex < questions.length - 1) {
+                const newIndex = currentQuestionIndex + 1;
+                setCurrentQuestionIndex(newIndex);
+                console.log('[SurveyAssessmentQuestions] Navigated to next question. Index:', newIndex);
+            } else {
+                // Last question - show submit confirmation
+                console.log('[SurveyAssessmentQuestions] Last question reached. Showing submit modal.');
                 setShowSubmitModal(true);
             }
         } catch (err: any) {
             console.error('[SurveyAssessmentQuestions] Error submitting answer:', err);
             Alert.alert('Error', 'Failed to submit answer. Please try again.');
+        }
+    };
+
+    const handleSubmitTest = () => {
+        // Check if there are unanswered or review-marked questions
+        if (unansweredCount > 0 || reviewMarkedCount > 0) {
+            setShowSubmitModal(true);
+        } else {
+            handleConfirmSubmit();
         }
     };
 
@@ -172,12 +431,28 @@ const SurveyAssessmentQuestions: React.FC = () => {
         try {
             setIsSubmitting(true);
 
-            // Submit all answers
-            const qdata = questions.map((q) => ({
-                questionId: q.questionId,
-                chosenAnswer: selectedAnswers[q.questionId] ? [String(selectedAnswers[q.questionId])] : [],
-                status: selectedAnswers[q.questionId] ? 'submitted' : 'notSubmitted',
-            }));
+            // Build qdata array from all questions with their answers
+            const qdata = questions.map((q) => {
+                const answer = selectedAnswers[q.questionId];
+                const isMarked = markedForReview.has(q.questionId);
+                return {
+                    questionId: q.questionId,
+                    chosenAnswer: answer ? [answer] : [],
+                    status: answer 
+                        ? (isMarked ? 'toReview' : 'submitted')
+                        : (isMarked ? 'toReview' : 'notSubmitted'),
+                };
+            });
+
+            console.log('========================================');
+            console.log('[SurveyAssessmentQuestions] ===== CALLING QUIZ SUBMIT API =====');
+            console.log('[SurveyAssessmentQuestions] API: POST /api/lms/attempt/quiz');
+            console.log('[SurveyAssessmentQuestions] Payload:', JSON.stringify({
+                attemptId,
+                page: 'quiz-submit',
+                lessonId,
+                qdata,
+            }, null, 2));
 
             const response = await AssessmentService.attemptQuiz({
                 page: 'quiz-submit',
@@ -185,6 +460,10 @@ const SurveyAssessmentQuestions: React.FC = () => {
                 attemptId: attemptId,
                 qdata: qdata,
             });
+
+            console.log('[SurveyAssessmentQuestions] ===== QUIZ SUBMIT API RESPONSE =====');
+            console.log('[SurveyAssessmentQuestions] Full API Response:', JSON.stringify(response, null, 2));
+            console.log('========================================');
 
             setShowSubmitModal(false);
             setIsSubmitting(false);
@@ -197,7 +476,7 @@ const SurveyAssessmentQuestions: React.FC = () => {
         } catch (err: any) {
             console.error('[SurveyAssessmentQuestions] Error submitting quiz:', err);
             setIsSubmitting(false);
-            Alert.alert('Error', 'Failed to submit survey. Please try again.');
+            Alert.alert('Error', 'Failed to submit assessment. Please try again.');
         }
     };
 
@@ -205,21 +484,48 @@ const SurveyAssessmentQuestions: React.FC = () => {
         setShowSubmitModal(false);
     };
 
-    const handleClose = () => {
-        Alert.alert(
-            'Exit Assessment',
-            'Are you sure you want to exit? Your progress will be saved.',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Exit', style: 'destructive', onPress: () => navigation.goBack() },
-            ]
-        );
-    };
+    // Timer countdown effect
+    useEffect(() => {
+        if (!startTime || totalDurationSeconds === 0) {
+            return;
+        }
 
-    // Calculate progress percentage
-    const progressPercentage = questions.length > 0 
-        ? Math.round(((currentQuestionIndex + 1) / questions.length) * 100)
-        : 0;
+        const updateTimer = () => {
+            const now = new Date();
+            const elapsedSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000);
+            const remainingSeconds = Math.max(0, totalDurationSeconds - elapsedSeconds);
+
+            setTimeRemainingSeconds(remainingSeconds);
+
+            // Format time as HH:MM:SS
+            const hours = Math.floor(remainingSeconds / 3600);
+            const minutes = Math.floor((remainingSeconds % 3600) / 60);
+            const seconds = remainingSeconds % 60;
+            const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            setTimeRemaining(formattedTime);
+
+            // Auto-submit when time runs out
+            if (remainingSeconds === 0 && !isSubmitting && attemptId && lessonId) {
+                console.log('[SurveyAssessmentQuestions] Time is up! Auto-submitting assessment...');
+                handleConfirmSubmit();
+            }
+        };
+
+        // Update immediately
+        updateTimer();
+
+        // Update every second
+        const interval = setInterval(updateTimer, 1000);
+
+        return () => clearInterval(interval);
+    }, [startTime, totalDurationSeconds, isSubmitting, attemptId, lessonId]);
+
+    const handleQuestionTagPress = (index: number) => {
+        if (index >= 0 && index < questions.length) {
+            setCurrentQuestionIndex(index);
+            console.log('[SurveyAssessmentQuestions] Navigated to question via tag. Index:', index);
+        }
+    };
 
     if (loading) {
         return (
@@ -241,126 +547,170 @@ const SurveyAssessmentQuestions: React.FC = () => {
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            {/* Header with Progress Bar */}
-            <View style={styles.header}>
-                {/* Progress Bar */}
-                <View style={styles.progressBarContainer}>
-                    <View style={[styles.progressBar, { width: `${progressPercentage}%` }]} />
-                    <View style={styles.progressBarRemaining} />
-                </View>
-                
-                {/* Percentage Badge */}
-                <View style={styles.percentageBadge}>
-                    <Text style={styles.percentageText}>{progressPercentage}%</Text>
+            {/* Top Navigation */}
+            <View style={styles.topNavigation}>
+                {/* Timer and Time Info */}
+                <View style={styles.timerSection}>
+                    <TimerProgress
+                        timeRemaining={timeRemaining}
+                        timeLabel="TIME REMAINING: PART 1"
+                        percentage={totalDurationSeconds > 0 ? (timeRemainingSeconds / totalDurationSeconds) * 100 : 100}
+                    />
                 </View>
 
-                {/* Close Button */}
+                {/* Collapsible Menu Widget */}
+                {isMenuExpanded && (
+                    <View style={styles.menuWidget}>
+                        {/* Mark For Review Button */}
+                        <TouchableOpacity
+                            style={styles.markForReviewButton}
+                            onPress={handleMarkForReview}
+                            activeOpacity={0.7}
+                        >
+                            <Bookmark 
+                                size={24} 
+                                color={markedForReview.has(currentQuestion?.questionId || '') 
+                                    ? colors.primaryBlue 
+                                    : colors.primaryBlue} 
+                            />
+                            <Text style={styles.markForReviewText}>Mark For Review</Text>
+                        </TouchableOpacity>
+
+                        {/* Assessment Info */}
+                        <View style={styles.assessmentInfo}>
+                            <Text style={styles.assessmentSubtitle}>STEM ASSESSMENT</Text>
+                            <Text style={styles.assessmentTitle}>Part 1 of 4: Science</Text>
+                        </View>
+
+                        {/* Question Tags */}
+                        <View style={styles.questionTagsContainer}>
+                            {questions.map((q, index) => (
+                                <TouchableOpacity
+                                    key={q.questionId}
+                                    onPress={() => handleQuestionTagPress(index)}
+                                    activeOpacity={0.7}
+                                >
+                                    <TestQuestionTag
+                                        questionNo={String(index + 1)}
+                                        state={questionStates[index] as any}
+                                        size={36}
+                                    />
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        {/* Submit Test Button */}
+                        <TouchableOpacity
+                            style={styles.submitTestButton}
+                            onPress={handleSubmitTest}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.submitTestButtonText}>Submit Test</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                {/* Menu Toggle Button */}
                 <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={handleClose}
+                    style={styles.menuToggle}
+                    onPress={() => setIsMenuExpanded(!isMenuExpanded)}
                     activeOpacity={0.7}
                 >
-                    <X size={24} color={colors.textGrey} />
+                    <DownwardArrow size={24} />
                 </TouchableOpacity>
             </View>
 
-            {/* Questions Content */}
+            {/* Main Content */}
             <ScrollView
                 ref={scrollViewRef}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {questions.map((question, index) => {
-                    const isCurrentQuestion = index === currentQuestionIndex;
-                    const selectedAnswer = selectedAnswers[question.questionId];
-
-                    return (
-                        <View key={question.questionId} style={styles.questionContainer}>
-                            {/* Question Header */}
-                            <View style={styles.questionHeader}>
-                                <Text style={styles.questionType}>
-                                    {question.questionType || 'SINGLE CHOICE QUESTION'}
-                                </Text>
-                                <Text style={styles.questionText}>{question.questionText}</Text>
-                            </View>
-
-                            {/* Answer Options Grid (1-10) */}
-                            <View style={styles.optionsContainer}>
-                                <View style={styles.optionsGrid}>
-                                    {Array.from({ length: 10 }, (_, i) => {
-                                        const optionValue = i + 1;
-                                        const isSelected = selectedAnswer === optionValue;
-
-                                        return (
-                                            <TouchableOpacity
-                                                key={optionValue}
-                                                style={styles.optionWrapper}
-                                                onPress={() => handleAnswerSelect(question.questionId, optionValue)}
-                                                activeOpacity={0.7}
-                                                disabled={!isCurrentQuestion}
-                                            >
-                                                {/* Background shadow */}
-                                                <View
-                                                    style={[
-                                                        styles.optionBackground,
-                                                        isSelected && styles.optionBackgroundSelected,
-                                                    ]}
-                                                />
-                                                {/* Option button */}
-                                                <View
-                                                    style={[
-                                                        styles.optionButton,
-                                                        isSelected && styles.optionButtonSelected,
-                                                        !isCurrentQuestion && styles.optionDisabled,
-                                                    ]}
-                                                >
-                                                    <Text
-                                                        style={[
-                                                            styles.optionText,
-                                                            !isCurrentQuestion && styles.optionTextDisabled,
-                                                        ]}
-                                                    >
-                                                        {optionValue}
-                                                    </Text>
-                                                </View>
-                                            </TouchableOpacity>
-                                        );
-                                    })}
-                                </View>
-
-                                {/* Scale Indicator */}
-                                <View style={styles.scaleIndicator}>
-                                    <Text style={styles.scaleText}>1 - Beginner</Text>
-                                    <Text style={styles.scaleText}>10 - Expert</Text>
-                                </View>
-                            </View>
-
-                            {/* Divider (except for last question) */}
-                            {index < questions.length - 1 && <View style={styles.divider} />}
+                {currentQuestion ? (
+                    <View 
+                        key={currentQuestion.questionId} 
+                        style={[
+                            styles.questionContainer,
+                            markedForReview.has(currentQuestion.questionId) && styles.questionContainerMarkedForReview
+                        ]}
+                    >
+                        {/* Question Type and Text */}
+                        <View style={styles.questionHeader}>
+                            <Text style={styles.questionType}>
+                                {currentQuestion.questionType?.toUpperCase() || 
+                                 currentQuestion.type?.toUpperCase() || 
+                                 'PASSAGE SINGLE CHOICE QUESTION'}
+                            </Text>
+                            <Text style={styles.questionText}>
+                                {currentQuestion.questionText}
+                            </Text>
                         </View>
-                    );
-                })}
+
+                        {/* Answer Options */}
+                        <View style={styles.optionsContainer}>
+                            {currentQuestion.choices && currentQuestion.choices.length > 0 ? (
+                                currentQuestion.choices.map((choice, index) => {
+                                    const optionNumber = String(index + 1);
+                                    const isSelected = selectedAnswers[currentQuestion.questionId] === optionNumber;
+                                    
+                                    // Determine the state of the question
+                                    const questionId = currentQuestion.questionId;
+                                    const isQuestionAnswered = !!selectedAnswers[questionId];
+                                    const isQuestionSkipped = skippedQuestions.has(questionId);
+                                    
+                                    // Determine option state
+                                    let optionState: 'attempted' | 'notAttempted' | 'skipped' = 'notAttempted';
+                                    if (isQuestionSkipped) {
+                                        optionState = 'skipped';
+                                    } else if (isQuestionAnswered) {
+                                        optionState = 'attempted';
+                                    }
+                                    
+                                    return (
+                                        <AnswerOption
+                                            key={`${currentQuestion.questionId}-${index}`}
+                                            optionText={choice}
+                                            optionNumber={optionNumber}
+                                            isSelected={isSelected}
+                                            state={optionState}
+                                            onPress={() => handleAnswerSelect(optionNumber)}
+                                        />
+                                    );
+                                })
+                            ) : (
+                                <Text style={styles.noChoicesText}>No answer options available</Text>
+                            )}
+                        </View>
+                    </View>
+                ) : (
+                    <View style={styles.noQuestionContainer}>
+                        <Text style={styles.noQuestionText}>No question available</Text>
+                    </View>
+                )}
             </ScrollView>
 
-            {/* Bottom Navigation Buttons */}
+            {/* Bottom Navigation */}
             <View style={styles.bottomNavigation}>
-                <View style={styles.backButton}>
+                <View style={styles.buttonContainer}>
                     <SecondaryButton
-                        label="Back To Top"
-                        onPress={handleBackToTop}
+                        label="Previous"
+                        onPress={handlePrevious}
+                        disabled={currentQuestionIndex === 0}
                     />
                 </View>
-                <View style={styles.nextButton}>
+                <View style={styles.buttonContainer}>
                     <PrimaryButton
                         label={currentQuestionIndex === questions.length - 1 ? 'Submit' : 'Next'}
-                        onPress={handleNext}
+                        onPress={currentQuestionIndex === questions.length - 1 ? handleSubmitTest : handleNext}
                     />
                 </View>
             </View>
 
             {/* Submit Confirmation Modal */}
-            <SubmitSurveyConfirmationModal
+            <SubmitTestConfirmationModal
                 visible={showSubmitModal}
+                unansweredCount={unansweredCount}
+                reviewMarkedCount={reviewMarkedCount}
                 onConfirm={handleConfirmSubmit}
                 onCancel={handleCancelSubmit}
                 isSubmitting={isSubmitting}
@@ -374,156 +724,98 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.white,
     },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingVertical: 24,
-        gap: 12,
+    topNavigation: {
         borderBottomWidth: 1,
         borderBottomColor: colors.lightGrey,
     },
-    progressBarContainer: {
-        flex: 1,
+    timerSection: {
         flexDirection: 'row',
-        height: 12,
-        borderRadius: 20,
-        overflow: 'hidden',
-        backgroundColor: colors.lightGrey,
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        gap: 16,
     },
-    progressBar: {
-        height: '100%',
-        backgroundColor: colors.primaryBlue,
-        borderRadius: 20,
-    },
-    progressBarRemaining: {
-        flex: 1,
-        backgroundColor: colors.lightGrey,
-    },
-    percentageBadge: {
+    menuWidget: {
         backgroundColor: colors.white,
         borderWidth: 1,
         borderColor: colors.lightGrey,
-        borderRadius: 24,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        minWidth: 60,
-        alignItems: 'center',
+        padding: 16,
+        gap: 20,
     },
-    percentageText: {
-        fontFamily: 'Inter',
-        fontSize: 12,
-        fontWeight: '600' as const,
-        lineHeight: 13,
+    markForReviewButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    markForReviewText: {
+        ...typography.p4,
+        color: colors.primaryBlue,
+    },
+    assessmentInfo: {
+        gap: 4,
+    },
+    assessmentSubtitle: {
+        ...typography.s1Regular,
+        color: colors.textGrey,
+    },
+    assessmentTitle: {
+        ...typography.p3Bold,
         color: colors.primaryDarkBlue,
     },
-    closeButton: {
-        width: 24,
-        height: 24,
+    questionTagsContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    submitTestButton: {
+        borderWidth: 1,
+        borderColor: colors.primaryBlue,
+        borderRadius: borderRadius.input,
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 140,
+    },
+    submitTestButtonText: {
+        ...typography.p4SemiBold,
+        color: colors.primaryBlue,
+    },
+    menuToggle: {
+        width: 81,
+        height: 40,
         justifyContent: 'center',
         alignItems: 'center',
+        alignSelf: 'center',
     },
     scrollContent: {
         padding: 16,
-        paddingBottom: 100, // Space for bottom navigation
+        paddingBottom: 100,
     },
     questionContainer: {
-        marginBottom: 40,
+        gap: 24,
+        backgroundColor: colors.white,
+        borderRadius: borderRadius.card,
+        padding: 16,
+    },
+    questionContainerMarkedForReview: {
+        backgroundColor: '#FFF4E6', // Light orange background when marked for review
+        borderWidth: 1,
+        borderColor: colors.reviewOrange,
     },
     questionHeader: {
-        marginBottom: 24,
         gap: 4,
     },
     questionType: {
-        fontFamily: 'Inter',
-        fontSize: 12,
-        fontWeight: '400' as const,
-        lineHeight: 16,
+        ...typography.s1Regular,
         color: colors.textGrey,
-        textAlign: 'center',
     },
     questionText: {
-        fontFamily: 'Inter',
-        fontSize: 14,
-        fontWeight: '600' as const,
-        lineHeight: 20,
+        ...typography.p4SemiBold,
         color: colors.primaryDarkBlue,
-        textAlign: 'center',
     },
     optionsContainer: {
         gap: 16,
-    },
-    optionsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 16,
-        justifyContent: 'center',
-    },
-    optionWrapper: {
-        position: 'relative',
-        width: 'auto',
-        minWidth: 50,
-    },
-    optionBackground: {
-        position: 'absolute',
-        top: 2,
-        left: 0,
-        right: 0,
-        height: 57,
-        backgroundColor: colors.lightGrey,
-        borderWidth: 1,
-        borderColor: colors.lightGrey,
-        borderRadius: 8,
-    },
-    optionBackgroundSelected: {
-        backgroundColor: colors.primaryBlue,
-        borderColor: colors.primaryBlue,
-    },
-    optionButton: {
-        backgroundColor: colors.white,
-        borderWidth: 1,
-        borderColor: colors.lightGrey,
-        borderRadius: 8,
-        paddingHorizontal: 24,
-        paddingVertical: 16,
-        minWidth: 50,
-        minHeight: 57,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    optionButtonSelected: {
-        borderColor: colors.primaryBlue,
-        borderWidth: 2,
-    },
-    optionDisabled: {
-        opacity: 0.4,
-    },
-    optionText: {
-        fontFamily: 'Inter',
-        fontSize: 16,
-        fontWeight: '400' as const,
-        lineHeight: 25,
-        color: colors.textGrey,
-    },
-    optionTextDisabled: {
-        color: colors.lightGrey,
-    },
-    scaleIndicator: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingHorizontal: 4,
-    },
-    scaleText: {
-        fontFamily: 'Inter',
-        fontSize: 12,
-        fontWeight: '400' as const,
-        lineHeight: 16,
-        color: '#80919f', // lighter-text-grey
-    },
-    divider: {
-        height: 1,
-        backgroundColor: '#dde1e6', // divider color from Figma
-        marginTop: 40,
     },
     bottomNavigation: {
         position: 'absolute',
@@ -537,11 +829,7 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: colors.lightGrey,
     },
-    backButton: {
-        flex: 1,
-        minWidth: 140,
-    },
-    nextButton: {
+    buttonContainer: {
         flex: 1,
         minWidth: 140,
     },
@@ -556,7 +844,23 @@ const styles = StyleSheet.create({
         color: colors.textGrey,
         textAlign: 'center',
     },
+    noQuestionContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    noQuestionText: {
+        ...typography.p3Regular,
+        color: colors.textGrey,
+        textAlign: 'center',
+    },
+    noChoicesText: {
+        ...typography.p4,
+        color: colors.textGrey,
+        textAlign: 'center',
+        padding: 16,
+    },
 });
 
 export default SurveyAssessmentQuestions;
-

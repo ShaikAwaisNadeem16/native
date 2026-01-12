@@ -171,62 +171,70 @@ const useProfileStore = create<ProfileState>((set, get) => ({
 
             // STEP 6: Fetch Enrolled Courses
             // POST https://apis.dev.cream-collar.com/api/lms/enrol/get-enroll-course
-            // NOTE: API is called regardless of roleEnrolled status (as per user requirement)
-            console.log('[DATA FETCH] STEP 6: Fetching enrolled courses...');
+            // Only call this API if the user is enrolled to avoid 500 errors
+            const isEnrolled = get().isEnrolled || enrollmentData?.roleEnrolled || false;
+            console.log('[DATA FETCH] STEP 6: Checking if user is enrolled...');
+            console.log('[DATA FETCH] STEP 6: isEnrolled:', isEnrolled);
             console.log('[DATA FETCH] STEP 6: enrollmentData?.roleEnrolled:', enrollmentData?.roleEnrolled);
             console.log('[DATA FETCH] STEP 6: enrollmentData?.preLearning:', enrollmentData?.preLearning);
             console.log('[DATA FETCH] STEP 6: enrollmentData?.userType:', enrollmentData?.userType);
             
-            try {
-                const coursesResponse = await HomeService.getEnrollCourse();
-                console.log('[DATA FETCH] STEP 6: Raw API response type:', typeof coursesResponse);
-                console.log('[DATA FETCH] STEP 6: Is array?', Array.isArray(coursesResponse));
-                console.log('[DATA FETCH] STEP 6: Full response:', JSON.stringify(coursesResponse, null, 2));
-                
-                if (coursesResponse) {
-                    // Handle different response structures: array, { data: [...] }, { courses: [...] }
-                    let coursesArray: any[] = [];
+            if (isEnrolled) {
+                try {
+                    console.log('[DATA FETCH] STEP 6: User is enrolled, fetching enrolled courses...');
+                    const coursesResponse = await HomeService.getEnrollCourse();
+                    console.log('[DATA FETCH] STEP 6: Raw API response type:', typeof coursesResponse);
+                    console.log('[DATA FETCH] STEP 6: Is array?', Array.isArray(coursesResponse));
+                    console.log('[DATA FETCH] STEP 6: Full response:', JSON.stringify(coursesResponse, null, 2));
                     
-                    if (Array.isArray(coursesResponse)) {
-                        coursesArray = coursesResponse;
-                        console.log('[DATA FETCH] STEP 6: Response is array, length:', coursesArray.length);
-                    } else if (coursesResponse?.data && Array.isArray(coursesResponse.data)) {
-                        coursesArray = coursesResponse.data;
-                        console.log('[DATA FETCH] STEP 6: Found courses in response.data, length:', coursesArray.length);
-                    } else if (coursesResponse?.courses && Array.isArray(coursesResponse.courses)) {
-                        coursesArray = coursesResponse.courses;
-                        console.log('[DATA FETCH] STEP 6: Found courses in response.courses, length:', coursesArray.length);
-                    } else if (coursesResponse?.enrolledCourses && Array.isArray(coursesResponse.enrolledCourses)) {
-                        coursesArray = coursesResponse.enrolledCourses;
-                        console.log('[DATA FETCH] STEP 6: Found courses in response.enrolledCourses, length:', coursesArray.length);
-                    } else {
-                        // Try to extract any array from the response
-                        const keys = Object.keys(coursesResponse || {});
-                        console.log('[DATA FETCH] STEP 6: Response keys:', keys);
-                        for (const key of keys) {
-                            if (Array.isArray(coursesResponse[key])) {
-                                coursesArray = coursesResponse[key];
-                                console.log('[DATA FETCH] STEP 6: Found array in key:', key, 'length:', coursesArray.length);
-                                break;
+                    if (coursesResponse) {
+                        // Handle different response structures: array, { data: [...] }, { courses: [...] }
+                        let coursesArray: any[] = [];
+                        
+                        if (Array.isArray(coursesResponse)) {
+                            coursesArray = coursesResponse;
+                            console.log('[DATA FETCH] STEP 6: Response is array, length:', coursesArray.length);
+                        } else if (coursesResponse?.data && Array.isArray(coursesResponse.data)) {
+                            coursesArray = coursesResponse.data;
+                            console.log('[DATA FETCH] STEP 6: Found courses in response.data, length:', coursesArray.length);
+                        } else if (coursesResponse?.courses && Array.isArray(coursesResponse.courses)) {
+                            coursesArray = coursesResponse.courses;
+                            console.log('[DATA FETCH] STEP 6: Found courses in response.courses, length:', coursesArray.length);
+                        } else if (coursesResponse?.enrolledCourses && Array.isArray(coursesResponse.enrolledCourses)) {
+                            coursesArray = coursesResponse.enrolledCourses;
+                            console.log('[DATA FETCH] STEP 6: Found courses in response.enrolledCourses, length:', coursesArray.length);
+                        } else {
+                            // Try to extract any array from the response
+                            const keys = Object.keys(coursesResponse || {});
+                            console.log('[DATA FETCH] STEP 6: Response keys:', keys);
+                            for (const key of keys) {
+                                if (Array.isArray(coursesResponse[key])) {
+                                    coursesArray = coursesResponse[key];
+                                    console.log('[DATA FETCH] STEP 6: Found array in key:', key, 'length:', coursesArray.length);
+                                    break;
+                                }
                             }
                         }
+                        
+                        console.log('[DATA FETCH] STEP 6: Final coursesArray length:', coursesArray.length);
+                        if (coursesArray.length > 0) {
+                            console.log('[DATA FETCH] STEP 6: First course sample:', JSON.stringify(coursesArray[0], null, 2));
+                            console.log('[DATA FETCH] STEP 6: First course CourseProgress:', JSON.stringify(coursesArray[0]?.CourseProgress, null, 2));
+                            console.log('[DATA FETCH] STEP 6: First course Courses:', JSON.stringify(coursesArray[0]?.Courses, null, 2));
+                        }
+                        set({ enrolledCourses: coursesArray });
+                    } else {
+                        console.log('[DATA FETCH] STEP 6: coursesResponse is null/undefined');
+                        set({ enrolledCourses: [] });
                     }
-                    
-                    console.log('[DATA FETCH] STEP 6: Final coursesArray length:', coursesArray.length);
-                    if (coursesArray.length > 0) {
-                        console.log('[DATA FETCH] STEP 6: First course sample:', JSON.stringify(coursesArray[0], null, 2));
-                        console.log('[DATA FETCH] STEP 6: First course CourseProgress:', JSON.stringify(coursesArray[0]?.CourseProgress, null, 2));
-                        console.log('[DATA FETCH] STEP 6: First course Courses:', JSON.stringify(coursesArray[0]?.Courses, null, 2));
-                    }
-                    set({ enrolledCourses: coursesArray });
-                } else {
-                    console.log('[DATA FETCH] STEP 6: coursesResponse is null/undefined');
+                } catch (error) {
+                    console.error('[DATA FETCH] STEP 6: Failed to fetch enrolled courses:', error);
+                    console.error('[DATA FETCH] STEP 6: Error details:', JSON.stringify(error, null, 2));
+                    // Non-blocking - continue flow, set empty array on error
                     set({ enrolledCourses: [] });
                 }
-            } catch (error) {
-                console.error('[DATA FETCH] STEP 6: Failed to fetch enrolled courses:', error);
-                console.error('[DATA FETCH] STEP 6: Error details:', JSON.stringify(error, null, 2));
-                // Non-blocking - continue flow
+            } else {
+                console.log('[DATA FETCH] STEP 6: User is not enrolled, skipping getEnrollCourse API call');
                 set({ enrolledCourses: [] });
             }
 

@@ -126,22 +126,40 @@ const EditCertificatesScreen: React.FC = () => {
                 : '';
 
             // Map skillsAcquired to format with skillId and skillName
-            const skillsAcquiredFormatted = skillsAcquired.map((skillName) => {
-                // Find matching skill from store to get skillId
-                const matchingSkill = skillsFromStore?.find(skill => skill.skillName === skillName);
-                return {
-                    skillId: matchingSkill?.skillId || 0,
-                    skillName: skillName,
-                };
-            });
+            // Only include skills that have a valid skillId (greater than 0)
+            const skillsAcquiredFormatted = skillsAcquired
+                .map((skillName) => {
+                    // Find matching skill from store to get skillId
+                    const matchingSkill = skillsFromStore?.find(skill => skill.skillName === skillName);
+                    const skillId = matchingSkill?.skillId;
+                    
+                    // Only include if we have a valid skillId
+                    if (skillId && skillId > 0) {
+                        return {
+                            skillId: skillId,
+                            skillName: skillName,
+                        };
+                    }
+                    return null;
+                })
+                .filter((skill): skill is { skillId: number; skillName: string } => skill !== null);
 
             // Prepare certificate array in API format (using correct field names)
+            // Preserve existing id if updating, otherwise create new entry
+            const existingId = certificateData.id || undefined;
+            
+            // Map skillsAcquired to format with skillId and skillName
+            // Only include skills that have a valid skillId (greater than 0)
+            const validSkillsAcquired = skillsAcquiredFormatted
+                .filter((skill: any) => skill && typeof skill.skillId === 'number' && skill.skillId > 0 && skill.skillName && skill.skillName.trim());
+            
             const certificate = [{
-                certCourseName: courseName,
-                certProvider: issuingOrganisation,
-                certUrl: certificateUrl,
-                certDate: formattedCompletedDate,
-                skillsAcquired: skillsAcquiredFormatted,
+                ...(existingId && { id: existingId }), // Include id if updating existing entry
+                certCourseName: courseName || '',
+                certProvider: issuingOrganisation || '',
+                certUrl: certificateUrl || null, // Use null instead of empty string
+                certDate: formattedCompletedDate || null, // Use null instead of empty string
+                skillsAcquired: validSkillsAcquired.length > 0 ? validSkillsAcquired : [],
             }];
 
             // Prepare payload for PUT /api/student/user-profile
@@ -152,7 +170,10 @@ const EditCertificatesScreen: React.FC = () => {
             console.log('Saving certificate details:', JSON.stringify(profileUpdateData, null, 2));
 
             // Call API to update certificate details
-            await ProfileService.updateProfileDetails(profileUpdateData);
+            // Get existing profile data to merge with update
+            const existingData = profileDetails || profileData || {};
+            
+            await ProfileService.updateProfileDetails(profileUpdateData, existingData);
 
             // Refresh profile data after successful update
             await initializeHome();

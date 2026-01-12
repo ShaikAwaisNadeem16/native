@@ -1,24 +1,220 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Bookmark } from 'lucide-react-native';
-import { colors, typography, borderRadius } from '../../styles/theme';
+import { colors, typography } from '../../styles/theme';
 import { RootStackParamList } from '../../navigation/AppNavigator';
+import { AssessmentService } from '../../api/assessment';
 import TestQuestionTag from './components/TestQuestionTag';
-import STEMAssignmentInfo from './components/STEMAssignmentInfo';
+import AssessmentHeaderCard from './components/AssessmentHeaderCard';
+import AssessmentInstructionsCard from './components/AssessmentInstructionsCard';
+import AssessmentInstructionsFooter from './components/AssessmentInstructionsFooter';
+import { CardSkeleton } from '../../components/common/SkeletonLoaders';
+import Header from '../home/components/Header';
+import BreadcrumbBar from './components/BreadcrumbBar';
+import { parseInstructionsFromHTML, InstructionItem } from './utils/htmlParser';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
+type RouteProps = RouteProp<RootStackParamList, 'StemAssessmentInstructions'>;
+
+interface QuizData {
+    shortName?: string;
+    title?: string;
+    description?: string;
+    duration?: string;
+    quizDetails?: any;
+    section?: string;
+    terms?: string;
+    btntext?: string;
+    questions?: string;
+    html?: string;
+}
+
 
 // StemAssessmentInstructionsScreen - Displays STEM Assessment instructions and test details
-// Renamed from ModuleDetailsScreen to reflect actual content (STEM Assessment Instructions)
 const StemAssessmentInstructionsScreen: React.FC = () => {
     const navigation = useNavigation<NavigationProp>();
+    const route = useRoute<RouteProps>();
+    const [loading, setLoading] = useState(true);
+    const [quizData, setQuizData] = useState<QuizData | null>(null);
+    const [aboutItems, setAboutItems] = useState<InstructionItem[]>([]);
+    const [instructions, setInstructions] = useState<InstructionItem[]>([]);
+    const [procedureItems, setProcedureItems] = useState<InstructionItem[]>([]);
+    const [error, setError] = useState<string | null>(null);
+    const [agreementChecked, setAgreementChecked] = useState(false);
+    const [startingQuiz, setStartingQuiz] = useState(false);
 
-    const handleTakeTest = () => {
-        // Navigate to STEM Assessment Test screen when Take The Test button is pressed
-        navigation.navigate('StemAssessmentTest');
+    // Extract lessonId from route params (for STEM assessment, it's LID-A-0019)
+    const lessonId = route.params?.lessonId || 'LID-A-0019';
+
+    useEffect(() => {
+        const fetchStemLessonContents = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+
+                console.log('========================================');
+                console.log('[StemAssessmentInstructions] ===== API CALL START =====');
+                console.log('[StemAssessmentInstructions] Fetching STEM lesson contents for lessonId:', lessonId);
+
+                // Use the STEM-specific API endpoint
+                const response = await AssessmentService.getStemLessonContents(lessonId);
+
+                console.log('========================================');
+                console.log('[StemAssessmentInstructions] ===== API RESPONSE RECEIVED =====');
+                console.log('[StemAssessmentInstructions] Full API Response:', JSON.stringify(response, null, 2));
+
+                if (response) {
+                    // Map the response to quizData format
+                    const quizData: QuizData = {
+                        shortName: response.shortName,
+                        title: response.title,
+                        description: response.description,
+                        duration: response.duration,
+                        quizDetails: response.quizDetails,
+                        section: response.section,
+                        terms: response.terms,
+                        btntext: response.btntext,
+                        questions: response.questions,
+                        html: response.html,
+                    };
+                    
+                    console.log('[StemAssessmentInstructions] Mapped QuizData:', JSON.stringify(quizData, null, 2));
+                    
+                    setQuizData(quizData);
+
+                    // Parse HTML to extract instructions
+                    if (response.html) {
+                        console.log('[StemAssessmentInstructions] Parsing HTML for instructions...');
+                        const parsed = parseInstructionsFromHTML(response.html);
+                        console.log('[StemAssessmentInstructions] Parsed aboutItems:', parsed.aboutItems?.length || 0);
+                        console.log('[StemAssessmentInstructions] Parsed instructions:', parsed.instructions?.length || 0);
+                        console.log('[StemAssessmentInstructions] Parsed procedureItems:', parsed.procedureItems?.length || 0);
+                        
+                        setAboutItems(parsed.aboutItems || []);
+                        setInstructions(parsed.instructions || []);
+                        setProcedureItems(parsed.procedureItems || []);
+                    } else {
+                        console.log('[StemAssessmentInstructions] No HTML found');
+                    }
+                    
+                    console.log('========================================');
+                } else {
+                    console.error('[StemAssessmentInstructions] ERROR: No data found in response');
+                    setError('No data found in response');
+                }
+            } catch (err: any) {
+                console.error('========================================');
+                console.error('[StemAssessmentInstructions] ===== ERROR OCCURRED =====');
+                console.error('[StemAssessmentInstructions] Error message:', err?.message);
+                console.error('[StemAssessmentInstructions] Error response:', err?.response?.data);
+                console.error('[StemAssessmentInstructions] Error status:', err?.response?.status);
+                console.error('========================================');
+                
+                setError(err?.message || 'Failed to load assessment instructions');
+                Alert.alert('Error', 'Failed to load assessment instructions. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchStemLessonContents();
+    }, [lessonId]);
+
+    const handleProfilePress = () => {
+        navigation.navigate('Profile');
+    };
+
+    const handleStartAssessment = async () => {
+        if (!agreementChecked) {
+            Alert.alert('Required', 'Please read and agree to the terms before starting the assessment.');
+            return;
+        }
+
+        if (!lessonId) {
+            Alert.alert('Error', 'No lesson ID available');
+            return;
+        }
+
+        try {
+            setStartingQuiz(true);
+
+            console.log('========================================');
+            console.log('[StemAssessmentInstructions] ===== START ASSESSMENT BUTTON CLICKED =====');
+            console.log('[StemAssessmentInstructions] Current lessonId:', lessonId);
+
+            // Call API to start the quiz attempt
+            console.log('========================================');
+            console.log('[StemAssessmentInstructions] ===== CALLING START QUIZ API =====');
+            console.log('[StemAssessmentInstructions] API: POST /api/lms/attempt/quiz');
+            console.log('[StemAssessmentInstructions] Payload:', JSON.stringify({
+                lessonId,
+                page: 'start',
+            }, null, 2));
+
+            const startQuizResponse = await AssessmentService.attemptQuiz({
+                lessonId,
+                page: 'start',
+            });
+
+            console.log('========================================');
+            console.log('[StemAssessmentInstructions] ===== START QUIZ API RESPONSE =====');
+            console.log('[StemAssessmentInstructions] Full API Response:', JSON.stringify(startQuizResponse, null, 2));
+
+            // Log questionData structure
+            if (startQuizResponse?.questionData) {
+                console.log('[StemAssessmentInstructions] QuestionData exists');
+                console.log('[StemAssessmentInstructions] QuestionData keys (sections):', Object.keys(startQuizResponse.questionData));
+                
+                // Log question counts per section
+                Object.keys(startQuizResponse.questionData).forEach((section) => {
+                    const questions = startQuizResponse.questionData[section];
+                    console.log(`[StemAssessmentInstructions] Section "${section}": ${Array.isArray(questions) ? questions.length : 0} questions`);
+                });
+            } else {
+                console.warn('[StemAssessmentInstructions] WARNING: questionData not found in response');
+            }
+
+            // Log attemptId and result
+            if (startQuizResponse?.attemptId) {
+                console.log('[StemAssessmentInstructions] AttemptId:', startQuizResponse.attemptId);
+            }
+            if (startQuizResponse?.result) {
+                console.log('[StemAssessmentInstructions] Result:', JSON.stringify(startQuizResponse.result, null, 2));
+            }
+
+            // Navigate to Survey Assessment Questions screen with question data
+            console.log('========================================');
+            console.log('[StemAssessmentInstructions] ===== NAVIGATING TO QUESTIONS SCREEN =====');
+            console.log('[StemAssessmentInstructions] Navigation params:');
+            console.log('[StemAssessmentInstructions] - lessonId:', lessonId);
+            console.log('[StemAssessmentInstructions] - moodleCourseId:', lessonId);
+            console.log('[StemAssessmentInstructions] - attemptId:', startQuizResponse?.attemptId);
+            console.log('[StemAssessmentInstructions] - questionData exists:', !!startQuizResponse?.questionData);
+            console.log('[StemAssessmentInstructions] - result exists:', !!startQuizResponse?.result);
+            console.log('========================================');
+            
+            navigation.navigate('SurveyAssessmentQuestions', {
+                lessonId,
+                moodleCourseId: lessonId,
+                attemptId: startQuizResponse?.attemptId,
+                questionData: startQuizResponse?.questionData,
+                quizResult: startQuizResponse?.result,
+            });
+        } catch (error: any) {
+            console.error('========================================');
+            console.error('[StemAssessmentInstructions] ===== ERROR STARTING QUIZ =====');
+            console.error('[StemAssessmentInstructions] Error message:', error?.message);
+            console.error('[StemAssessmentInstructions] Error response:', error?.response?.data);
+            console.error('[StemAssessmentInstructions] Error status:', error?.response?.status);
+            console.error('========================================');
+            
+            Alert.alert('Error', 'Failed to start assessment. Please try again.');
+        } finally {
+            setStartingQuiz(false);
+        }
     };
 
     const handleMarkForReview = () => {
@@ -37,414 +233,155 @@ const StemAssessmentInstructionsScreen: React.FC = () => {
         console.log('Submit test pressed');
     };
 
+    if (loading) {
+        return (
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+                <Header 
+                    onProfilePress={handleProfilePress} 
+                    onLogoPress={() => navigation.navigate('Home')} 
+                    useAssessmentLogo={true}
+                />
+                <BreadcrumbBar items={['Your Learning Journey', 'STEM Assessment']} />
+                <CardSkeleton />
+            </SafeAreaView>
+        );
+    }
+
+    if (error || !quizData) {
+        return (
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+                <Header 
+                    onProfilePress={handleProfilePress} 
+                    onLogoPress={() => navigation.navigate('Home')} 
+                    useAssessmentLogo={true}
+                />
+                <BreadcrumbBar items={['Your Learning Journey', 'STEM Assessment']} />
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error || 'Failed to load assessment'}</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    // Navigation items from the instructions
+    const navigationItems = [
+        {
+            label: 'Mark For Review',
+            description: 'Click on this button to mark a question and review it later',
+            variant: 'link' as const,
+            icon: <Bookmark size={24} color={colors.primaryBlue} />,
+        },
+        {
+            label: 'Previous',
+            description: 'Click on this button to go to previous question',
+            variant: 'outline' as const,
+        },
+        {
+            label: 'Next',
+            description: 'Save your response and move to the next question',
+            variant: 'primary' as const,
+        },
+        {
+            label: 'Submit Test',
+            description: 'Click on this button to submit your test once you\'ve reviewed all your answers',
+            variant: 'outline' as const,
+        },
+    ];
+
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+            <Header 
+                onProfilePress={handleProfilePress} 
+                onLogoPress={() => navigation.navigate('Home')} 
+                useAssessmentLogo={true}
+            />
+            <BreadcrumbBar items={['Your Learning Journey', 'STEM Assessment']} />
+            
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* STEM Assignment Info - Rendered ABOVE the instructions sections */}
-                <STEMAssignmentInfo
-                    subtitle="TEST"
-                    title="STEM Assessment"
-                    description="You need to clear the test by scoring at least 7/10 in-order to access the next activity in your journey"
-                    level="Beginner"
-                    duration="60 mins"
-                    onTakeTest={handleTakeTest}
+                {/* Blue Header Card - Matches Figma design */}
+                <AssessmentHeaderCard
+                    shortName={quizData.shortName || 'ASSESSMENT'}
+                    title={quizData.title || 'STEM Assessment'}
+                    description={quizData.description || 'The intent of this awareness course is to help the students understand all that is needed to know about the industry in which they will work in the future and progress their career.'}
+                    duration={quizData.duration}
+                    questions={quizData.questions}
+                    section={quizData.section}
                 />
 
-                {/* About The Assessment Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>About The Assessment</Text>
-                    <View style={styles.bulletList}>
-                        <BulletPoint text="The total duration of this test is 60 minutes." />
-                        <BulletPoint text="This test is of 80 Questions each of 1 Marks." />
-                        <BulletPoint text="Total number of sections in this test is 4." />
-                        <BulletPoint text="Each section comprises a duration of 15 minutes." />
-                        <BulletPointWithSubPoints
-                            mainText="There are following sections in the test:"
-                            subPoints={[
-                                'Section 1 is Science consisting of 20 questions.',
-                                'Section 2 is Technology consisting of 20 questions.',
-                                'Section 3 is Engineering Awareness consisting of 20 questions.',
-                                'Section 4 is Mathematics consisting of 20 questions.',
-                            ]}
-                        />
-                        <BulletPoint text="There will be a sectional cutoff of ⅓ for each section and an overall cutoff of ¾." />
-                        <BulletPoint text="No Marks will be deducted for un-attempted Questions" />
-                        <BulletPoint text="You are advised to not close the browser window before submitting the test." />
-                    </View>
+                {/* Instructions Card */}
+                <View style={styles.instructionsContainer}>
+                    <AssessmentInstructionsCard
+                        aboutItems={aboutItems}
+                        instructions={instructions}
+                        procedureItems={procedureItems}
+                        navigationItems={navigationItems}
+                        legendItems={[
+                            {
+                                tag: <TestQuestionTag questionNo="1" state="Unanswered" />,
+                                label: 'Not Visited/Unanswered Question',
+                            },
+                            {
+                                tag: <TestQuestionTag questionNo="1" state="Selected" />,
+                                label: 'Current Question',
+                            },
+                            {
+                                tag: <TestQuestionTag questionNo="1" state="Answered" />,
+                                label: 'Answered Question',
+                            },
+                            {
+                                tag: <TestQuestionTag questionNo="1" state="Review Unanswered" />,
+                                label: 'Unanswered and Marked for Review',
+                            },
+                            {
+                                tag: <TestQuestionTag questionNo="1" state="Review Answered" />,
+                                label: 'Answered and Marked for Review',
+                            },
+                        ]}
+                    />
                 </View>
 
-                <Divider />
-
-                {/* General Instructions Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>General Instructions</Text>
-                    <View style={styles.bulletList}>
-                        <BulletPoint text="Each question is timed" />
-                        <BulletPoint text="Do not use search engines or get help from others" />
-                        <BulletPoint text="Once you've submitted an answer, you cannot go back" />
-                        <BulletPoint text="You may exit the test, but the timer will continue to run" />
-                        <BulletPoint text="You can retake the assessment every 60 days" />
-                    </View>
-                </View>
-
-                <Divider />
-
-                {/* Procedure For Answering A Question Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Procedure For Answering A Question</Text>
-                    <View style={styles.bulletList}>
-                        <BulletPoint text="Read the type of question mentioned above the question carefully before answering the question" />
-                        <BulletPoint text="To deselect your chosen answer, click on the bubble of the chosen option again." />
-                        <BulletPoint text="To change your chosen answer, click on the bubble of another option." />
-                        <BulletPoint text="To save your answer, you MUST click on the any one of the options." />
-                        <BulletPoint text="If an answer is selected for a question that is Marked for Review, that answer will be considered in the evaluation unless the deselected by the candidate." />
-                        <BulletPoint text="To change your answer to a question that has already been answered, first select that question for answering and then follow the procedure for answering that type of question." />
-                        <BulletPoint text="Note that ONLY Questions for which answers are saved or marked for review after answering will be considered for evaluation." />
-                    </View>
-                </View>
-
-                {/* Navigation Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Navigation</Text>
-                    <View style={styles.navigationList}>
-                        <NavigationItem
-                            icon={<Bookmark size={24} color={colors.primaryBlue} />}
-                            label="Mark For Review"
-                            description="Click on this button to mark a question and review it later"
-                            onPress={handleMarkForReview}
-                        />
-                        <NavigationItem
-                            label="Previous"
-                            description="Click on this button to go to previous question"
-                            onPress={handlePrevious}
-                            variant="outline"
-                        />
-                        <NavigationItem
-                            label="Next"
-                            description="Save your response and move to the next question"
-                            onPress={handleNext}
-                            variant="primary"
-                        />
-                        <NavigationItem
-                            label="Submit Test"
-                            description="Click on this button to submit your test once you've reviewed all your answers"
-                            onPress={handleSubmitTest}
-                            variant="outline"
-                        />
-                    </View>
-                </View>
-
-                <Divider />
-
-                {/* Legend Section */}
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Legend</Text>
-                    <View style={styles.legendList}>
-                        <LegendItem
-                            tag={<TestQuestionTag questionNo="1" state="Unanswered" />}
-                            label="Not Visited/Unanswered Question"
-                        />
-                        <LegendItem
-                            tag={<TestQuestionTag questionNo="1" state="Selected" />}
-                            label="Current Question"
-                        />
-                        <LegendItem
-                            tag={<TestQuestionTag questionNo="1" state="Answered" />}
-                            label="Answered Question"
-                        />
-                        <LegendItem
-                            tag={<TestQuestionTag questionNo="1" state="Review Unanswered" />}
-                            label="Unanswered and Marked for Review"
-                        />
-                        <LegendItem
-                            tag={<TestQuestionTag questionNo="1" state="Review Answered" />}
-                            label="Answered and Marked for Review"
-                        />
-                    </View>
-                </View>
+                {/* Footer: Checkbox + Start Quiz Button */}
+                <AssessmentInstructionsFooter
+                    termsText={quizData.terms || 'I have read all the instructions carefully and have understood them. I agree not to cheat or use unfair means in this examination. I understand that using unfair means of any sort for my own or someone else\'s advantage will lead to my immediate disqualification. The decision of creamcollar.com will be final in these matters and cannot be appealed.'}
+                    buttonLabel="Start Assessment"
+                    checked={agreementChecked}
+                    onCheckboxToggle={() => setAgreementChecked(!agreementChecked)}
+                    onStartQuiz={handleStartAssessment}
+                    loading={startingQuiz}
+                />
             </ScrollView>
         </SafeAreaView>
     );
 };
 
-// Bullet Point Component
-interface BulletPointProps {
-    text: string;
-}
-
-const BulletPoint: React.FC<BulletPointProps> = ({ text }) => {
-    return (
-        <View style={styles.bulletItem}>
-            <View style={styles.bulletDot} />
-            <Text style={styles.bulletText}>{text}</Text>
-        </View>
-    );
-};
-
-// Bullet Point with Sub-points Component
-interface BulletPointWithSubPointsProps {
-    mainText: string;
-    subPoints: string[];
-}
-
-const BulletPointWithSubPoints: React.FC<BulletPointWithSubPointsProps> = ({
-    mainText,
-    subPoints,
-}) => {
-    return (
-        <View style={styles.bulletItemWithSub}>
-            <View style={styles.bulletDotContainer}>
-                <View style={styles.bulletDotTall} />
-            </View>
-            <View style={styles.bulletContent}>
-                <Text style={styles.bulletText}>{mainText}</Text>
-                <View style={styles.subPointsContainer}>
-                    {subPoints.map((point, index) => (
-                        <Text key={index} style={styles.subPointText}>
-                            {point}
-                        </Text>
-                    ))}
-                </View>
-            </View>
-        </View>
-    );
-};
-
-// Divider Component
-const Divider: React.FC = () => {
-    return <View style={styles.divider} />;
-};
-
-// Navigation Item Component
-interface NavigationItemProps {
-    icon?: React.ReactNode;
-    label: string;
-    description: string;
-    onPress: () => void;
-    variant?: 'primary' | 'outline' | 'link';
-}
-
-const NavigationItem: React.FC<NavigationItemProps> = ({
-    icon,
-    label,
-    description,
-    onPress,
-    variant = 'link',
-}) => {
-    const isPrimary = variant === 'primary';
-    const isOutline = variant === 'outline';
-    const isLink = variant === 'link';
-
-    return (
-        <View style={styles.navigationItem}>
-            {isLink ? (
-                <TouchableOpacity
-                    style={styles.linkButton}
-                    onPress={onPress}
-                    activeOpacity={0.7}
-                >
-                    {icon && <View style={styles.linkIcon}>{icon}</View>}
-                    <Text style={styles.linkText}>{label}</Text>
-                </TouchableOpacity>
-            ) : (
-                <TouchableOpacity
-                    style={[
-                        styles.navButton,
-                        isPrimary && styles.navButtonPrimary,
-                        isOutline && styles.navButtonOutline,
-                    ]}
-                    onPress={onPress}
-                    activeOpacity={0.7}
-                >
-                    <Text
-                        style={[
-                            styles.navButtonText,
-                            isPrimary && styles.navButtonTextPrimary,
-                            isOutline && styles.navButtonTextOutline,
-                        ]}
-                    >
-                        {label}
-                    </Text>
-                </TouchableOpacity>
-            )}
-            <Text style={styles.navigationDescription}>{description}</Text>
-        </View>
-    );
-};
-
-// Legend Item Component
-interface LegendItemProps {
-    tag: React.ReactNode;
-    label: string;
-}
-
-const LegendItem: React.FC<LegendItemProps> = ({ tag, label }) => {
-    return (
-        <View style={styles.legendItem}>
-            {tag}
-            <Text style={styles.legendLabel}>{label}</Text>
-        </View>
-    );
-};
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.white,
-        borderWidth: 1,
-        borderColor: colors.lightGrey,
+        backgroundColor: '#f6f9fc',
     },
     scrollContent: {
         flexGrow: 1,
+        paddingBottom: 24,
+    },
+    instructionsContainer: {
+        padding: 16,
+        width: '100%',
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
         padding: 24,
     },
-    section: {
-        width: '100%',
-        marginBottom: 24,
-    },
-    sectionTitle: {
-        ...typography.p3Bold,
-        color: colors.primaryDarkBlue,
-        marginBottom: 12,
-    },
-    bulletList: {
-        flexDirection: 'column',
-        gap: 8,
-        width: '100%',
-    },
-    bulletItem: {
-        flexDirection: 'row',
-        gap: 12,
-        alignItems: 'center',
-        width: '100%',
-    },
-    bulletItemWithSub: {
-        flexDirection: 'row',
-        gap: 12,
-        alignItems: 'flex-start',
-        width: '100%',
-    },
-    bulletDotContainer: {
-        width: 6,
-        height: 15,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    bulletDot: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: colors.textGrey,
-    },
-    bulletDotTall: {
-        width: 6,
-        height: 6,
-        borderRadius: 3,
-        backgroundColor: colors.textGrey,
-        marginTop: 4.5, // Center vertically in 15px container (15 - 6) / 2 = 4.5
-    },
-    bulletContent: {
-        flex: 1,
-        flexDirection: 'column',
-        gap: 4,
-    },
-    bulletText: {
+    errorText: {
         ...typography.p3Regular,
         color: colors.textGrey,
-        flex: 1,
-    },
-    subPointsContainer: {
-        paddingLeft: 20,
-        flexDirection: 'column',
-        gap: 4,
-    },
-    subPointText: {
-        ...typography.p3Regular,
-        color: colors.textGrey,
-    },
-    divider: {
-        height: 1,
-        width: '100%',
-        backgroundColor: colors.lightGrey,
-        marginVertical: 24,
-    },
-    navigationList: {
-        flexDirection: 'column',
-        gap: 20,
-        width: '100%',
-    },
-    navigationItem: {
-        flexDirection: 'column',
-        gap: 4,
-        width: '100%',
-    },
-    linkButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        alignSelf: 'flex-start',
-    },
-    linkIcon: {
-        width: 24,
-        height: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    linkText: {
-        ...typography.s1Regular,
-        color: colors.primaryBlue,
-    },
-    navButton: {
-        borderRadius: borderRadius.input,
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-        alignSelf: 'flex-start',
-        minWidth: 173,
-    },
-    navButtonPrimary: {
-        backgroundColor: colors.primaryBlue,
-    },
-    navButtonOutline: {
-        borderWidth: 1,
-        borderColor: colors.primaryBlue,
-        backgroundColor: 'transparent',
-    },
-    navButtonText: {
-        ...typography.s2SemiBold,
-        color: colors.primaryBlue,
-    },
-    navButtonTextPrimary: {
-        color: colors.white,
-    },
-    navButtonTextOutline: {
-        color: colors.primaryBlue,
-    },
-    navigationDescription: {
-        ...typography.p4,
-        color: colors.textGrey,
-        width: '100%',
-    },
-    legendList: {
-        flexDirection: 'column',
-        gap: 16,
-        width: '100%',
-    },
-    legendItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 16,
-        width: '100%',
-    },
-    legendLabel: {
-        ...typography.p4,
-        color: colors.textGrey,
+        textAlign: 'center',
     },
 });
 
 export default StemAssessmentInstructionsScreen;
-

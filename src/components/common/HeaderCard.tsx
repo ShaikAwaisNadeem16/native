@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { colors, typography } from '../../styles/theme';
 import { Clock } from 'lucide-react-native';
+import AssessmentLogo from './AssessmentLogo';
 
 export interface HeaderCardProps {
     // Variant
@@ -15,6 +16,7 @@ export interface HeaderCardProps {
     // Metadata
     duration?: string;
     questions?: string;
+    section?: string; // "4 Parts" or similar
     // Layout
     showIcon?: boolean;
 }
@@ -31,6 +33,7 @@ const HeaderCard: React.FC<HeaderCardProps> = ({
     description,
     duration,
     questions,
+    section,
     showIcon = true,
 }) => {
     const isAssignment = variant === 'assignment';
@@ -38,6 +41,25 @@ const HeaderCard: React.FC<HeaderCardProps> = ({
 
     return (
         <View style={styles.container}>
+            {/* Icon (for assessment variant) */}
+            {!isAssignment && showIcon && (
+                <View style={styles.iconContainer}>
+                    {iconUrl ? (
+                        <View style={styles.iconBackgroundMask}>
+                            <Image
+                                source={typeof iconUrl === 'string' ? { uri: iconUrl } : iconUrl}
+                                style={styles.icon}
+                                resizeMode="contain"
+                            />
+                        </View>
+                    ) : (
+                        <View style={styles.assessmentLogoContainer}>
+                            <AssessmentLogo size={70} />
+                        </View>
+                    )}
+                </View>
+            )}
+
             {/* Icon (for assignment variant) */}
             {isAssignment && showIcon && iconUrl && (
                 <View style={styles.iconContainer}>
@@ -71,11 +93,13 @@ const HeaderCard: React.FC<HeaderCardProps> = ({
                         </View>
                     )
                 ) : (
-                    (duration || questions) && (
+                    (section || duration || questions) && (
                         <View style={styles.metadataRow}>
-                            {duration && <Text style={styles.metadataText}>{duration}</Text>}
-                            {duration && questions && <View style={styles.dot} />}
+                            {section && <Text style={styles.metadataText}>{section}</Text>}
+                            {section && questions && <View style={styles.dot} />}
                             {questions && <Text style={styles.metadataText}>{questions}</Text>}
+                            {questions && duration && <View style={styles.dot} />}
+                            {duration && <Text style={styles.metadataText}>{duration}</Text>}
                         </View>
                     )
                 )}
@@ -110,6 +134,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         position: 'relative',
+    },
+    assessmentLogoContainer: {
+        width: 70,
+        height: 70,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     iconBackgroundMask: {
         width: 60.007,

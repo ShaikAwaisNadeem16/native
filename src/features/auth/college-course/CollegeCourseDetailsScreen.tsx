@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, typography, spacing, borderRadius, sizes } from '../../../styles/theme';
 import ProgressSteps from '../../../components/SignUp/ProgressSteps';
@@ -9,23 +9,195 @@ import DropdownField from '../../../components/SignUp/DropdownField';
 import DateField from '../../../components/SignUp/DateField';
 import PrimaryButton from '../../../components/SignUp/PrimaryButton';
 import { RootStackParamList } from '../../../navigation/AppNavigator';
+import AuthService from '../../../api/auth';
+import CreamCollarLogo from '../../../components/common/CreamCollarLogo';
 
 type CollegeCourseDetailsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'CollegeCourseDetails'>;
 
 const CollegeCourseDetailsScreen: React.FC = () => {
     const navigation = useNavigation<CollegeCourseDetailsScreenNavigationProp>();
+    const route = useRoute();
+    const routeParams = route.params as {
+        email?: string;
+        firstName?: string;
+        lastName?: string;
+        mobileNumber?: string;
+        password?: string;
+        branches?: Array<{ branchId: number; branch: string }>;
+    } | undefined;
+    
     const [course, setCourse] = useState('');
     const [specialisation, setSpecialisation] = useState('');
     const [startDate, setStartDate] = useState<Date | null>(null);
     const [endDate, setEndDate] = useState<Date | null>(null);
+    const [isCreatingAccount, setIsCreatingAccount] = useState(false);
 
-    // Placeholder options - these would come from API in real implementation
-    const courseOptions = ['Computer Science', 'Engineering', 'Business', 'Arts'];
-    const specialisationOptions = ['Software Development', 'Data Science', 'Web Development', 'Mobile Development'];
+    // Course options
+    const courseOptions = ['B.E', 'B.Tech'];
+    
+    // Specialization options - use branches from API if available, otherwise fallback to hardcoded list
+    const specialisationOptions = useMemo(() => {
+        if (routeParams?.branches && Array.isArray(routeParams.branches) && routeParams.branches.length > 0) {
+            // Use branch names from API response
+            const branchNames = routeParams.branches.map(branch => branch.branch);
+            console.log('[CollegeCourseDetailsScreen] Using branches from API:', branchNames);
+            return branchNames;
+        } else {
+            // Fallback to hardcoded list
+            console.log('[CollegeCourseDetailsScreen] Using fallback specialization list');
+            return [
+                'Electronics and Communication',
+                'Computer Science Engineering',
+                'Information Technology',
+                'Electrical Engineering',
+                'Mechanical Engineering'
+            ];
+        }
+    }, [routeParams?.branches]);
 
-    const handleCreateAccount = () => {
-        // Navigate to Account Created Success screen
-        navigation.navigate('AccountCreatedSuccess');
+    const handleCreateAccount = async () => {
+        // Validate required fields
+        if (!course || !specialisation || !startDate || !endDate) {
+            Alert.alert('Error', 'Please fill in all college course details');
+            return;
+        }
+
+        // Validate user data from previous screens
+        if (!routeParams?.email || !routeParams?.firstName || !routeParams?.lastName || !routeParams?.mobileNumber || !routeParams?.password) {
+            Alert.alert('Error', 'Missing user information. Please go back and complete the previous steps.');
+            return;
+        }
+
+        setIsCreatingAccount(true);
+        try {
+            console.log('[CollegeCourseDetailsScreen] ===== CREATE ACCOUNT CLICKED =====');
+            console.log('[CollegeCourseDetailsScreen] User data from route params:', {
+                email: routeParams.email,
+                firstName: routeParams.firstName,
+                lastName: routeParams.lastName,
+                mobileNumber: routeParams.mobileNumber,
+                password: '***' // Don't log password
+            });
+
+            // Call POST /api/auth/user/register
+            // Remove country code prefix from mobileNumber if present (API expects just the number)
+            let mobileNumberForRegister = routeParams.mobileNumber || '';
+            if (mobileNumberForRegister.startsWith('+91')) {
+                mobileNumberForRegister = mobileNumberForRegister.substring(3);
+            } else if (mobileNumberForRegister.startsWith('91') && mobileNumberForRegister.length === 12) {
+                mobileNumberForRegister = mobileNumberForRegister.substring(2);
+            }
+            
+            const registerPayload = {
+                email: routeParams.email,
+                firstName: routeParams.firstName,
+                lastName: routeParams.lastName,
+                mobileNumber: mobileNumberForRegister,
+                password: routeParams.password,
+                platform: 'student',
+            };
+            
+            console.log('[CollegeCourseDetailsScreen] Calling AuthService.register (POST /api/auth/user/register)');
+            console.log('[CollegeCourseDetailsScreen] Register payload:', JSON.stringify({ ...registerPayload, password: '***' }, null, 2));
+            
+            const registerResponse = await AuthService.register(registerPayload);
+            
+            console.log('[CollegeCourseDetailsScreen] Register API response:', JSON.stringify(registerResponse, null, 2));
+            
+            // After successful registration, automatically log the user in
+            console.log('[CollegeCourseDetailsScreen] Registration successful, automatically logging in...');
+            try {
+                // Use email for login (mobile number can also be used, but email is more reliable)
+                const loginResponse = await AuthService.doLogin(routeParams.email, routeParams.password);
+                console.log('[CollegeCourseDetailsScreen] Auto-login successful:', JSON.stringify(loginResponse, null, 2));
+                
+                // Check if user is authorized before navigating to Home
+                console.log('[CollegeCourseDetailsScreen] Checking user authorization...');
+                try {
+                    const authCheck = await AuthService.checkUserAuthorized(loginResponse.userId);
+                    console.log('[CollegeCourseDetailsScreen] Authorization check response:', JSON.stringify(authCheck, null, 2));
+                    
+                    if (authCheck.authorized === true) {
+                        // User is authorized - navigate to Home screen
+                        console.log('[CollegeCourseDetailsScreen] User is authorized, navigating to Home');
+                        navigation.replace('Home');
+                    } else {
+                        // User is not authorized - show error and logout
+                        console.log('[CollegeCourseDetailsScreen] User is not authorized');
+                        const errorMsg = authCheck.message || 'This email is not authorized to login';
+                        Alert.alert('Authorization Failed', errorMsg, [
+                            {
+                                text: 'OK',
+                                onPress: async () => {
+                                    // Logout the user since they're not authorized
+                                    await AuthService.doLogout();
+                                    navigation.navigate('Login');
+                                }
+                            }
+                        ]);
+                    }
+                } catch (authError: any) {
+                    console.error('[CollegeCourseDetailsScreen] Authorization check failed:', authError);
+                    // If authorization check fails, still allow login but log the error
+                    // This is a fallback in case the authorization API is down
+                    const authErrorMessage = authError?.message || 'Failed to verify authorization';
+                    console.warn('[CollegeCourseDetailsScreen] Authorization check failed, but allowing login:', authErrorMessage);
+                    navigation.replace('Home');
+                }
+            } catch (loginError: any) {
+                console.error('[CollegeCourseDetailsScreen] Auto-login failed:', loginError);
+                // If auto-login fails, show error but registration was successful
+                Alert.alert(
+                    'Account Created',
+                    'Your account has been created successfully. Please log in manually.',
+                    [
+                        {
+                            text: 'OK',
+                            onPress: () => {
+                                navigation.navigate('Login');
+                            }
+                        }
+                    ]
+                );
+            }
+        } catch (error: any) {
+            console.error('[CollegeCourseDetailsScreen] Registration failed:', error);
+            console.error('[CollegeCourseDetailsScreen] Error response:', JSON.stringify(error?.response?.data, null, 2));
+            console.error('[CollegeCourseDetailsScreen] Error status:', error?.response?.status);
+            console.error('[CollegeCourseDetailsScreen] Error statusCode:', error?.response?.data?.statusCode);
+            
+            // Handle 409 Conflict (user already registered)
+            if (error?.response?.status === 409 || error?.response?.data?.statusCode === 409) {
+                const errorData = error?.response?.data || {};
+                const errorMessage = errorData.message || 'User already registered for this platform';
+                const errorDetails = {
+                    statusCode: errorData.statusCode,
+                    timestamp: errorData.timestamp,
+                    path: errorData.path,
+                    message: errorData.message,
+                    error: errorData.error,
+                };
+                console.log('[CollegeCourseDetailsScreen] 409 Conflict response:', JSON.stringify(errorDetails, null, 2));
+                
+                Alert.alert('Account Already Exists', errorMessage, [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            // Navigate to login screen
+                            navigation.navigate('Login');
+                        }
+                    }
+                ]);
+            } else {
+                // Handle other errors
+                const errorData = error?.response?.data || {};
+                const errorMessage = errorData.message || error?.message || 'Failed to create account. Please try again.';
+                console.error('[CollegeCourseDetailsScreen] Registration error details:', JSON.stringify(errorData, null, 2));
+                Alert.alert('Error', errorMessage);
+            }
+        } finally {
+            setIsCreatingAccount(false);
+        }
     };
 
     const handleTermsPress = () => {
@@ -51,9 +223,7 @@ const CollegeCourseDetailsScreen: React.FC = () => {
             >
                 {/* CC Logo at top */}
                 <View style={styles.logoContainer}>
-                    <View style={styles.logoPlaceholder}>
-                        <Text style={styles.logoText}>CC Logo</Text>
-                    </View>
+                    <CreamCollarLogo width={149} height={32} style={styles.logo} />
                 </View>
 
                 {/* Main Card - Frame 16146 from Figma */}
@@ -81,13 +251,13 @@ const CollegeCourseDetailsScreen: React.FC = () => {
                                 <DropdownField
                                     value={course}
                                     onValueChange={setCourse}
-                                    placeholder="Course"
+                                    placeholder="Course *"
                                     options={courseOptions}
                                 />
                                 <DropdownField
                                     value={specialisation}
                                     onValueChange={setSpecialisation}
-                                    placeholder="Specialisation"
+                                    placeholder="Specializations *"
                                     options={specialisationOptions}
                                 />
                                 
@@ -109,8 +279,9 @@ const CollegeCourseDetailsScreen: React.FC = () => {
                             {/* Frame 16141 - Button Section */}
                             <View style={styles.buttonSection}>
                                 <PrimaryButton
-                                    label="Create Account"
+                                    label={isCreatingAccount ? "Creating Account..." : "Create Account"}
                                     onPress={handleCreateAccount}
+                                    disabled={isCreatingAccount || !course || !specialisation || !startDate || !endDate}
                                 />
                             </View>
                         </View>
@@ -152,19 +323,14 @@ const styles = StyleSheet.create({
     },
     logoContainer: {
         alignItems: 'center',
-        marginBottom: 0,
-    },
-    logoPlaceholder: {
-        width: sizes.logoWidth,
-        height: sizes.logoHeight,
         justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: colors.white,
-        borderRadius: 4,
+        marginBottom: 24,
+        width: '100%',
+        paddingTop: 0,
     },
-    logoText: {
-        ...typography.s1Regular,
-        color: colors.primaryDarkBlue,
+    logo: {
+        width: 149,
+        height: 32,
     },
     cardContainer: {
         width: '100%',

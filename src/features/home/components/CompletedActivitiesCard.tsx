@@ -37,7 +37,7 @@ const CompletedActivitiesCard: React.FC<CompletedActivitiesCardProps> = ({
             >
                 <View style={styles.content}>
                     <View style={styles.titleContainer}>
-                        <Text style={styles.title}>Completed Activities</Text>
+                        <Text style={styles.title}>Past Activities</Text>
                         <Text style={styles.count}>({completed}/{total})</Text>
                     </View>
                     <View style={styles.iconContainer}>

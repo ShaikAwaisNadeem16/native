@@ -128,12 +128,15 @@ const AssignmentInstructionsScreen: React.FC = () => {
     };
 
     // Extract data from API response - use exact field names from API
+    // API response structure: { studentData: {...}, assign_data: { shortName, title, description, duration, html, terms, btntext, ... } }
     const assignData = assignmentData?.assign_data || {};
     const studentData = assignmentData?.studentData || {};
 
+    console.log('[AssignmentInstructions] Full API response:', JSON.stringify(assignmentData, null, 2));
     console.log('[AssignmentInstructions] assignData:', JSON.stringify(assignData, null, 2));
     console.log('[AssignmentInstructions] studentData:', JSON.stringify(studentData, null, 2));
 
+    // Extract fields from assign_data object
     const assignmentTitle = assignData?.title || 'Assignment';
     const assignmentDescription = assignData?.description || '';
     const assignmentDuration = assignData?.duration || '';
@@ -141,6 +144,15 @@ const AssignmentInstructionsScreen: React.FC = () => {
     const termsText = assignData?.terms || 'I have read and understood all the instructions.';
     const buttonLabel = (assignData?.btntext || 'Start Assignment').trim();
     const assignmentIconUrl = assignData?.iconUrl || assignData?.icon || undefined;
+
+    console.log('[AssignmentInstructions] Extracted values:', {
+        title: assignmentTitle,
+        description: assignmentDescription,
+        duration: assignmentDuration,
+        hasInstructions: !!instructionsHtml,
+        hasTerms: !!termsText,
+        buttonLabel,
+    });
 
     // Deadline is extracted from terms HTML, not from studentData
     // The terms HTML contains: "Your deadline will be set for <strong>7th January, 5:22pm</strong>"

@@ -79,7 +79,24 @@ const EditWorkInternshipDetailsScreen: React.FC = () => {
 
     // Form state - initialized from store data
     const [companyName, setCompanyName] = useState(workData.companyName || '');
-    const [employmentType, setEmploymentType] = useState(workData.empType || '');
+    // Map API empType to display format (e.g., "Internship" -> "Internship", "Full-time" -> "Full Time")
+    const mapEmpTypeToDisplay = (empType: string) => {
+        if (!empType) return '';
+        // Convert "Full-time" to "Full Time", "Part-time" to "Part Time"
+        return empType.replace(/-/g, ' ');
+    };
+    const mapDisplayToEmpType = (displayType: string) => {
+        if (!displayType) return '';
+        // Convert "Full Time" to "Full-time", "Part Time" to "Part-time" for API
+        // Keep "Internship" and "Contract" as-is
+        // Ensure enum values match API expectations (case-sensitive)
+        if (displayType === 'Full Time') return 'Full-time';
+        if (displayType === 'Part Time') return 'Part-time';
+        if (displayType === 'Internship') return 'Internship';
+        if (displayType === 'Contract') return 'Contract';
+        return displayType;
+    };
+    const [employmentType, setEmploymentType] = useState(mapEmpTypeToDisplay(workData.empType || ''));
     const [designation, setDesignation] = useState(workData.designation || '');
     const [currentlyWorking, setCurrentlyWorking] = useState(workData.isWorking || false);
     const [startMonth, setStartMonth] = useState(startDateParsed.month);
@@ -90,7 +107,7 @@ const EditWorkInternshipDetailsScreen: React.FC = () => {
     const [skillsUsed, setSkillsUsed] = useState<string[]>(skillsFromAPI);
 
     // Dropdown options
-    const employmentTypeOptions = ['Full-time', 'Part-time', 'Internship', 'Contract', 'Freelance', 'Other'];
+    const employmentTypeOptions = ['Full Time', 'Part Time', 'Internship', 'Contract'];
     const monthOptions = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const yearOptions = Array.from({ length: 30 }, (_, i) => String(2024 - i));
 
@@ -146,26 +163,93 @@ const EditWorkInternshipDetailsScreen: React.FC = () => {
 
             // Map skills to skillsAcquired format with skillId and skillName
             // Match skill names with skills from store/API to get correct skillId
-            const skillsAcquired = skillsUsed.map((skillName) => {
-                // Find matching skill from store to get skillId
-                const matchingSkill = skillsFromStore?.find(skill => skill.skillName === skillName);
-                return {
-                    skillId: matchingSkill?.skillId || 0, // Use skillId from API, or 0 if not found
-                    skillName: skillName,
-                };
-            });
+            // Only include skills that have a valid skillId (greater than 0)
+            const skillsAcquired = skillsUsed
+                .map((skillName) => {
+                    // Find matching skill from store to get skillId
+                    const matchingSkill = skillsFromStore?.find(skill => skill.skillName === skillName);
+                    const skillId = matchingSkill?.skillId;
+                    
+                    // Only include if we have a valid skillId
+                    if (skillId && skillId > 0) {
+                        return {
+                            skillId: skillId,
+                            skillName: skillName,
+                        };
+                    }
+                    return null;
+                })
+                .filter((skill): skill is { skillId: number; skillName: string } => skill !== null);
+
+            // Validate required fields
+            if (!companyName || !employmentType || !designation || !startYear || !startMonth) {
+                Alert.alert('Error', 'Please fill in all required fields (Company Name, Employment Type, Designation, Start Date)');
+                setSaving(false);
+                return;
+            }
 
             // Prepare workExperience array in API format
-            const workExperience = [{
-                companyName: companyName,
-                empType: employmentType,
-                designation: designation,
-                workStartDate: formattedStartDate,
-                workEndDate: formattedEndDate,
-                isWorking: currentlyWorking,
-                jobDesc: responsibilities,
-                skillsAcquired: skillsAcquired,
-            }];
+            // Preserve existing id if updating, otherwise create new entry
+            const existingId = workData.id || undefined;
+            // Convert display format back to API format (e.g., "Full Time" -> "Full-time")
+            const apiEmpType = mapDisplayToEmpType(employmentType);
+            
+            // Build workExperience object - ensure all fields match API schema
+            const workExperienceEntry: any = {};
+            
+            // Include id only if it exists (for updates)
+            if (existingId) {
+                workExperienceEntry.id = existingId;
+            }
+            
+            // Required fields - ensure they are not empty or null
+            // Prisma validation requires these fields to have actual values
+            if (!companyName.trim() || !apiEmpType || !designation.trim() || !formattedStartDate) {
+                Alert.alert('Error', 'Please fill in all required fields (Company Name, Employment Type, Designation, Start Date)');
+                setSaving(false);
+                return;
+            }
+            
+            workExperienceEntry.companyName = companyName.trim();
+            workExperienceEntry.empType = apiEmpType;
+            workExperienceEntry.designation = designation.trim();
+            workExperienceEntry.workStartDate = formattedStartDate;
+            workExperienceEntry.isWorking = currentlyWorking;
+            
+            // End date - use null instead of empty string when currently working or not provided
+            // Prisma expects null for optional date fields, not empty strings
+            if (currentlyWorking || !formattedEndDate) {
+                workExperienceEntry.workEndDate = null;
+            } else {
+                workExperienceEntry.workEndDate = formattedEndDate;
+            }
+            
+            // Job description - use null instead of empty string if not provided
+            if (responsibilities && responsibilities.trim()) {
+                workExperienceEntry.jobDesc = responsibilities.trim();
+            } else {
+                workExperienceEntry.jobDesc = null;
+            }
+            
+            // Skills - always include as array, even if empty
+            // Filter out invalid skills (skillId must be > 0)
+            const validSkills = skillsAcquired.filter(skill => 
+                skill && 
+                typeof skill.skillId === 'number' && 
+                skill.skillId > 0 && 
+                skill.skillName && 
+                skill.skillName.trim()
+            );
+            
+            // Ensure each skill has both skillId and skillName
+            workExperienceEntry.skillsAcquired = validSkills.map(skill => ({
+                skillId: skill.skillId,
+                skillName: skill.skillName.trim(),
+            }));
+            
+            const workExperience = [workExperienceEntry];
+            
+            console.log('[EditWorkInternshipDetailsScreen] Prepared workExperience:', JSON.stringify(workExperience, null, 2));
 
             // Prepare payload for PUT /api/student/user-profile
             const profileUpdateData = {
@@ -175,7 +259,10 @@ const EditWorkInternshipDetailsScreen: React.FC = () => {
             console.log('Saving work/internship details:', JSON.stringify(profileUpdateData, null, 2));
 
             // Call API to update work/internship details
-            await ProfileService.updateProfileDetails(profileUpdateData);
+            // Get existing profile data to merge with update
+            const existingData = profileDetails || profileData || {};
+            
+            await ProfileService.updateProfileDetails(profileUpdateData, existingData);
 
             // Refresh profile data after successful update
             await initializeHome();
@@ -184,7 +271,16 @@ const EditWorkInternshipDetailsScreen: React.FC = () => {
             navigation.goBack();
         } catch (error: any) {
             console.error('Failed to save work/internship details:', error);
-            Alert.alert('Error', error?.message || 'Failed to update work/internship details. Please try again.');
+            console.error('Error response:', error?.response?.data);
+            console.error('Error status:', error?.response?.status);
+            
+            // Show more detailed error message
+            const errorMessage = error?.response?.data?.message || 
+                               error?.response?.data?.error ||
+                               error?.message || 
+                               'Failed to update work/internship details. Please try again.';
+            
+            Alert.alert('Error', errorMessage);
         } finally {
             setSaving(false);
         }

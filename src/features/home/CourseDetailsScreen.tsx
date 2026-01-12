@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -12,35 +12,11 @@ import { colors } from '../../styles/theme';
 import AutomotiveHamburgerMenu, {
     ModuleSection,
 } from '../../components/course-details/AutomotiveHamburgerMenu';
+import { HomeService } from '../../api/home';
+import { transformCourseDataToMenuSections, getCourseMenuTitle } from '../../utils/courseDataTransform';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'CourseDetails'>;
 type CourseDetailsRouteProp = RouteProp<RootStackParamList, 'CourseDetails'>;
-
-// Course sections data for hamburger menu
-const courseSections: ModuleSection[] = [
-    {
-        id: '1',
-        title: 'Introduction to Automotive Industry',
-        items: [],
-    },
-    {
-        id: '2',
-        title: 'Automotive Industry Value Chain',
-        items: [
-            { id: '2-1', title: 'Size of Industry', type: 'video', status: 'completed' },
-            { id: '2-2', title: 'Different Players in the Automotive Industry', type: 'read', status: 'current' },
-            { id: '2-3', title: 'Segments Of Automotive Industry', type: 'quiz', status: 'locked' },
-        ],
-    },
-    { id: '3', title: 'Size of Automotive Industry', isLocked: true },
-    { id: '4', title: 'Major Players and Regions', isLocked: true },
-    { id: '5', title: 'Career Opportunities and Success Development', isLocked: true },
-    { id: '6', title: 'Next Module', isLocked: true },
-    { id: '7', title: 'Next Module', isLocked: true },
-    { id: '8', title: 'Quiz', isLocked: true },
-    { id: '9', title: 'Quiz', isLocked: true },
-    { id: '10', title: 'Next Module', isLocked: true },
-];
 
 /**
  * CourseDetailsScreen
@@ -50,8 +26,34 @@ const courseSections: ModuleSection[] = [
 const CourseDetailsScreen: React.FC = () => {
     const navigation = useNavigation<NavigationProp>();
     const route = useRoute<CourseDetailsRouteProp>();
-    const { courseId, courseTitle } = route.params || {};
+    const { courseId, courseTitle, lessonId, parentCourseId } = route.params || {};
     const [isMenuVisible, setIsMenuVisible] = useState(false);
+    const [courseSections, setCourseSections] = useState<ModuleSection[]>([]);
+    const [menuTitle, setMenuTitle] = useState('Awareness On Automotive Industry');
+    const [menuSubtitle, setMenuSubtitle] = useState('Automotive Industry Value Chain');
+
+    // Fetch course data for hamburger menu if parentCourseId is available
+    useEffect(() => {
+        if (parentCourseId) {
+            fetchCourseData();
+        }
+    }, [parentCourseId]);
+
+    const fetchCourseData = async () => {
+        try {
+            const courseData = await HomeService.getCourseView(parentCourseId);
+            console.log('[CourseDetails] Course data fetched:', JSON.stringify(courseData, null, 2));
+            
+            const sections = transformCourseDataToMenuSections(courseData, lessonId || courseId);
+            setCourseSections(sections);
+            
+            const { title, subtitle } = getCourseMenuTitle(courseData);
+            setMenuTitle(title);
+            setMenuSubtitle(subtitle);
+        } catch (error: any) {
+            console.error('[CourseDetails] Failed to fetch course data:', error);
+        }
+    };
 
     const handleProfilePress = () => {
         navigation.navigate('Profile');
@@ -67,11 +69,38 @@ const CourseDetailsScreen: React.FC = () => {
 
     const handleMenuItemPress = (sectionId: string, itemId: string) => {
         setIsMenuVisible(false);
-        // Navigate to Read Different Players screen when clicking on that item
-        if (itemId === '2-2') {
-            navigation.navigate('ReadDifferentPlayers');
+        
+        const parts = itemId.split('-');
+        if (parts.length >= 2) {
+            const extractedLessonId = parts.slice(1).join('-');
+            
+            let lessonType: string | null = null;
+            for (const section of courseSections) {
+                const item = section.items?.find(item => item.id === itemId);
+                if (item) {
+                    lessonType = item.type;
+                    break;
+                }
+            }
+            
+            if (lessonType === 'video') {
+                navigation.navigate('CourseDetails', {
+                    courseId: extractedLessonId,
+                    courseTitle: courseSections.find(s => s.items?.some(i => i.id === itemId))?.items?.find(i => i.id === itemId)?.title || '',
+                    parentCourseId,
+                });
+            } else if (lessonType === 'read') {
+                navigation.navigate('ReadDifferentPlayers', {
+                    courseId: parentCourseId,
+                    lessonId: extractedLessonId,
+                });
+            } else if (lessonType === 'quiz') {
+                navigation.navigate('EngineeringAssessmentInstructions', {
+                    lessonId: extractedLessonId,
+                    moodleCourseId: parentCourseId,
+                });
+            }
         }
-        // Handle other items as needed
     };
 
     return (
@@ -95,11 +124,10 @@ const CourseDetailsScreen: React.FC = () => {
             <AutomotiveHamburgerMenu
                 visible={isMenuVisible}
                 onClose={handleMenuClose}
-                title="Awareness On Automotive Industry"
-                subtitle="Automotive Industry Value Chain"
+                title={menuTitle}
+                subtitle={menuSubtitle}
                 sections={courseSections}
                 onItemPress={handleMenuItemPress}
-                initialExpandedSection="2"
             />
         </SafeAreaView>
     );

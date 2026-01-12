@@ -321,7 +321,8 @@ const ProfileScreen: React.FC = () => {
                             title="Education Details"
                             completionPercentage={Math.round(educationPercentage)}
                             onEditPress={handleEditEducation}
-                            showAddIcon={false}
+                            onAddPress={handleAddEducation}
+                            showBothIcons={true}
                         />
                         <View style={styles.educationCardContainer}>
                             {educationalDetailsArray
@@ -362,7 +363,8 @@ const ProfileScreen: React.FC = () => {
                             title="Work/Internship Details"
                             completionPercentage={Math.round(workPercentage)}
                             onEditPress={handleEditWorkInternship}
-                            showAddIcon={false}
+                            onAddPress={handleAddWorkInternship}
+                            showBothIcons={true}
                         />
                         <View style={styles.workExperienceCardContainer}>
                             {workExperienceArray
@@ -430,7 +432,8 @@ const ProfileScreen: React.FC = () => {
                             title="Certificates"
                             completionPercentage={Math.round(certificatePercentage)}
                             onEditPress={handleEditCertificates}
-                            showAddIcon={false}
+                            onAddPress={handleAddCertificates}
+                            showBothIcons={true}
                         />
                         <View style={styles.certificateCardContainer}>
                             {certificatesArray
@@ -499,17 +502,19 @@ const styles = StyleSheet.create({
     },
     avatarSection: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'center', // Center items vertically
         gap: 16,
         paddingHorizontal: 16,
         paddingTop: 0,
         paddingBottom: 0,
+        minHeight: 75.471, // Match avatar container height for proper alignment
     },
     userInfoContainer: {
         flex: 1,
         flexDirection: 'column',
         gap: 4,
-        justifyContent: 'center',
+        justifyContent: 'center', // Center text vertically to align with avatar center
+        alignSelf: 'stretch', // Ensure full height for proper centering
     },
     userName: {
         ...typography.p2Bold,

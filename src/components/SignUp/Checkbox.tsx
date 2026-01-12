@@ -34,16 +34,16 @@ const Checkbox: React.FC<CheckboxProps> = ({
 const styles = StyleSheet.create({
     checkbox: {
         backgroundColor: colors.white,
-        borderWidth: 1,
-        borderColor: colors.lightGrey,
+        borderWidth: 0.667, // Exact from Figma (0.667px)
+        borderColor: colors.primaryBlue, // Primary blue border
         borderRadius: 2.667, // Exact from Figma
         justifyContent: 'center',
         alignItems: 'center',
     },
     checkboxChecked: {
-        backgroundColor: '#0f62fe', // Selection blue from Figma
-        borderColor: '#0f62fe',
-        borderWidth: 0,
+        backgroundColor: colors.primaryBlue, // Primary blue background when checked
+        borderColor: colors.primaryBlue,
+        borderWidth: 0.667,
     },
 });
 

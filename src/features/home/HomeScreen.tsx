@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Linking, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -10,6 +10,7 @@ import CompleteProfileWidget from './components/CompleteProfileWidget';
 import CompletedActivitiesCard from './components/CompletedActivitiesCard';
 import JourneyBlock from './components/JourneyBlock';
 import EngineeringAssessmentCard from './components/EngineeringAssessmentCard';
+import AbortedAssessmentCard from './components/AbortedAssessmentCard';
 import ActiveCourseCard from './components/ActiveCourseCard';
 import LockedCourseCard from './components/LockedCourseCard';
 import CompletedCourseCard from './components/CompletedCourseCard';
@@ -133,8 +134,74 @@ const HomeScreen: React.FC = () => {
         console.log('[HomeScreen] handleViewReport - Navigation called to StemAssessmentReport');
     };
 
-    const handleRewatchCourse = () => {
-        console.log('Rewatch Course pressed');
+    const handleViewSubmission = async (course: any) => {
+        // Extract moodleCourseId to use as lessonId for API calls
+        const moodleCourseId = course?.moodleCourseId || course?.lessonId;
+        
+        if (!moodleCourseId) {
+            console.warn('[HomeScreen] handleViewSubmission - No moodleCourseId found for course:', course?.title);
+            return;
+        }
+
+        try {
+            // Call API to get assignment attempt summary
+            const AssignmentService = (await import('../api/assignment')).default;
+            const attemptData = await AssignmentService.getAttemptSummary(moodleCourseId);
+            
+            console.log('[HomeScreen] handleViewSubmission - Attempt summary received:', JSON.stringify(attemptData, null, 2));
+            
+            // Navigate to test report screen with API response data
+            navigation.navigate('StemAssessmentReport', {
+                lessonId: moodleCourseId,
+                moodleCourseId: moodleCourseId,
+                assignmentData: attemptData, // Pass assignment data to report screen
+            });
+        } catch (error: any) {
+            console.error('[HomeScreen] handleViewSubmission - Failed to get assignment attempt summary:', error);
+            // Still navigate to report screen, but without data (screen will handle loading/error)
+            navigation.navigate('StemAssessmentReport', {
+                lessonId: moodleCourseId,
+                moodleCourseId: moodleCourseId,
+            });
+        }
+    };
+
+    const handleRewatchCourse = (course?: any) => {
+        console.log('[HomeScreen] Rewatch/Start Course pressed for:', course?.title);
+        
+        // Check if this is an assignment
+        const contentType = course?.contentType || '';
+        const isAssignment = contentType.toUpperCase().includes('ASSIGNMENT');
+        
+        if (isAssignment) {
+            // Extract lessonId and moodleCourseId for assignment navigation
+            const lessonId = course?.moodleCourseId || 
+                           course?.lessonId || 
+                           course?.raw?.Courses?.moodleCourseId ||
+                           course?.raw?.moodleCourseId ||
+                           course?.raw?.lessonId;
+            
+            const moodleCourseIdValue = course?.moodleCourseId || 
+                                      course?.raw?.Courses?.moodleCourseId ||
+                                      course?.raw?.moodleCourseId ||
+                                      course?.lessonId || 
+                                      lessonId;
+            
+            if (lessonId) {
+                console.log('[HomeScreen] Navigating to AssignmentInstructions with lessonId:', lessonId, 'moodleCourseId:', moodleCourseIdValue);
+                navigation.navigate('AssignmentInstructions', {
+                    lessonId: lessonId, // Used for /api/lms/lesson/contents (POST /api/lms/lesson/contents)
+                    assignmentId: lessonId,
+                    moodleCourseId: moodleCourseIdValue, // Used for /api/lms/v1/attempt/assignment (POST /api/lms/v1/attempt/assignment)
+                });
+            } else {
+                console.warn('[HomeScreen] Assignment detected but no lessonId found. Course:', JSON.stringify(course, null, 2));
+            }
+            return;
+        }
+        
+        // For regular courses, use handleOpenMoodleUrl
+        handleOpenMoodleUrl(course?.moodleUrl, course);
     };
 
     const handleReattempt = () => {
@@ -220,6 +287,15 @@ const HomeScreen: React.FC = () => {
                     resultState === 'pass' ||
                     course?.isCompleted;
 
+                // Check if assessment is aborted/failed BEFORE checking locked state
+                const isAborted =
+                    resultState === 'fail' ||
+                    resultState === 'failed' ||
+                    status === 'aborted' ||
+                    status === 'failed' ||
+                    progressState === 'aborted' ||
+                    progressState === 'failed';
+
                 const isUnlocked = lockedState === 'unlocked';
                 const isLocked = lockedState === 'locked';
                 const isActiveProgress =
@@ -233,9 +309,12 @@ const HomeScreen: React.FC = () => {
                 const statusActive = status === 'active' || status === 'in_progress' || status === 'available' || status === 'started';
                 const statusLocked = status === 'locked' || status === 'coming_soon';
 
-                let state: 'completed' | 'active' | 'locked' | 'comingSoon' = 'comingSoon';
+                let state: 'completed' | 'active' | 'locked' | 'comingSoon' | 'aborted' = 'comingSoon';
                 if (isCompleted) {
                     state = 'completed';
+                } else if (isAborted) {
+                    // Aborted state takes priority over locked
+                    state = 'aborted';
                 } else if (isUnlocked && (isActiveProgress || statusActive)) {
                     state = 'active';
                 } else if (isUnlocked && !isLocked) {
@@ -301,6 +380,8 @@ const HomeScreen: React.FC = () => {
                     completedModules,
                     totalModules,
                     deadline, // Store deadline for deadline exceeded checks
+                    isAborted, // Store aborted state for later use
+                    resultState, // Store result state for aborted detection
                 };
             })
             .sort((a, b) => {
@@ -315,7 +396,7 @@ const HomeScreen: React.FC = () => {
         [normalizedCourses]
     );
     const lockedCourses = useMemo(
-        () => normalizedCourses.filter((c) => c.state === 'locked'),
+        () => normalizedCourses.filter((c) => c.state === 'locked' || c.state === 'aborted'),
         [normalizedCourses]
     );
     const comingSoonCourses = useMemo(
@@ -388,14 +469,33 @@ const HomeScreen: React.FC = () => {
     // Process completed courses into CompletedActivitiesCard items
     const completedItems = useMemo(() => {
         return allCompletedItems.map((course) => {
+            const contentType = course.contentType || '';
             const isAssessment =
-                course.contentType.includes('ASSESSMENT') || course.contentType.includes('TEST');
-            const isAssignment = course.contentType.includes('ASSIGNMENT');
-            
+                contentType.includes('ASSESSMENT') || contentType.includes('TEST');
+            const isAssignment = contentType.includes('ASSIGNMENT');
+
             // Check if this is a deadline-exceeded assessment
             const deadline = course.deadline;
-            const isDeadlinePassed = deadline && isDeadlineExceeded(deadline) && isAssessment && 
-                                   !completedCourses.some(c => c.id === course.id);
+            const isDeadlinePassed =
+                deadline &&
+                isDeadlineExceeded(deadline) &&
+                isAssessment &&
+                !completedCourses.some((c) => c.id === course.id);
+
+            // Special-case: Automotive Awareness Assignment in completed activities
+            // Check for "CC Automotive" or any automotive-related assignment
+            const courseTitleLower = (course.title || '').toLowerCase();
+            const isAutomotiveAwarenessAssignment =
+                isAssignment &&
+                (courseTitleLower.includes('automotive') || 
+                 courseTitleLower.includes('cc automotive') ||
+                 courseTitleLower.includes('automotive awareness'));
+
+            const buttonLabel = isAssessment
+                ? 'View Report'
+                : isAutomotiveAwarenessAssignment
+                ? 'View Submission'
+                : 'Rewatch Course';
 
             return {
                 checkIconUrl: '', // Icon wiring handled separately; keeps visuals unchanged for now
@@ -408,11 +508,15 @@ const HomeScreen: React.FC = () => {
                     ? 'ASSIGNMENT COMPLETED'
                     : 'COURSE COMPLETED',
                 title: course.title,
-                buttonLabel: isAssessment ? 'View Report' : 'Rewatch Course',
-                onButtonPress: isAssessment ? () => handleViewReport(course) : handleRewatchCourse,
+                buttonLabel,
+                onButtonPress: isAssessment 
+                    ? () => handleViewReport(course) 
+                    : isAutomotiveAwarenessAssignment
+                    ? () => handleViewSubmission(course)
+                    : handleRewatchCourse,
             };
         });
-    }, [allCompletedItems, isDeadlineExceeded]);
+    }, [allCompletedItems, isDeadlineExceeded, completedCourses]);
 
     const completedCount = completedItems.length;
     const totalCount = normalizedCourses.length;
@@ -427,8 +531,20 @@ const HomeScreen: React.FC = () => {
                                      (url && (url.includes('/automotive') && url.includes('/awareness')));
         
         if (isAutomotiveAwareness) {
-            console.log('[HomeScreen] Navigating to AutomotiveAwareness for course:', course?.title);
-            navigation.navigate('AutomotiveAwareness');
+            console.log('[HomeScreen] ===== AUTOMOTIVE AWARENESS COURSE CLICKED =====');
+            console.log('[HomeScreen] Course data:', JSON.stringify(course, null, 2));
+            
+            // Get courseId from course data (moodleCourseId or courseId)
+            const courseId = course?.moodleCourseId || course?.courseId || course?.id;
+            
+            if (courseId) {
+                console.log('[HomeScreen] Navigating to LearningPath with courseId:', courseId);
+                // Navigate to LearningPath screen which will fetch course-view API
+                navigation.navigate('LearningPath', { courseId });
+            } else {
+                console.warn('[HomeScreen] No courseId found for automotive course, navigating to AutomotiveAwareness as fallback');
+                navigation.navigate('AutomotiveAwareness');
+            }
             return;
         }
         
@@ -567,6 +683,17 @@ const HomeScreen: React.FC = () => {
             // Extract moodleCourseId to use as lessonId for API calls
             const moodleCourseId = course?.moodleCourseId || course?.lessonId;
             
+            // Check if this is STEM Assessment - navigate directly to STEM instructions
+            const isStemAssessment = course?.title?.toLowerCase().includes('stem') || 
+                                   course?.subTitle?.toLowerCase().includes('stem') ||
+                                   moodleCourseId?.includes('LID-A-0019');
+            
+            if (isStemAssessment) {
+                console.log('[HomeScreen] Detected STEM Assessment, navigating to StemAssessmentInstructions');
+                navigation.navigate('StemAssessmentInstructions');
+                return;
+            }
+            
             if (moodleCourseId) {
                 console.log('[HomeScreen] Navigating to EngineeringAssessmentInstructions for assessment with lessonId:', moodleCourseId);
                 navigation.navigate('EngineeringAssessmentInstructions', {
@@ -655,7 +782,7 @@ const HomeScreen: React.FC = () => {
                 <View style={styles.learningJourneySection}>
                     <Text style={styles.sectionTitle}>Your Learning Journey</Text>
                     <View style={styles.blocksContainer}>
-                        {/* Section 3: Completed Activities - Show first if there are completed items */}
+                        {/* Section 3: Past Activities - Show first if there are completed items */}
                         {completedCount > 0 && (
                             <CompletedActivitiesCard
                                 completed={completedCount}
@@ -676,6 +803,38 @@ const HomeScreen: React.FC = () => {
                                         // Extract moodleCourseId to use as lessonId for API calls
                                         const moodleCourseId = course?.moodleCourseId || course?.lessonId;
                                         
+                                        // Check if assessment is aborted
+                                        const resultState = (course?.result || course?.CourseProgress?.result || '').toString().toLowerCase();
+                                        const status = (course?.status || course?.courseStatus || '').toString().toLowerCase();
+                                        const isAborted = resultState === 'fail' || 
+                                                         resultState === 'failed' ||
+                                                         status === 'aborted' ||
+                                                         status === 'failed' ||
+                                                         course?.state === 'aborted';
+                                        
+                                        // Calculate reattempt days (if available from API)
+                                        const reattemptDays = course?.reattemptDays || course?.daysUntilReattempt || 60;
+                                        
+                                        if (isAborted) {
+                                            return (
+                                                <AbortedAssessmentCard
+                                                    key={course.id}
+                                                    subtitle="TEST"
+                                                    title={course.title}
+                                                    reattemptDays={reattemptDays}
+                                                    onViewReport={() => {
+                                                        // Navigate to assessment report
+                                                        if (moodleCourseId) {
+                                                            navigation.navigate('StemAssessmentReport', {
+                                                                lessonId: moodleCourseId,
+                                                                moodleCourseId: moodleCourseId,
+                                                            });
+                                                        }
+                                                    }}
+                                                />
+                                            );
+                                        }
+                                        
                                         return (
                                             <EngineeringAssessmentCard
                                                 key={course.id}
@@ -686,7 +845,18 @@ const HomeScreen: React.FC = () => {
                                                 duration={course.duration || '3 hours'}
                                                 buttonLabel="Start Assessment"
                                                 onButtonPress={() => {
-                                                    // Navigate to Assessment Instructions screen for ALL assessments
+                                                    // Check if this is STEM Assessment - navigate directly to STEM instructions
+                                                    const isStemAssessment = course.title?.toLowerCase().includes('stem') || 
+                                                                             course.subTitle?.toLowerCase().includes('stem') ||
+                                                                             moodleCourseId?.includes('LID-A-0019');
+                                                    
+                                                    if (isStemAssessment) {
+                                                        console.log('[HomeScreen] Detected STEM Assessment, navigating to StemAssessmentInstructions');
+                                                        navigation.navigate('StemAssessmentInstructions');
+                                                        return;
+                                                    }
+                                                    
+                                                    // Navigate to Assessment Instructions screen for other assessments
                                                     // Uses same API call: POST /api/lms/lesson/contents with { lessonId: moodleCourseId, userId }
                                                     if (moodleCourseId) {
                                                         console.log('[HomeScreen] Navigating to EngineeringAssessmentInstructions with lessonId:', moodleCourseId, 'for assessment:', course.title);
@@ -735,18 +905,57 @@ const HomeScreen: React.FC = () => {
                         {/* Section 2: Locked / Coming Soon Courses */}
                         {(lockedCourses.length > 0 || comingSoonCourses.length > 0) && (
                             <>
-                                {lockedCourses.map((course) => (
-                                    <LockedCourseCard
-                                        key={course.id}
-                                        iconUrl={course.iconUrl}
-                                        subtitle={course.subTitle || course.contentType}
-                                        title={course.title}
-                                        description={course.description || 'This course will be available soon.'}
-                                        level={course.subTitle}
-                                        duration={course.duration}
-                                        reason={course.reason}
-                                    />
-                                ))}
+                                {lockedCourses.map((course) => {
+                                    // Check if this is an aborted assessment
+                                    const contentTypeUpper = (course.contentType || '').toUpperCase();
+                                    const isAssessment = contentTypeUpper.includes('ASSESSMENT') || contentTypeUpper.includes('TEST');
+                                    const moodleCourseId = course?.moodleCourseId || course?.lessonId;
+                                    
+                                    // Check if assessment is aborted
+                                    const resultState = course?.resultState || (course?.raw?.result || course?.raw?.CourseProgress?.result || '').toString().toLowerCase();
+                                    const status = (course?.raw?.status || course?.raw?.courseStatus || '').toString().toLowerCase();
+                                    const isAborted = course?.isAborted || 
+                                                     resultState === 'fail' || 
+                                                     resultState === 'failed' ||
+                                                     status === 'aborted' ||
+                                                     status === 'failed';
+                                    
+                                    // Calculate reattempt days (if available from API)
+                                    const reattemptDays = course?.raw?.reattemptDays || course?.raw?.daysUntilReattempt || 60;
+                                    
+                                    if (isAssessment && isAborted) {
+                                        return (
+                                            <AbortedAssessmentCard
+                                                key={course.id}
+                                                subtitle="TEST"
+                                                title={course.title}
+                                                reattemptDays={reattemptDays}
+                                                onViewReport={() => {
+                                                    // Navigate to assessment report
+                                                    if (moodleCourseId) {
+                                                        navigation.navigate('StemAssessmentReport', {
+                                                            lessonId: moodleCourseId,
+                                                            moodleCourseId: moodleCourseId,
+                                                        });
+                                                    }
+                                                }}
+                                            />
+                                        );
+                                    }
+                                    
+                                    return (
+                                        <LockedCourseCard
+                                            key={course.id}
+                                            iconUrl={course.iconUrl}
+                                            subtitle={course.subTitle || course.contentType}
+                                            title={course.title}
+                                            description={course.description || 'This course will be available soon.'}
+                                            level={course.subTitle}
+                                            duration={course.duration}
+                                            reason={course.reason}
+                                        />
+                                    );
+                                })}
                                 {comingSoonCourses.map((course) => (
                                     <ComingSoonCourseCard
                                         key={course.id}
@@ -780,10 +989,57 @@ const HomeScreen: React.FC = () => {
                                     if (isCompleted) return null;
 
                                     const courseTitle = course?.title || course?.courseName || course?.name || course?.Courses?.title || 'Untitled';
-                                    const courseDescription = course?.description || course?.courseDescription || course?.Courses?.description || '';
+                                    let courseDescription = course?.description || course?.courseDescription || course?.Courses?.description || '';
+                                    
+                                    // Format deadline if it exists and clean up any "Invalid Date" text in description
+                                    const deadline = course?.deadline || course?.raw?.deadline || course?.CourseProgress?.deadline || course?.raw?.CourseProgress?.deadline;
+                                    
+                                    // Remove any "Invalid Date" text from description
+                                    if (courseDescription) {
+                                        courseDescription = courseDescription.replace(/Invalid Date/gi, '').trim();
+                                    }
+                                    
+                                    if (isAssignment && deadline) {
+                                        try {
+                                            // Format deadline for display
+                                            let deadlineDate: Date | null = null;
+                                            
+                                            // Try ISO format first
+                                            if (deadline.includes('T') || deadline.includes('Z')) {
+                                                deadlineDate = new Date(deadline);
+                                            } else {
+                                                // Try parsing common date formats
+                                                const dateStr = deadline.replace(/(\d+)(st|nd|rd|th)/, '$1'); // Remove ordinal suffixes
+                                                deadlineDate = new Date(dateStr);
+                                            }
+                                            
+                                            if (deadlineDate && !isNaN(deadlineDate.getTime())) {
+                                                const formattedDeadline = deadlineDate.toLocaleDateString('en-GB', {
+                                                    day: 'numeric',
+                                                    month: 'long',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                });
+                                                // Replace any existing deadline text or append if not present
+                                                const deadlineRegex = /deadline:\s*[^\n]*/gi;
+                                                if (deadlineRegex.test(courseDescription)) {
+                                                    courseDescription = courseDescription.replace(deadlineRegex, `Deadline: ${formattedDeadline}`);
+                                                } else if (!courseDescription.toLowerCase().includes('deadline')) {
+                                                    courseDescription = courseDescription 
+                                                        ? `${courseDescription}\n\nDeadline: ${formattedDeadline}`
+                                                        : `Deadline: ${formattedDeadline}`;
+                                                }
+                                            }
+                                        } catch (error) {
+                                            console.error('[HomeScreen] Error formatting deadline:', deadline, error);
+                                            // Don't add invalid date to description
+                                        }
+                                    }
+                                    
                                     const courseLevel = course?.level || course?.difficulty || course?.Courses?.level || 'Beginner';
                                     const courseDuration = course?.duration || course?.estimatedDuration || course?.Courses?.duration || '3 hours';
-                                    const courseIconUrl = course?.iconUrl || course?.thumbnailUrl || undefined;
+                                    const courseIconUrl = course?.iconUrl || course?.thumbnailUrl || course?.raw?.iconUrl || course?.raw?.thumbnailUrl || course?.Courses?.iconUrl || undefined;
                                     
                                     // Extract progress data from API - handle nested structures
                                     const courseProgress = course?.CourseProgress || course?.courseProgress || course?.progress || {};
@@ -799,6 +1055,37 @@ const HomeScreen: React.FC = () => {
                                                               course?.Courses?.moodleCourseId ||
                                                               course?.raw?.moodleCourseId;
                                         
+                                        // Check if assessment is aborted
+                                        const resultState = (course?.result || course?.CourseProgress?.result || courseStatus || '').toString().toLowerCase();
+                                        const isAborted = resultState === 'fail' || 
+                                                         resultState === 'failed' ||
+                                                         courseStatus === 'aborted' ||
+                                                         courseStatus === 'failed' ||
+                                                         isReattempt; // Reattempt also means aborted/failed
+                                        
+                                        // Calculate reattempt days (if available from API)
+                                        const reattemptDays = course?.reattemptDays || course?.daysUntilReattempt || 60;
+                                        
+                                        if (isAborted) {
+                                            return (
+                                                <AbortedAssessmentCard
+                                                    key={course?.id || course?.courseId || course?.Courses?.courseId || index}
+                                                    subtitle="TEST"
+                                                    title={courseTitle}
+                                                    reattemptDays={reattemptDays}
+                                                    onViewReport={() => {
+                                                        // Navigate to assessment report
+                                                        if (moodleCourseId) {
+                                                            navigation.navigate('StemAssessmentReport', {
+                                                                lessonId: moodleCourseId,
+                                                                moodleCourseId: moodleCourseId,
+                                                            });
+                                                        }
+                                                    }}
+                                                />
+                                            );
+                                        }
+                                        
                                         return (
                                             <EngineeringAssessmentCard
                                                 key={course?.id || course?.courseId || course?.Courses?.courseId || index}
@@ -807,9 +1094,20 @@ const HomeScreen: React.FC = () => {
                                                 description={courseDescription || 'You need to clear the test by scoring at least 7/10 in-order to access the next activity in your journey'}
                                                 level={courseLevel}
                                                 duration={courseDuration}
-                                                buttonLabel={isReattempt ? (course?.reattemptMessage || 'Reattempt in 60 Days') : 'Start Assessment'}
-                                                onButtonPress={isReattempt ? handleReattempt : (() => {
-                                                    // Navigate to Assessment Instructions screen for ALL assessments
+                                                buttonLabel="Start Assessment"
+                                                onButtonPress={() => {
+                                                    // Check if this is STEM Assessment - navigate directly to STEM instructions
+                                                    const isStemAssessment = courseTitle?.toLowerCase().includes('stem') || 
+                                                                             course?.subTitle?.toLowerCase().includes('stem') ||
+                                                                             moodleCourseId?.includes('LID-A-0019');
+                                                    
+                                                    if (isStemAssessment) {
+                                                        console.log('[HomeScreen] Detected STEM Assessment, navigating to StemAssessmentInstructions');
+                                                        navigation.navigate('StemAssessmentInstructions');
+                                                        return;
+                                                    }
+                                                    
+                                                    // Navigate to Assessment Instructions screen for other assessments
                                                     // Uses same API call: POST /api/lms/lesson/contents with { lessonId: moodleCourseId, userId }
                                                     if (moodleCourseId) {
                                                         console.log('[HomeScreen] Navigating to EngineeringAssessmentInstructions with lessonId:', moodleCourseId, 'for assessment:', courseTitle);
@@ -827,7 +1125,7 @@ const HomeScreen: React.FC = () => {
                                                             handleTakeTheTest();
                                                         }
                                                     }
-                                                })}
+                                                }}
                                             />
                                         );
                                     }
@@ -843,7 +1141,7 @@ const HomeScreen: React.FC = () => {
                                                 level={courseLevel}
                                                 duration={courseDuration}
                                                 buttonLabel={progressPercentage > 0 ? 'Resume Learning' : 'Start Assignment'}
-                                                onButtonPress={handleRewatchCourse}
+                                                onButtonPress={() => handleRewatchCourse(course)}
                                                 onSecondaryButtonPress={() => handleCourseDetails(courseTitle)}
                                                 progressPercentage={isActive ? progressPercentage : undefined}
                                                 completedModules={isActive ? completedModules : undefined}

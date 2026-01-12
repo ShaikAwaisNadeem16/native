@@ -1,25 +1,35 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, typography, spacing, borderRadius, sizes } from '../../../styles/theme';
-import ProgressSteps from '../../../components/SignUp/ProgressSteps';
 import TextInputField from '../../../components/SignUp/TextInputField';
 import PrimaryButton from '../../../components/SignUp/PrimaryButton';
 import SecondaryButton from '../../../components/SignUp/SecondaryButton';
-import TimerResend from '../../../components/SignUp/TimerResend';
 import { RootStackParamList } from '../../../navigation/AppNavigator';
+import AuthService from '../../../api/auth';
+import ProfileService from '../../../api/profile';
 
 type VerificationOTPScreenNavigationProp = StackNavigationProp<RootStackParamList, 'VerificationOTP'>;
 
 const VerificationOTPScreen: React.FC = () => {
     const navigation = useNavigation<VerificationOTPScreenNavigationProp>();
+    const route = useRoute();
     const [mobileOTP, setMobileOTP] = useState('');
-    const [emailOTP, setEmailOTP] = useState('');
     const [timerSeconds, setTimerSeconds] = useState(120); // 2 minutes countdown
+    const [isResendingOtp, setIsResendingOtp] = useState(false);
+    const [isVerifying, setIsVerifying] = useState(false);
+    
+    // Get user data from route params if available
+    // @ts-ignore - route params may not be typed
+    const phoneNumber = route.params?.phoneNumber || '';
+    const email = route.params?.email || '';
+    const firstName = route.params?.firstName || '';
+    const lastName = route.params?.lastName || '';
+    const password = route.params?.password || '';
 
-    // Format timer for display
+    // Format timer for display - Figma shows "0s" format
     const formatTime = useCallback((seconds: number): string => {
         if (seconds <= 0) return '0s';
         const mins = Math.floor(seconds / 60);
@@ -49,9 +59,53 @@ const VerificationOTPScreen: React.FC = () => {
         return () => clearInterval(interval);
     }, [timerSeconds]);
 
-    const handleVerify = () => {
-        // Navigate to Personal Details screen after OTP verification
-        navigation.navigate('PersonalDetails');
+    const handleVerify = async () => {
+        if (!mobileOTP || mobileOTP.length < 4) {
+            Alert.alert('Error', 'Please enter a valid OTP');
+            return;
+        }
+
+        if (!phoneNumber) {
+            Alert.alert('Error', 'Phone number not found. Please go back and try again.');
+            return;
+        }
+
+        setIsVerifying(true);
+        try {
+            // Call API to verify SMS OTP
+            const response = await AuthService.verifySmsOtp(phoneNumber, mobileOTP);
+            
+            // If verification is successful, proceed to next step
+            console.log('[VerificationOTPScreen] ===== OTP VERIFIED SUCCESSFULLY =====');
+            console.log('[VerificationOTPScreen] User data:', { email, firstName, lastName, phoneNumber });
+            
+            // Step 2: Call GET /api/student/user-profile/data
+            try {
+                console.log('[VerificationOTPScreen] Calling ProfileService.fetchProfileData (GET /api/student/user-profile/data)');
+                const profileData = await ProfileService.fetchProfileData();
+                console.log('[VerificationOTPScreen] Profile data response:', JSON.stringify(profileData, null, 2));
+                
+                // Step 3: Navigate to College Course Details screen with all user data
+                console.log('[VerificationOTPScreen] Navigating to CollegeCourseDetails screen with user data');
+                navigation.navigate('CollegeCourseDetails', {
+                    email: email,
+                    firstName: firstName,
+                    lastName: lastName,
+                    mobileNumber: phoneNumber.replace('+91', ''), // Remove country code for mobileNumber
+                    password: password,
+                });
+            } catch (error: any) {
+                console.error('[VerificationOTPScreen] Failed to fetch profile data:', error);
+                console.error('[VerificationOTPScreen] Error response:', error?.response?.data);
+                Alert.alert('Error', error?.response?.data?.message || error?.message || 'Failed to fetch profile data. Please try again.');
+            }
+        } catch (error: any) {
+            console.error('Failed to verify OTP:', error);
+            // Show error message from API
+            Alert.alert('Error', error?.message || 'Failed to verify OTP. Please try again.');
+        } finally {
+            setIsVerifying(false);
+        }
     };
 
     const handleGoBack = () => {
@@ -59,10 +113,33 @@ const VerificationOTPScreen: React.FC = () => {
         navigation.goBack();
     };
 
-    const handleResend = () => {
-        // Reset timer and resend OTP
-        setTimerSeconds(120);
-        console.log('Resend OTPs');
+    const handleResend = async () => {
+        if (isResendingOtp) return; // Prevent multiple calls
+        
+        if (!phoneNumber) {
+            Alert.alert('Error', 'Phone number not found. Please go back and try again.');
+            return;
+        }
+        
+        setIsResendingOtp(true);
+        try {
+            // Call API to resend SMS OTP
+            const response = await AuthService.sendSmsOtp(phoneNumber);
+            
+            if (response.otpSent) {
+                // Reset timer and clear OTP field
+                setTimerSeconds(120);
+                setMobileOTP('');
+                Alert.alert('Success', response.message || 'OTP sent successfully');
+            } else {
+                Alert.alert('Error', response.message || 'Failed to resend OTP. Please try again.');
+            }
+        } catch (error: any) {
+            console.error('Failed to resend OTP:', error);
+            Alert.alert('Error', error?.message || 'Failed to resend OTP. Please try again.');
+        } finally {
+            setIsResendingOtp(false);
+        }
     };
 
     const handleTermsPress = () => {
@@ -82,96 +159,74 @@ const VerificationOTPScreen: React.FC = () => {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-            >
-                {/* CC Logo at top */}
-                <View style={styles.logoContainer}>
-                    <View style={styles.logoPlaceholder}>
-                        <Text style={styles.logoText}>CC Logo</Text>
+            <View style={styles.modalContainer}>
+                <Pressable 
+                    style={styles.backdrop}
+                    onPress={handleGoBack}
+                />
+                <View style={styles.modalCard}>
+                    {/* Title and Subtitle Section */}
+                    <View style={styles.titleSection}>
+                        <Text style={styles.title}>Mobile Number Verification</Text>
+                        <Text style={styles.subtitle}>
+                            An SMS with the One Time Password (OTP) have been sent to your mobile number
+                        </Text>
                     </View>
-                </View>
 
-                {/* Main Card - Frame 16146 from Figma */}
-                <View style={styles.cardContainer}>
-                    <View style={styles.card}>
-                        {/* Frame 16387 - Progress Steps and Title Section */}
-                        <View style={styles.progressTitleSection}>
-                            {/* Frame 3 - Progress Steps */}
-                            <ProgressSteps 
-                                currentStep={3} 
-                                totalSteps={4}
-                                completedSteps={[1, 2]}
+                    {/* Content Section */}
+                    <View style={styles.contentSection}>
+                        {/* OTP Input and Timer Section */}
+                        <View style={styles.inputSection}>
+                            <TextInputField
+                                value={mobileOTP}
+                                onChangeText={setMobileOTP}
+                                placeholder="Enter Mobile Number OTP"
                             />
                             
-                            {/* Frame 16055 - Title and Subtitle */}
-                            <View style={styles.titleSection}>
-                                <Text style={styles.title}>Verification</Text>
-                                <Text style={styles.subtitle}>
-                                    An SMS and email with the One Time Password (OTP) have been sent to your mobile number and email ID respectively
+                            {/* Timer and Resend */}
+                            <View style={styles.timerResendContainer}>
+                                <Text style={styles.timerText}>Time Remaining: {timeRemaining}</Text>
+                                <View style={styles.divider} />
+                                <TouchableOpacity 
+                                    onPress={handleResend}
+                                    disabled={isResendingOtp}
+                                >
+                                    <Text style={[
+                                        styles.resendLink,
+                                        isResendingOtp && styles.resendLinkDisabled
+                                    ]}>
+                                        {isResendingOtp ? 'Sending...' : 'Resend OTPs'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        {/* Button Section */}
+                        <View style={styles.buttonSection}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.verifyButton,
+                                    (!mobileOTP || mobileOTP.length < 4) && styles.verifyButtonDisabled
+                                ]}
+                                onPress={handleVerify}
+                                disabled={!mobileOTP || mobileOTP.length < 4 || isVerifying}
+                            >
+                                <Text style={[
+                                    styles.verifyButtonText,
+                                    (!mobileOTP || mobileOTP.length < 4) && styles.verifyButtonTextDisabled
+                                ]}>
+                                    {isVerifying ? 'Verifying...' : 'Verify OTP'}
                                 </Text>
-                            </View>
+                            </TouchableOpacity>
+                            
+                            <SecondaryButton
+                                label="Go Back"
+                                onPress={handleGoBack}
+                            />
                         </View>
-
-                        {/* Frame 16063 - Input Fields and Buttons */}
-                        <View style={styles.contentSection}>
-                            {/* Frame 16140 - Input Fields and Timer */}
-                            <View style={styles.inputSection}>
-                                {/* Frame 16066 - Input Fields */}
-                                <View style={styles.inputFieldsContainer}>
-                                    <TextInputField
-                                        value={mobileOTP}
-                                        onChangeText={setMobileOTP}
-                                        placeholder="Enter Mobile Number OTP"
-                                    />
-                                    <TextInputField
-                                        value={emailOTP}
-                                        onChangeText={setEmailOTP}
-                                        placeholder="Enter Email ID OTP"
-                                    />
-                                </View>
-
-                                {/* Frame 16062 - Timer and Resend */}
-                                <TimerResend
-                                    timeRemaining={timeRemaining}
-                                    onResend={handleResend}
-                                />
-                            </View>
-
-                            {/* Frame 16141 - Button Section */}
-                            <View style={styles.buttonSection}>
-                                <PrimaryButton
-                                    label="Verify"
-                                    onPress={handleVerify}
-                                />
-                                <SecondaryButton
-                                    label="Go Back"
-                                    onPress={handleGoBack}
-                                />
-                            </View>
-                        </View>
-                    </View>
-
-                    {/* Frame 16143 - Footer Text */}
-                    <View style={styles.footerContainer}>
-                        <Text style={styles.termsText}>
-                            By creating an account or logging in, you agree to CreamCollar's{' '}
-                            <Text style={styles.termsLink} onPress={handleTermsPress}>
-                                Conditions of Use
-                            </Text>
-                            {' '}and{' '}
-                            <Text style={styles.termsLink} onPress={handlePrivacyPress}>
-                                Privacy Policy
-                            </Text>
-                            .
-                        </Text>
-                        <TouchableOpacity onPress={handleProblemsPress}>
-                            <Text style={styles.problemsLink}>Having any problems?</Text>
-                        </TouchableOpacity>
                     </View>
                 </View>
-            </ScrollView>
+            </View>
         </SafeAreaView>
     );
 };
@@ -181,104 +236,125 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.mainBgGrey,
     },
-    scrollContent: {
-        flexGrow: 1,
-        alignItems: 'center',
-        paddingTop: 50,
-        paddingBottom: 32,
-    },
-    logoContainer: {
-        alignItems: 'center',
-        marginBottom: 0,
-    },
-    logoPlaceholder: {
-        width: sizes.logoWidth,
-        height: sizes.logoHeight,
+    modalContainer: {
+        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: colors.white,
-        borderRadius: 4,
-    },
-    logoText: {
-        ...typography.s1Regular,
-        color: colors.primaryDarkBlue,
-    },
-    cardContainer: {
-        width: '100%',
-        maxWidth: sizes.cardWidth,
         paddingHorizontal: 16,
     },
-    card: {
-        backgroundColor: colors.white,
-        borderWidth: 1,
-        borderColor: colors.lightGrey,
-        borderRadius: borderRadius.card,
-        paddingHorizontal: spacing.cardPaddingH,
-        paddingVertical: spacing.cardPaddingV,
-        marginBottom: 12,
+    backdrop: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
-    progressTitleSection: {
-        gap: spacing.titleProgressGap,
-        alignItems: 'center',
+    modalCard: {
+        backgroundColor: colors.white,
+        borderRadius: 12, // Figma: rounded-tl-[12px] rounded-tr-[12px]
+        paddingHorizontal: 16, // Figma: px-[16px]
+        paddingVertical: 32, // Figma: py-[32px]
         width: '100%',
-        marginBottom: 0,
+        maxWidth: sizes.cardWidth,
+        shadowColor: '#092C4C', // Figma: shadow-[0px_8px_40px_0px_rgba(9,44,76,0.08)]
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.08,
+        shadowRadius: 40,
+        elevation: 8,
+        gap: 32, // Figma: gap-[32px]
     },
     titleSection: {
-        gap: spacing.titleSubtitleGap,
+        gap: 4, // Figma: gap-[4px]
         alignItems: 'center',
         width: '100%',
     },
     title: {
-        ...typography.p1Bold,
-        color: colors.primaryDarkBlue,
-        textAlign: 'center',
+        fontFamily: 'Inter',
+        fontSize: 18, // Figma: Desktop/P2 Bold, 18px
+        fontWeight: '700',
+        lineHeight: 25,
+        color: colors.primaryDarkBlue, // Figma: text-[color:var(--primary-dark-blue,#00213d)]
         width: '100%',
+        textAlign: 'left',
     },
     subtitle: {
-        ...typography.s1Regular,
-        color: colors.placeholderGrey,
-        textAlign: 'center',
-        width: '100%',
+        fontFamily: 'Inter',
+        fontSize: 12, // Figma: Desktop/S1 Regular, 12px
+        fontWeight: '400',
         lineHeight: 16,
+        color: colors.textGrey, // Figma: text-[color:var(--text-grey,#696a6f)]
+        width: '100%',
+        textAlign: 'left',
     },
     contentSection: {
         width: '100%',
-        gap: 40, // Exact gap from Figma Frame 16063 (40px between input section and button section)
-        marginTop: 32, // Exact gap from Figma (32px from progressTitleSection: 176-144=32)
+        gap: 32, // Figma: gap-[32px]
+        alignItems: 'center',
     },
     inputSection: {
         width: '100%',
-        gap: 8, // Exact gap from Figma Frame 16140 (8px between input fields and timer)
+        gap: 8, // Figma: gap-[8px]
+        alignItems: 'center',
     },
-    inputFieldsContainer: {
+    timerResendContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
         width: '100%',
-        gap: 24, // Exact gap from Figma Frame 16066 (24px between inputs: 72-48=24)
+        gap: 8, // Figma: gap-[8px]
+    },
+    timerText: {
+        fontFamily: 'Inter',
+        fontSize: 12, // Figma: Desktop/S1 Regular, 12px
+        fontWeight: '400',
+        lineHeight: 15,
+        color: '#80919f', // Figma: text-[#80919f]
+    },
+    divider: {
+        width: 1,
+        height: 15,
+        backgroundColor: colors.lightGrey, // Figma: rgba(226, 235, 243, 1)
+    },
+    resendLink: {
+        fontFamily: 'Inter',
+        fontSize: 12, // Figma: Desktop/S1 Regular, 12px
+        fontWeight: '400',
+        lineHeight: 15,
+        color: colors.primaryBlue, // Figma: text-[color:var(--primary-blue,#0b6aea)]
+        textDecorationLine: 'underline',
+    },
+    resendLinkDisabled: {
+        color: colors.placeholderGrey,
+        opacity: 0.5,
     },
     buttonSection: {
         width: '100%',
-        gap: 16, // Exact gap from Figma Frame 16141 (16px between buttons: 56-40=16)
-    },
-    footerContainer: {
-        width: '100%',
-        paddingHorizontal: spacing.footerPaddingH,
-        gap: 8,
+        gap: 16, // Figma: gap-[16px]
         alignItems: 'center',
     },
-    termsText: {
-        ...typography.terms,
-        color: colors.placeholderGrey,
-        textAlign: 'center',
+    verifyButton: {
+        backgroundColor: colors.primaryBlue,
+        borderRadius: 8, // Figma: rounded-[8px]
+        paddingHorizontal: 24, // Figma: px-[24px]
+        paddingVertical: 10, // Figma: py-[10px]
+        minWidth: 140, // Figma: min-w-[140px]
         width: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    termsLink: {
-        ...typography.terms,
-        color: colors.primaryBlue,
+    verifyButtonDisabled: {
+        backgroundColor: '#ededed', // Figma: bg-[#ededed]
     },
-    problemsLink: {
-        ...typography.s1Regular,
-        color: colors.primaryBlue,
-        textAlign: 'center',
-        width: '100%',
+    verifyButtonText: {
+        fontFamily: 'Inter',
+        fontSize: 14, // Figma: Desktop/P4 SemiBold, 14px
+        fontWeight: '600',
+        lineHeight: 20,
+        color: colors.white, // Figma: text-[color:var(--white,white)]
+    },
+    verifyButtonTextDisabled: {
+        color: '#808080', // Figma: text-[#808080]
     },
 });
 

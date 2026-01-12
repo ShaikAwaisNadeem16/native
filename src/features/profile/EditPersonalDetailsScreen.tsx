@@ -138,10 +138,16 @@ const EditPersonalDetailsScreen: React.FC = () => {
                     setLoadingPincode(false);
                 }
             } else {
-                // Clear data if pincode is not 6 digits
-                if (pinCode.length === 0) {
+                // Clear data if pincode is not 6 digits or is empty
+                if (pinCode.length < 6) {
                     setLocalityOptions([]);
                     setLocality('');
+                    // Clear state and district if pincode is cleared
+                    if (pinCode.length === 0) {
+                        setState('');
+                        setDistrict('');
+                        setCity('');
+                    }
                 }
             }
         };
@@ -160,8 +166,8 @@ const EditPersonalDetailsScreen: React.FC = () => {
     const nationalityOptions = ['India', 'United States', 'United Kingdom', 'Australia', 'Canada'];
     const stateOptions = ['Maharashtra', 'Karnataka', 'Tamil Nadu', 'Delhi', 'Gujarat'];
     const cityOptions = ['Mumbai', 'Pune', 'Bangalore', 'Chennai', 'Delhi'];
-    const languageOptions = ['English', 'Hindi', 'Marathi', 'Tamil', 'Telugu', 'Kannada', 'Bengali'];
-    const proficiencyOptions = ['Basic', 'Intermediate', 'Proficient', 'Native'];
+    const languageOptions = ['Bengali', 'English', 'Gujarati', 'Hindi', 'Kannada', 'Malayalam', 'Marathi', 'Odia', 'Tamil', 'Telugu', 'Urdu'];
+    const proficiencyOptions = ['Basic', 'Intermediate', 'Fluent', 'Native'];
 
 
     const handleProfilePress = () => {
@@ -207,33 +213,44 @@ const EditPersonalDetailsScreen: React.FC = () => {
     const handleSaveChanges = async () => {
         setSaving(true);
         try {
-            const profileUpdateData = {
-                aboutYou,
-                firstName,
-                lastName,
-                gender,
-                dateOfBirth: dateOfBirth ? dateOfBirth.toISOString() : null,
-                email: emailId,
-                regionCode,
-                phoneNumber,
-                nationality,
-                state,
-                city,
-                district,
-                locality,
-                permanentAddress,
-                pinCode,
-                linkedinUrl,
-                languages: languages.map(lang => ({
-                    language: lang.language,
-                    proficiency: lang.proficiency,
-                    canRead: lang.canRead,
-                    canWrite: lang.canWrite,
-                    canSpeak: lang.canSpeak,
-                })),
-            };
+            // Build profile update data, only including fields that have values
+            const profileUpdateData: any = {};
+            
+            // Add fields only if they have values (to avoid sending empty strings)
+            // Note: email is handled by ProfileService.updateProfileDetails (from storage)
+            if (aboutYou) profileUpdateData.aboutYou = aboutYou;
+            if (firstName) profileUpdateData.firstName = firstName;
+            if (lastName) profileUpdateData.lastName = lastName;
+            if (gender) profileUpdateData.gender = gender;
+            if (dateOfBirth) profileUpdateData.dob = dateOfBirth.toISOString().split('T')[0];
+            // Don't include email in update - it's handled by the API service from storage
+            if (phoneNumber) profileUpdateData.phoneNumber = phoneNumber;
+            if (nationality) profileUpdateData.nationality = nationality;
+            if (state) profileUpdateData.state = state;
+            if (city) profileUpdateData.city = city;
+            if (district) profileUpdateData.district = district;
+            if (locality) profileUpdateData.locality = locality;
+            if (permanentAddress) profileUpdateData.permanentAddress = permanentAddress;
+            if (pinCode) profileUpdateData.pinCode = pinCode;
+            if (linkedinUrl) profileUpdateData.linkedinLink = linkedinUrl;
+            
+            // Languages array - always include if there are any languages
+            if (languages.length > 0) {
+                profileUpdateData.languages = languages
+                    .filter(lang => lang.language) // Only include languages with a name
+                    .map(lang => ({
+                        language: lang.language,
+                        proficiency: lang.proficiency,
+                        canRead: lang.canRead,
+                        canWrite: lang.canWrite,
+                        canSpeak: lang.canSpeak,
+                    }));
+            }
 
-            await ProfileService.updateProfileDetails(profileUpdateData);
+            // Get existing profile data to merge with update
+            const existingData = profileDetails || profileData || {};
+            
+            await ProfileService.updateProfileDetails(profileUpdateData, existingData);
 
             // Refresh profile data after successful update
             await initializeHome();
@@ -242,7 +259,13 @@ const EditPersonalDetailsScreen: React.FC = () => {
             navigation.goBack();
         } catch (error: any) {
             console.error('Failed to save profile:', error);
-            Alert.alert('Error', error?.message || 'Failed to update profile. Please try again.');
+            console.error('Error response:', error?.response?.data);
+            console.error('Error status:', error?.response?.status);
+            const errorMessage = error?.response?.data?.message || 
+                                error?.response?.data?.error || 
+                                error?.message || 
+                                'Failed to update profile. Please try again.';
+            Alert.alert('Error', errorMessage);
         } finally {
             setSaving(false);
         }

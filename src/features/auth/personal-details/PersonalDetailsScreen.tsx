@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, typography, spacing, borderRadius, sizes } from '../../../styles/theme';
 import ProgressSteps from '../../../components/SignUp/ProgressSteps';
@@ -11,19 +11,174 @@ import PasswordField from '../../../components/SignUp/PasswordField';
 import PrimaryButton from '../../../components/SignUp/PrimaryButton';
 import SecondaryButton from '../../../components/SignUp/SecondaryButton';
 import { RootStackParamList } from '../../../navigation/AppNavigator';
+import AuthService from '../../../api/auth';
+import ProfileService from '../../../api/profile';
 
 type PersonalDetailsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'PersonalDetails'>;
+type PersonalDetailsRouteProp = RouteProp<RootStackParamList, 'PersonalDetails'>;
 
 const PersonalDetailsScreen: React.FC = () => {
     const navigation = useNavigation<PersonalDetailsScreenNavigationProp>();
+    const route = useRoute<PersonalDetailsRouteProp>();
+    const routeParams = route.params;
+    const email = routeParams?.email || '';
+    
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [mobileNumber, setMobileNumber] = useState('');
     const [password, setPassword] = useState('');
+    const [phoneError, setPhoneError] = useState('');
+    const [isValidatingPhone, setIsValidatingPhone] = useState(false);
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const handleVerify = () => {
-        // Navigate to College Course Details screen
-        navigation.navigate('CollegeCourseDetails');
+    // Debounced phone number validation
+    const debouncedCheckPhone = useCallback(
+        (phoneValue: string) => {
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+
+            debounceTimerRef.current = setTimeout(async () => {
+                // Only validate if phone number is 10 digits
+                if (phoneValue.length === 10 && /^\d{10}$/.test(phoneValue)) {
+                    setIsValidatingPhone(true);
+                    setPhoneError('');
+
+                    try {
+                        console.log('[PersonalDetailsScreen] Calling checkAccountExists API with phone:', phoneValue);
+                        const response = await AuthService.checkAccountExists('phone', phoneValue);
+                        console.log('[PersonalDetailsScreen] checkAccountExists API Response:', JSON.stringify(response, null, 2));
+                        
+                        // If account EXISTS, show error (phone number already taken)
+                        // If account does NOT exist, it's available for signup (no error)
+                        if (response.exists === true) {
+                            const errorMessage = response.message || 'Phone number is already registered';
+                            console.log('[PersonalDetailsScreen] Phone account exists, showing error:', errorMessage);
+                            setPhoneError(errorMessage);
+                        } else {
+                            console.log('[PersonalDetailsScreen] Phone account does not exist, phone number is available for signup');
+                            setPhoneError('');
+                        }
+                    } catch (error: any) {
+                        console.error('[PersonalDetailsScreen] Phone validation error:', error);
+                        console.error('[PersonalDetailsScreen] Error response:', error?.response?.data);
+                        // Only show error if account EXISTS (phone already taken)
+                        if (error?.response?.data?.exists === true) {
+                            setPhoneError(error?.response?.data?.message || 'Phone number is already registered');
+                        } else {
+                            // For other errors or if account doesn't exist, don't show error (phone is available)
+                            setPhoneError('');
+                        }
+                    } finally {
+                        setIsValidatingPhone(false);
+                    }
+                } else if (phoneValue.length > 0 && phoneValue.length < 10) {
+                    // Clear error if user is still typing
+                    setPhoneError('');
+                } else if (phoneValue.length === 0) {
+                    // Clear error if field is empty
+                    setPhoneError('');
+                }
+            }, 500); // 500ms debounce
+        },
+        []
+    );
+
+    const handlePhoneChange = (text: string) => {
+        // Only allow digits
+        const digitsOnly = text.replace(/\D/g, '');
+        // Limit to 10 digits
+        const limitedDigits = digitsOnly.slice(0, 10);
+        setMobileNumber(limitedDigits);
+        
+        // Clear error when user starts typing
+        if (phoneError) {
+            setPhoneError('');
+        }
+        
+        // Debounced validation
+        debouncedCheckPhone(limitedDigits);
+    };
+
+    // Cleanup debounce timer on unmount
+    useEffect(() => {
+        return () => {
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+        };
+    }, []);
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleVerify = async () => {
+        // Validate required fields
+        if (!firstName || !lastName) {
+            Alert.alert('Error', 'Please enter your first name and last name');
+            return;
+        }
+
+        // Validate phone number
+        if (!mobileNumber || mobileNumber.length !== 10) {
+            setPhoneError('Please enter a valid 10-digit phone number');
+            return;
+        }
+
+        // Check if phone account exists (should exist for signup)
+        if (phoneError) {
+            // Don't proceed if there's a phone validation error
+            Alert.alert('Error', 'Please fix the phone number error before proceeding');
+            return;
+        }
+
+        // Validate password
+        if (!password || password.length < 6) {
+            Alert.alert('Error', 'Please enter a valid password (minimum 6 characters)');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            console.log('[PersonalDetailsScreen] ===== VERIFY EMAIL AND MOBILE NUMBER CLICKED =====');
+            
+            // Call GET /api/student/user-profile/data to get branches for specializations
+            console.log('[PersonalDetailsScreen] Calling GET /api/student/user-profile/data to fetch branches...');
+            let branches: Array<{ branchId: number; branch: string }> = [];
+            try {
+                const profileData = await ProfileService.fetchProfileData();
+                console.log('[PersonalDetailsScreen] Profile data received:', JSON.stringify(profileData, null, 2));
+                
+                // Extract branches from response
+                if (Array.isArray(profileData.branches)) {
+                    branches = profileData.branches;
+                    console.log('[PersonalDetailsScreen] Branches extracted:', branches.length);
+                } else {
+                    console.warn('[PersonalDetailsScreen] No branches found in response, using fallback list');
+                }
+            } catch (apiError: any) {
+                console.error('[PersonalDetailsScreen] Failed to fetch branches:', apiError);
+                console.warn('[PersonalDetailsScreen] Will use fallback specialization list');
+                // Continue with empty branches array - will use fallback in CollegeCourseDetailsScreen
+            }
+            
+            // Format phone number with country code
+            const formattedPhone = `+91${mobileNumber}`;
+            
+            // Navigate to College Course Details with branches data
+            navigation.navigate('CollegeCourseDetails', {
+                email: email,
+                firstName: firstName,
+                lastName: lastName,
+                mobileNumber: formattedPhone,
+                password: password,
+                branches: branches, // Pass branches for specializations dropdown
+            });
+        } catch (error: any) {
+            console.error('[PersonalDetailsScreen] Error:', error);
+            Alert.alert('Error', error?.message || 'An error occurred. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     const handleGoBack = () => {
@@ -91,8 +246,9 @@ const PersonalDetailsScreen: React.FC = () => {
                             />
                             <PhoneInputField
                                 value={mobileNumber}
-                                onChangeText={setMobileNumber}
+                                onChangeText={handlePhoneChange}
                                 countryCode="+91"
+                                error={phoneError}
                             />
                             <PasswordField
                                 value={password}
@@ -104,8 +260,9 @@ const PersonalDetailsScreen: React.FC = () => {
                         {/* Frame 16391 - Button Section */}
                         <View style={styles.buttonSection}>
                             <PrimaryButton
-                                label="Verify Email And Mobile Number"
+                                label={isSubmitting ? "Submitting..." : "Continue"}
                                 onPress={handleVerify}
+                                disabled={isSubmitting || !firstName || !lastName || !mobileNumber || mobileNumber.length !== 10 || !password || password.length < 6 || !!phoneError}
                             />
                             <SecondaryButton
                                 label="Go Back"

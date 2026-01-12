@@ -40,8 +40,39 @@ const LoginScreen: React.FC = () => {
             const response = await AuthService.doLogin(emailOrMobile.trim(), password);
             if (response.message === "Login successful") {
                 // Login successful - tokens are already stored by AuthService
-                // Navigate to Home screen
-                navigation.replace('Home');
+                // Check if user is authorized before navigating to Home
+                console.log('[LoginScreen] Login successful, checking user authorization...');
+                try {
+                    const authCheck = await AuthService.checkUserAuthorized(response.userId);
+                    console.log('[LoginScreen] Authorization check response:', JSON.stringify(authCheck, null, 2));
+                    
+                    if (authCheck.authorized === true) {
+                        // User is authorized - navigate to Home screen
+                        console.log('[LoginScreen] User is authorized, navigating to Home');
+                        navigation.replace('Home');
+                    } else {
+                        // User is not authorized - show error and logout
+                        console.log('[LoginScreen] User is not authorized');
+                        const errorMsg = authCheck.message || 'This email is not authorized to login';
+                        setError(errorMsg);
+                        Alert.alert('Authorization Failed', errorMsg, [
+                            {
+                                text: 'OK',
+                                onPress: async () => {
+                                    // Logout the user since they're not authorized
+                                    await AuthService.doLogout();
+                                }
+                            }
+                        ]);
+                    }
+                } catch (authError: any) {
+                    console.error('[LoginScreen] Authorization check failed:', authError);
+                    // If authorization check fails, still allow login but log the error
+                    // This is a fallback in case the authorization API is down
+                    const authErrorMessage = authError?.message || 'Failed to verify authorization';
+                    console.warn('[LoginScreen] Authorization check failed, but allowing login:', authErrorMessage);
+                    navigation.replace('Home');
+                }
             }
         } catch (error: any) {
             console.error('Login error:', error);

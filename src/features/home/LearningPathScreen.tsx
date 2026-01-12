@@ -171,7 +171,10 @@ const LearningPathScreen: React.FC = () => {
             // If found, navigate to ReadDifferentPlayers screen
             if (differentPlayersLesson) {
                 console.log('[LearningPathScreen] Navigating to ReadDifferentPlayers for lesson:', differentPlayersLesson.name);
-                navigation.navigate('ReadDifferentPlayers');
+                navigation.navigate('ReadDifferentPlayers', {
+                    courseId: courseId!,
+                    lessonId: differentPlayersLesson.lessonId,
+                });
                 return;
             }
             
@@ -193,7 +196,10 @@ const LearningPathScreen: React.FC = () => {
                 } else if (firstLesson.lessonType === 'video' || firstLesson.type === 'videoPage') {
                     // For video lessons, check if it's "Different Players"
                     if (firstLesson.name.toLowerCase().includes('different players')) {
-                        navigation.navigate('ReadDifferentPlayers');
+                        navigation.navigate('ReadDifferentPlayers', {
+                            courseId: courseId!,
+                            lessonId: firstLesson.lessonId,
+                        });
                     } else {
                         navigation.navigate('CourseDetails', {
                             courseId: firstLesson.lessonId,
@@ -290,10 +296,6 @@ const LearningPathScreen: React.FC = () => {
                 {/* Progress Widget */}
                 <View style={styles.progressWidgetContainer}>
                     <ProgressWidget progressPercentage={courseData.percent || 0} />
-                    <PrimaryButton
-                        label="Resume Learning"
-                        onPress={handleResumeLearning}
-                    />
                 </View>
 
                 {/* Learning Path Card */}

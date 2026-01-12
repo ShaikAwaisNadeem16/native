@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -8,8 +8,9 @@ import {
     ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import type { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { colors, typography } from '../../styles/theme';
 import Header from './components/Header';
@@ -20,34 +21,11 @@ import RightArrow from '../../components/common/RightArrow';
 import AutomotiveHamburgerMenu, {
     ModuleSection,
 } from '../../components/course-details/AutomotiveHamburgerMenu';
+import { HomeService } from '../../api/home';
+import { transformCourseDataToMenuSections, getCourseMenuTitle } from '../../utils/courseDataTransform';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'AutomotiveQuizInstructions'>;
-
-// Sample course sections data
-const courseSections: ModuleSection[] = [
-    {
-        id: '1',
-        title: 'Introduction to Automotive Industry',
-        items: [],
-    },
-    {
-        id: '2',
-        title: 'Automotive Industry Value Chain',
-        items: [
-            { id: '2-1', title: 'Size of Industry', type: 'video', status: 'completed' },
-            { id: '2-2', title: 'Different Players in the Automotive Industry', type: 'read', status: 'completed' },
-            { id: '2-3', title: 'Segments Of Automotive Industry', type: 'quiz', status: 'current' },
-        ],
-    },
-    { id: '3', title: 'Size of Automotive Industry', isLocked: true },
-    { id: '4', title: 'Major Players and Regions', isLocked: true },
-    { id: '5', title: 'Career Opportunities and Success Development', isLocked: true },
-    { id: '6', title: 'Next Module', isLocked: true },
-    { id: '7', title: 'Next Module', isLocked: true },
-    { id: '8', title: 'Quiz', isLocked: true },
-    { id: '9', title: 'Quiz', isLocked: true },
-    { id: '10', title: 'Next Module', isLocked: true },
-];
+type AutomotiveQuizInstructionsRouteProp = RouteProp<RootStackParamList, 'AutomotiveQuizInstructions'>;
 
 /**
  * AutomotiveQuizInstructionsScreen
@@ -56,8 +34,37 @@ const courseSections: ModuleSection[] = [
  */
 const AutomotiveQuizInstructionsScreen: React.FC = () => {
     const navigation = useNavigation<NavigationProp>();
+    const route = useRoute<AutomotiveQuizInstructionsRouteProp>();
+    const { courseId, lessonId } = route.params || {};
+    
     const [isMenuVisible, setIsMenuVisible] = useState(false);
     const [isChecked, setIsChecked] = useState(false);
+    const [courseSections, setCourseSections] = useState<ModuleSection[]>([]);
+    const [courseTitle, setCourseTitle] = useState('Awareness On Automotive Industry');
+    const [courseSubtitle, setCourseSubtitle] = useState('Automotive Industry Value Chain');
+
+    // Fetch course data for hamburger menu
+    useEffect(() => {
+        if (courseId) {
+            fetchCourseData();
+        }
+    }, [courseId]);
+
+    const fetchCourseData = async () => {
+        try {
+            const courseData = await HomeService.getCourseView(courseId);
+            console.log('[AutomotiveQuizInstructions] Course data fetched:', JSON.stringify(courseData, null, 2));
+            
+            const sections = transformCourseDataToMenuSections(courseData, lessonId);
+            setCourseSections(sections);
+            
+            const { title, subtitle } = getCourseMenuTitle(courseData);
+            setCourseTitle(title);
+            setCourseSubtitle(subtitle);
+        } catch (error: any) {
+            console.error('[AutomotiveQuizInstructions] Failed to fetch course data:', error);
+        }
+    };
 
     const handleProfilePress = () => {
         navigation.navigate('Profile');
@@ -77,15 +84,44 @@ const AutomotiveQuizInstructionsScreen: React.FC = () => {
 
     const handleMenuItemPress = (sectionId: string, itemId: string) => {
         setIsMenuVisible(false);
-        if (itemId === '2-1') {
-            navigation.navigate('CourseDetails', { courseTitle: 'Size of Industry' });
-        } else if (itemId === '2-2') {
-            navigation.navigate('ReadDifferentPlayers');
+        
+        const parts = itemId.split('-');
+        if (parts.length >= 2) {
+            const extractedLessonId = parts.slice(1).join('-');
+            
+            let lessonType: string | null = null;
+            for (const section of courseSections) {
+                const item = section.items?.find(item => item.id === itemId);
+                if (item) {
+                    lessonType = item.type;
+                    break;
+                }
+            }
+            
+            if (lessonType === 'video') {
+                navigation.navigate('CourseDetails', {
+                    courseId: extractedLessonId,
+                    courseTitle: courseSections.find(s => s.items?.some(i => i.id === itemId))?.items?.find(i => i.id === itemId)?.title || '',
+                });
+            } else if (lessonType === 'read') {
+                navigation.navigate('ReadDifferentPlayers', {
+                    courseId,
+                    lessonId: extractedLessonId,
+                });
+            } else if (lessonType === 'quiz') {
+                navigation.navigate('EngineeringAssessmentInstructions', {
+                    lessonId: extractedLessonId,
+                    moodleCourseId: courseId,
+                });
+            }
         }
     };
 
     const handlePreviousPress = () => {
-        navigation.navigate('ReadingCompletion');
+        navigation.navigate('ReadingCompletion', {
+            courseId,
+            lessonId,
+        });
     };
 
     const handleNextPress = () => {
