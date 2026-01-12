@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { colors, typography } from '../../../styles/theme';
 import useProfileStore from '../../../store/useProfileStore';
 import CreamCollarLogo from '../../../components/common/CreamCollarLogo';
+import AssessmentLogo from '../../../components/common/AssessmentLogo';
 import Avatar from '../../../components/common/Avatar';
 
 // Icons removed - will be added later
@@ -11,9 +12,10 @@ interface HeaderProps {
     onProfilePress?: () => void;
     onNotificationPress?: () => void;
     onLogoPress?: () => void;
+    useAssessmentLogo?: boolean; // Use assessment logo instead of regular logo
 }
 
-const Header: React.FC<HeaderProps> = ({ onProfilePress, onNotificationPress, onLogoPress }) => {
+const Header: React.FC<HeaderProps> = ({ onProfilePress, onNotificationPress, onLogoPress, useAssessmentLogo = false }) => {
     // Get notifications and badgeCount from store to determine read/unread state
     const { notifications, badgeCount } = useProfileStore();
 
@@ -30,7 +32,11 @@ const Header: React.FC<HeaderProps> = ({ onProfilePress, onNotificationPress, on
                     activeOpacity={0.7}
                     style={styles.logoContainer}
                 >
-                    <CreamCollarLogo width={149} height={32} />
+                    {useAssessmentLogo ? (
+                        <AssessmentLogo size={32} />
+                    ) : (
+                        <CreamCollarLogo width={149} height={32} />
+                    )}
                 </TouchableOpacity>
             </View>
 

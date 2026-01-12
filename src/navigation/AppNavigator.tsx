@@ -34,6 +34,7 @@ import AssignmentAttemptScreen from '../features/assignments/AssignmentAttemptSc
 import AssignmentSubmittedSuccessScreen from '../features/assignments/AssignmentSubmittedSuccessScreen';
 import AssessmentClearedSuccessScreen from '../features/assessments/AssessmentClearedSuccessScreen';
 import AssessmentFailedScreen from '../features/assessments/AssessmentFailedScreen';
+import LearningPathScreen from '../features/home/LearningPathScreen';
 import { AssignmentAttemptData, AssignmentAttemptInfo } from '../api/assignment';
 
 export type RootStackParamList = {
@@ -88,6 +89,7 @@ export type RootStackParamList = {
         cooldownDays?: number;    // Number of days for cooldown (e.g., 60)
         minimumScore?: number;    // Minimum score required (e.g., 50)
     } | undefined;
+    LearningPath: { courseId: string } | undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -135,6 +137,7 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="AssignmentSubmittedSuccess" component={AssignmentSubmittedSuccessScreen} />
                 <Stack.Screen name="AssessmentClearedSuccess" component={AssessmentClearedSuccessScreen} />
                 <Stack.Screen name="AssessmentFailed" component={AssessmentFailedScreen} />
+                <Stack.Screen name="LearningPath" component={LearningPathScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );

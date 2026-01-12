@@ -515,6 +515,37 @@ const HomeScreen: React.FC = () => {
             return;
         }
         
+        // Check if this is a regular course (not assignment, survey, or assessment)
+        // For regular courses, navigate to LearningPath screen which will fetch course-view API
+        const isRegularCourse = !isAssignmentUrl && 
+                                !isAssignmentCourse && 
+                                !url.includes('/student/student-survey-intro') &&
+                                !url.includes('/survey') &&
+                                !url.includes('/student/engIntro') &&
+                                !url.includes('engIntro') &&
+                                course?.contentType &&
+                                (course.contentType.includes('COURSE') || 
+                                 course.contentType.toUpperCase().includes('COURSE'));
+        
+        if (isRegularCourse) {
+            // Extract courseId (moodleCourseId) for the API call
+            const courseId = course?.moodleCourseId || 
+                           course?.lessonId ||
+                           course?.raw?.Courses?.moodleCourseId ||
+                           course?.raw?.moodleCourseId ||
+                           course?.raw?.Courses?.id ||
+                           course?.raw?.id ||
+                           course?.id;
+            
+            if (courseId) {
+                console.log('[HomeScreen] Navigating to LearningPath for course:', course?.title, 'courseId:', courseId);
+                navigation.navigate('LearningPath', { courseId });
+                return;
+            } else {
+                console.warn('[HomeScreen] Regular course detected but no courseId found. URL:', url, 'Course:', course?.title);
+            }
+        }
+        
         // Check for Engineering Systems Assessment URL pattern
         if (url.includes('/student/engIntro') || url.includes('engIntro')) {
             console.log('[HomeScreen] Navigating to EngineeringSystemsAssessment for URL:', url);

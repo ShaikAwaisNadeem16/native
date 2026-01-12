@@ -12,6 +12,11 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { colors, typography } from '../../styles/theme';
+import Header from './components/Header';
+import BreadcrumbBar from '../assessments/components/BreadcrumbBar';
+import CourseDetailsModuleWidget from '../../components/course-details/CourseDetailsModuleWidget';
+import LeftArrow from '../../components/common/LeftArrow';
+import RightArrow from '../../components/common/RightArrow';
 import AutomotiveHamburgerMenu, {
     ModuleSection,
 } from '../../components/course-details/AutomotiveHamburgerMenu';
@@ -53,6 +58,14 @@ const AutomotiveQuizInstructionsScreen: React.FC = () => {
     const navigation = useNavigation<NavigationProp>();
     const [isMenuVisible, setIsMenuVisible] = useState(false);
     const [isChecked, setIsChecked] = useState(false);
+
+    const handleProfilePress = () => {
+        navigation.navigate('Profile');
+    };
+
+    const handleLogoPress = () => {
+        navigation.navigate('Home');
+    };
 
     const handleHamburgerPress = () => {
         setIsMenuVisible(true);
@@ -102,20 +115,16 @@ const AutomotiveQuizInstructionsScreen: React.FC = () => {
         </View>
     );
 
-    // Render chevron left icon
+    // Render chevron left icon - using LeftArrow from assets
+    // Gray color for gray background button
     const renderChevronLeft = () => (
-        <View style={styles.chevronLeftContainer}>
-            <View style={styles.chevronLeftLine1} />
-            <View style={styles.chevronLeftLine2} />
-        </View>
+        <LeftArrow size={14} color="#72818C" />
     );
 
-    // Render chevron right icon
+    // Render chevron right icon - using RightArrow from assets
+    // White color for blue background button
     const renderChevronRight = () => (
-        <View style={styles.chevronRightContainer}>
-            <View style={styles.chevronRightLine1} />
-            <View style={styles.chevronRightLine2} />
-        </View>
+        <RightArrow size={14} color={colors.white} />
     );
 
     // Render non-graded icon
@@ -182,24 +191,19 @@ const AutomotiveQuizInstructionsScreen: React.FC = () => {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            {/* Top Navigation Header */}
-            <View style={styles.header}>
-                <View style={styles.headerTextContainer}>
-                    <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
-                        Awareness On Automotive Industry
-                    </Text>
-                    <Text style={styles.headerSubtitle} numberOfLines={1} ellipsizeMode="tail">
-                        Automotive Industry Value Chain
-                    </Text>
-                </View>
-                <TouchableOpacity
-                    style={styles.hamburgerButton}
-                    onPress={handleHamburgerPress}
-                    activeOpacity={0.7}
-                >
-                    {renderHamburgerIcon()}
-                </TouchableOpacity>
-            </View>
+            <Header
+                onProfilePress={handleProfilePress}
+                onLogoPress={handleLogoPress}
+                useAssessmentLogo={true}
+            />
+            <BreadcrumbBar
+                items={['Your Learning Journey', 'Awareness On Automotive Industry', 'Quiz Instructions']}
+            />
+            <CourseDetailsModuleWidget
+                title="Awareness On Automotive Industry"
+                subtitle="Automotive Industry Value Chain"
+                onHamburgerPress={handleHamburgerPress}
+            />
 
             <ScrollView
                 style={styles.scrollView}
@@ -510,50 +514,6 @@ const styles = StyleSheet.create({
         backgroundColor: colors.primaryBlue,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    chevronLeftContainer: {
-        width: 14,
-        height: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    chevronLeftLine1: {
-        position: 'absolute',
-        width: 8,
-        height: 2,
-        backgroundColor: '#72818c',
-        borderRadius: 1,
-        transform: [{ rotate: '-45deg' }, { translateY: -2 }],
-    },
-    chevronLeftLine2: {
-        position: 'absolute',
-        width: 8,
-        height: 2,
-        backgroundColor: '#72818c',
-        borderRadius: 1,
-        transform: [{ rotate: '45deg' }, { translateY: 2 }],
-    },
-    chevronRightContainer: {
-        width: 14,
-        height: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    chevronRightLine1: {
-        position: 'absolute',
-        width: 8,
-        height: 2,
-        backgroundColor: colors.white,
-        borderRadius: 1,
-        transform: [{ rotate: '45deg' }, { translateY: -2 }],
-    },
-    chevronRightLine2: {
-        position: 'absolute',
-        width: 8,
-        height: 2,
-        backgroundColor: colors.white,
-        borderRadius: 1,
-        transform: [{ rotate: '-45deg' }, { translateY: 2 }],
     },
     assessmentCard: {
         backgroundColor: '#0049b5',

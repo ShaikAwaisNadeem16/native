@@ -69,6 +69,43 @@ export const HomeService = {
             throw error;
         }
     },
+
+    /**
+     * POST /api/lms/course/course-view
+     * Fetches course view data when a course is started
+     * Request body: { courseId: string, userId: string }
+     */
+    getCourseView: async (courseId: string) => {
+        try {
+            const userId = await Storage.getItem('userId');
+            if (!userId) {
+                throw new Error('User ID not found');
+            }
+
+            if (!courseId) {
+                throw new Error('Course ID is required');
+            }
+
+            console.log('[API] getCourseView - courseId:', courseId);
+            console.log('[API] getCourseView - userId:', userId);
+
+            const requestPayload = { courseId, userId };
+            console.log('[API] getCourseView - Request payload:', JSON.stringify(requestPayload, null, 2));
+
+            const response = await GlobalAxiosConfig.post(
+                '/api/lms/course/course-view',
+                requestPayload
+            );
+
+            console.log('[API] getCourseView - Response received:', JSON.stringify(response.data, null, 2));
+            return response.data;
+        } catch (error: any) {
+            console.error('[API] getCourseView - Error occurred:', error);
+            console.error('[API] getCourseView - Error message:', error?.message);
+            console.error('[API] getCourseView - Error response:', error?.response?.data);
+            throw error;
+        }
+    },
 };
 
 export default HomeService;

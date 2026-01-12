@@ -1,9 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
-import { colors, typography, borderRadius } from '../../../styles/theme';
-import ModalBackdrop from '../../../components/ModalBackdrop';
-import PrimaryButton from '../../../components/SignUp/PrimaryButton';
-import SecondaryButton from '../../../components/SignUp/SecondaryButton';
+import { View, StyleSheet } from 'react-native';
+import { colors } from '../../../styles/theme';
+import ConfirmationModal from '../../../components/common/ConfirmationModal';
 import { FileCheck } from 'lucide-react-native';
 
 /**
@@ -11,6 +9,7 @@ import { FileCheck } from 'lucide-react-native';
  *
  * A reusable confirmation modal shown when user clicks "Submit Assignment".
  * Matches Figma design: node 8780-27370
+ * Uses unified ConfirmationModal component.
  *
  * Usage:
  * ```tsx
@@ -34,87 +33,46 @@ const SubmitAssignmentConfirmationModal: React.FC<SubmitAssignmentConfirmationMo
     onCancel,
     isSubmitting = false,
 }) => {
-    return (
-        <Modal
-            visible={visible}
-            transparent
-            animationType="slide"
-            onRequestClose={onCancel}
-        >
-            <View style={styles.modalContainer}>
-                <ModalBackdrop onPress={onCancel} />
-                <View style={styles.modalContent}>
-                    {/* Illustration */}
-                    <View style={styles.illustrationContainer}>
-                        <View style={styles.illustrationBackground}>
-                            <View style={styles.illustrationDocument}>
-                                <FileCheck size={48} color={colors.successGreen || '#27AE60'} />
-                            </View>
-                        </View>
-                    </View>
-
-                    {/* Title */}
-                    <Text style={styles.title}>Submit Assignment?</Text>
-
-                    {/* Description */}
-                    <Text style={styles.description}>
-                        Are you sure you want to submit this assignment? Once submitted, you won't be able to make any changes.
-                    </Text>
-
-                    {/* Action Buttons */}
-                    <View style={styles.buttonsContainer}>
-                        <View style={styles.buttonWrapper}>
-                            <SecondaryButton
-                                label="Back"
-                                onPress={onCancel}
-                                disabled={isSubmitting}
-                            />
-                        </View>
-                        <View style={styles.buttonWrapper}>
-                            <PrimaryButton
-                                label={isSubmitting ? 'Submitting...' : 'Submit'}
-                                onPress={onConfirm}
-                                disabled={isSubmitting}
-                            />
-                        </View>
-                    </View>
+    const illustration = (
+        <View style={styles.illustrationContainer}>
+            <View style={styles.illustrationBackground}>
+                <View style={styles.illustrationDocument}>
+                    <FileCheck size={48} color={colors.successGreen || '#27AE60'} />
                 </View>
             </View>
-        </Modal>
+        </View>
+    );
+
+    return (
+        <ConfirmationModal
+            visible={visible}
+            title="Submit Assignment?"
+            description="Are you sure you want to submit this assignment? Once submitted, you won't be able to make any changes."
+            variant="default"
+            illustration={illustration}
+            primaryButtonLabel="Submit"
+            secondaryButtonLabel="Back"
+            onConfirm={onConfirm}
+            onCancel={onCancel}
+            isSubmitting={isSubmitting}
+            buttonLayout="row"
+        />
     );
 };
 
 const styles = StyleSheet.create({
-    modalContainer: {
-        flex: 1,
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-    },
-    modalContent: {
-        backgroundColor: colors.white,
-        borderTopLeftRadius: 16, // Rounded top corners from Figma
-        borderTopRightRadius: 16,
-        borderBottomLeftRadius: 0, // Sharp bottom corners from Figma
-        borderBottomRightRadius: 0,
-        paddingHorizontal: 24, // 24px horizontal padding from Figma
-        paddingTop: 32, // 32px top padding from Figma
-        paddingBottom: 24, // 24px bottom padding from Figma
-        width: '100%',
-        alignItems: 'center',
-        gap: 24, // 24px gap between sections from Figma
-    },
     illustrationContainer: {
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: 8, // Additional spacing from Figma
+        marginBottom: 8,
     },
     illustrationBackground: {
-        width: 120, // Approximate size from Figma
+        width: 120,
         height: 120,
-        backgroundColor: colors.lightGrey || '#E2EBF3', // Light blue background from Figma
+        backgroundColor: colors.lightGrey || '#E2EBF3',
         borderRadius: 16,
         borderWidth: 2,
-        borderColor: colors.primaryBlue || '#0b6aea', // Blue border from Figma
+        borderColor: colors.primaryBlue || '#0b6aea',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
@@ -122,25 +80,6 @@ const styles = StyleSheet.create({
     illustrationDocument: {
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    title: {
-        ...typography.h6, // Large, bold heading from Figma
-        color: colors.primaryDarkBlue, // #00213d from Figma
-        textAlign: 'center',
-    },
-    description: {
-        ...typography.p4, // Standard body text from Figma
-        color: colors.textGrey, // #696a6f from Figma
-        textAlign: 'center',
-        paddingHorizontal: 16, // Additional horizontal padding for text
-    },
-    buttonsContainer: {
-        flexDirection: 'row',
-        gap: 12, // 12px gap between buttons from Figma
-        width: '100%',
-    },
-    buttonWrapper: {
-        flex: 1, // Equal width for both buttons
     },
 });
 

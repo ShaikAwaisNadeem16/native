@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import RightArrowSvg from '../../../assets/rightsideArrow.svg';
+import LeftArrowSvg from '../../../assets/LeftArrowIcon.svg';
 
-interface RightArrowProps {
+interface LeftArrowProps {
     width?: number;
     height?: number;
     size?: number; // Convenience prop for square icons
@@ -11,12 +11,12 @@ interface RightArrowProps {
 }
 
 /**
- * RightArrow Component
+ * LeftArrow Component
  * 
- * Reusable component for the right arrow icon (rightsideArrow.svg).
- * Used in collapsible sections, navigation, and anywhere a right arrow is needed.
+ * Reusable component for the left arrow icon (LeftArrowIcon.svg).
+ * Used in navigation, back buttons, and anywhere a left arrow is needed.
  */
-const RightArrow: React.FC<RightArrowProps> = ({ 
+const LeftArrow: React.FC<LeftArrowProps> = ({ 
     width, 
     height,
     size,
@@ -28,10 +28,10 @@ const RightArrow: React.FC<RightArrowProps> = ({
 
     return (
         <View style={[styles.container, { width: finalWidth, height: finalHeight }, style]}>
-            <RightArrowSvg 
+            <LeftArrowSvg 
                 width={finalWidth} 
                 height={finalHeight}
-                color={color || '#696A6F'}
+                color={color || '#72818C'}
             />
         </View>
     );
@@ -45,5 +45,5 @@ const styles = StyleSheet.create({
     },
 });
 
-export default RightArrow;
+export default LeftArrow;
 
