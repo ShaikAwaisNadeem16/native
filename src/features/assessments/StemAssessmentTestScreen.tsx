@@ -154,27 +154,37 @@ const StemAssessmentTestScreen: React.FC = () => {
             const minimumScore = finalData?.minimumScore || finalData?.passingScore || 50;
 
             if (isPass) {
-                // Navigate to success screen
+                // Navigate to success screen - pass lessonId and quizReportData for "View Report"
                 navigation.navigate('AssessmentClearedSuccess', {
+                    lessonId: lessonId, // Pass lessonId for "View Report" button
+                    moodleCourseId: lessonId,
+                    quizReportData: response, // Pass full response for "View Report" button
+                    finalResult: 'Pass' as const,
                     finalScore: finalScorePercentage,
                     correctAnswers: correctAnswersDisplay,
                     timeTaken: timeTaken,
                 });
             } else {
-                // Navigate to failed screen
+                // Navigate to failed screen - pass lessonId and quizReportData for "View Report"
                 navigation.navigate('AssessmentFailed', {
-                    finalScore: finalScorePercentage,
-                    correctAnswers: correctAnswersDisplay,
-                    timeTaken: timeTaken,
-                    failMessage: failMessage,
-                    cooldownDays: cooldownDays,
-                    minimumScore: minimumScore,
+                    lessonId: lessonId, // Pass lessonId to fetch data from API
+                    moodleCourseId: lessonId,
+                    quizReportData: response, // Pass full response for "View Report" button
+                    finalResult: 'Fail' as const,
+                    finalScore: finalScorePercentage, // Fallback data
+                    correctAnswers: correctAnswersDisplay, // Fallback data
+                    timeTaken: timeTaken, // Fallback data
+                    failMessage: failMessage, // Fallback data
+                    cooldownDays: cooldownDays, // Fallback data
+                    minimumScore: minimumScore, // Fallback data
                 });
             }
         } catch (error: any) {
             console.error('[StemAssessmentTestScreen] Failed to submit assessment:', error);
             setIsSubmitting(false);
-            // TODO: Show error message to user
+            // Show error message from backend
+            const errorMessage = error?.response?.data?.message || error?.message || 'Failed to submit assessment. Please try again.';
+            Alert.alert('Error', errorMessage);
         }
     };
 

@@ -13,6 +13,7 @@ import SecondaryButton from '../../../components/SignUp/SecondaryButton';
 import { RootStackParamList } from '../../../navigation/AppNavigator';
 import AuthService from '../../../api/auth';
 import ProfileService from '../../../api/profile';
+import CreamCollarLogo from '../../../components/common/CreamCollarLogo';
 
 type PersonalDetailsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'PersonalDetails'>;
 type PersonalDetailsRouteProp = RouteProp<RootStackParamList, 'PersonalDetails'>;
@@ -209,9 +210,7 @@ const PersonalDetailsScreen: React.FC = () => {
             >
                 {/* CC Logo at top */}
                 <View style={styles.logoContainer}>
-                    <View style={styles.logoPlaceholder}>
-                        <Text style={styles.logoText}>CC Logo</Text>
-                    </View>
+                    <CreamCollarLogo width={149} height={32} style={styles.logo} />
                 </View>
 
                 {/* Main Card - Frame 16143 from Figma */}
@@ -307,19 +306,14 @@ const styles = StyleSheet.create({
     },
     logoContainer: {
         alignItems: 'center',
-        marginBottom: 0,
-    },
-    logoPlaceholder: {
-        width: sizes.logoWidth,
-        height: sizes.logoHeight,
         justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: colors.white,
-        borderRadius: 4,
+        marginBottom: 24,
+        width: '100%',
+        paddingTop: 0,
     },
-    logoText: {
-        ...typography.s1Regular,
-        color: colors.primaryDarkBlue,
+    logo: {
+        width: 149,
+        height: 32,
     },
     cardContainer: {
         width: '100%',

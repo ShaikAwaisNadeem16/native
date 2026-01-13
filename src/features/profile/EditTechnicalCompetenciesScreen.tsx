@@ -120,16 +120,23 @@ const EditTechnicalCompetenciesScreen: React.FC = () => {
             // Get existing profile data to merge with update
             const existingData = profileDetails || profileData || {};
             
-            await ProfileService.updateProfileDetails(profileUpdateData, existingData);
+            const response = await ProfileService.updateProfileDetails(profileUpdateData, existingData);
 
             // Refresh profile data after successful update
             await initializeHome();
 
-            Alert.alert('Success', 'Technical competencies updated successfully');
+            // Show success message from backend if available
+            const successMessage = response?.message || 'Technical competencies updated successfully';
+            Alert.alert('Success', successMessage);
             navigation.goBack();
         } catch (error: any) {
             console.error('Failed to save technical competencies:', error);
-            Alert.alert('Error', error?.message || 'Failed to update technical competencies. Please try again.');
+            // Extract error message from backend response
+            const errorMessage = error?.response?.data?.message || 
+                                error?.response?.data?.error || 
+                                error?.message || 
+                                'Failed to update technical competencies. Please try again.';
+            Alert.alert('Error', errorMessage);
         } finally {
             setSaving(false);
         }

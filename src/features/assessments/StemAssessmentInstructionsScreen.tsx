@@ -67,18 +67,26 @@ const StemAssessmentInstructionsScreen: React.FC = () => {
                 console.log('[StemAssessmentInstructions] Full API Response:', JSON.stringify(response, null, 2));
 
                 if (response) {
+                    // The API may return data directly or wrapped in quiz_data
+                    // Handle both cases
+                    let responseData = response;
+                    if (response?.quiz_data) {
+                        responseData = response.quiz_data;
+                        console.log('[StemAssessmentInstructions] Response wrapped in quiz_data, extracting...');
+                    }
+                    
                     // Map the response to quizData format
                     const quizData: QuizData = {
-                        shortName: response.shortName,
-                        title: response.title,
-                        description: response.description,
-                        duration: response.duration,
-                        quizDetails: response.quizDetails,
-                        section: response.section,
-                        terms: response.terms,
-                        btntext: response.btntext,
-                        questions: response.questions,
-                        html: response.html,
+                        shortName: responseData.shortName || responseData.short_name,
+                        title: responseData.title,
+                        description: responseData.description,
+                        duration: responseData.duration,
+                        quizDetails: responseData.quizDetails || responseData.quiz_details,
+                        section: responseData.section,
+                        terms: responseData.terms,
+                        btntext: responseData.btntext || responseData.btn_text || responseData.buttonText,
+                        questions: responseData.questions,
+                        html: responseData.html,
                     };
                     
                     console.log('[StemAssessmentInstructions] Mapped QuizData:', JSON.stringify(quizData, null, 2));
@@ -86,9 +94,9 @@ const StemAssessmentInstructionsScreen: React.FC = () => {
                     setQuizData(quizData);
 
                     // Parse HTML to extract instructions
-                    if (response.html) {
+                    if (responseData.html) {
                         console.log('[StemAssessmentInstructions] Parsing HTML for instructions...');
-                        const parsed = parseInstructionsFromHTML(response.html);
+                        const parsed = parseInstructionsFromHTML(responseData.html);
                         console.log('[StemAssessmentInstructions] Parsed aboutItems:', parsed.aboutItems?.length || 0);
                         console.log('[StemAssessmentInstructions] Parsed instructions:', parsed.instructions?.length || 0);
                         console.log('[StemAssessmentInstructions] Parsed procedureItems:', parsed.procedureItems?.length || 0);

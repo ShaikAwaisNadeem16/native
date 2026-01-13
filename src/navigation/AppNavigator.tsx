@@ -35,6 +35,8 @@ import AssignmentSubmittedSuccessScreen from '../features/assignments/Assignment
 import AssessmentClearedSuccessScreen from '../features/assessments/AssessmentClearedSuccessScreen';
 import AssessmentFailedScreen from '../features/assessments/AssessmentFailedScreen';
 import LearningPathScreen from '../features/home/LearningPathScreen';
+import RoleRecommendationFAQScreen from '../features/home/RoleRecommendationFAQScreen';
+import RoleRecommendationScreen from '../features/home/RoleRecommendationScreen';
 import { AssignmentAttemptData, AssignmentAttemptInfo } from '../api/assignment';
 
 export type RootStackParamList = {
@@ -58,11 +60,11 @@ export type RootStackParamList = {
     } | undefined;
     AccountCreatedSuccess: undefined;
     Home: undefined;
-    StemAssessmentReport: { finalResult?: 'Pass' | 'Fail'; lessonId?: string; moodleCourseId?: string; assignmentData?: any } | undefined;
+    StemAssessmentReport: { finalResult?: 'Pass' | 'Fail'; lessonId?: string; moodleCourseId?: string; assignmentData?: any; quizReportData?: any } | undefined;
     StemAssessmentInstructions: { lessonId?: string } | undefined;
     StemAssessmentTest: { lessonId?: string; moodleCourseId?: string } | undefined;
     EngineeringSystemsAssessment: undefined;
-    EngineeringAssessmentInstructions: { lessonId?: string; moodleCourseId?: string } | undefined;
+    EngineeringAssessmentInstructions: { lessonId?: string; moodleCourseId?: string; attemptId?: string } | undefined;
     SurveyAssessmentQuestions: { lessonId?: string; moodleCourseId?: string; attemptId?: string; questionData?: any; quizResult?: any } | undefined;
     Profile: undefined;
     EditPersonalDetails: undefined;
@@ -90,19 +92,29 @@ export type RootStackParamList = {
         submissionTime?: string;
     } | undefined;
     AssessmentClearedSuccess: {
+        lessonId?: string;        // lessonId for "View Report" button
+        moodleCourseId?: string;  // Alternative lessonId
+        quizReportData?: any;     // Full quiz report data for "View Report" button
+        finalResult?: 'Pass' | 'Fail';  // Final result status
         finalScore?: number;      // Percentage (e.g., 60)
         correctAnswers?: string;  // String format "40/60"
         timeTaken?: string;       // String format "01m 15s"
     } | undefined;
     AssessmentFailed: {
-        finalScore?: number;      // Percentage (e.g., 30)
-        correctAnswers?: string;  // String format "40/60"
-        timeTaken?: string;       // String format "01m 15s"
-        failMessage?: string;     // Fail message/reason from API
-        cooldownDays?: number;    // Number of days for cooldown (e.g., 60)
-        minimumScore?: number;    // Minimum score required (e.g., 50)
+        lessonId?: string;        // lessonId to fetch data from API
+        moodleCourseId?: string;  // Alternative lessonId
+        quizReportData?: any;     // Full quiz report data for "View Report" button
+        finalResult?: 'Pass' | 'Fail';  // Final result status
+        finalScore?: number;      // Percentage (e.g., 30) - fallback if API fails
+        correctAnswers?: string;  // String format "0/7" - fallback if API fails
+        timeTaken?: string;       // String format "01m 15s" - fallback if API fails
+        failMessage?: string;     // Fail message/reason from API - fallback if API fails
+        cooldownDays?: number;    // Number of days for cooldown (e.g., 60) - fallback if API fails
+        minimumScore?: number;    // Minimum score required (e.g., 50) - fallback if API fails
     } | undefined;
     LearningPath: { courseId: string } | undefined;
+    RoleRecommendationFAQ: undefined;
+    RoleRecommendation: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -151,6 +163,8 @@ const AppNavigator: React.FC = () => {
                 <Stack.Screen name="AssessmentClearedSuccess" component={AssessmentClearedSuccessScreen} />
                 <Stack.Screen name="AssessmentFailed" component={AssessmentFailedScreen} />
                 <Stack.Screen name="LearningPath" component={LearningPathScreen} />
+                <Stack.Screen name="RoleRecommendationFAQ" component={RoleRecommendationFAQScreen} />
+                <Stack.Screen name="RoleRecommendation" component={RoleRecommendationScreen} />
             </Stack.Navigator>
         </NavigationContainer>
     );

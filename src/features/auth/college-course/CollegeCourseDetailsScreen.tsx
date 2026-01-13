@@ -95,6 +95,7 @@ const CollegeCourseDetailsScreen: React.FC = () => {
                 mobileNumber: mobileNumberForRegister,
                 password: routeParams.password,
                 platform: 'student',
+                phase: course, // Add phase field (B.E or B.Tech)
             };
             
             console.log('[CollegeCourseDetailsScreen] Calling AuthService.register (POST /api/auth/user/register)');
@@ -104,12 +105,23 @@ const CollegeCourseDetailsScreen: React.FC = () => {
             
             console.log('[CollegeCourseDetailsScreen] Register API response:', JSON.stringify(registerResponse, null, 2));
             
+            // Show success message from backend if available
+            if (registerResponse?.message) {
+                console.log('[CollegeCourseDetailsScreen] Success message from backend:', registerResponse.message);
+                // Note: We'll show success after auto-login completes
+            }
+            
             // After successful registration, automatically log the user in
             console.log('[CollegeCourseDetailsScreen] Registration successful, automatically logging in...');
             try {
                 // Use email for login (mobile number can also be used, but email is more reliable)
                 const loginResponse = await AuthService.doLogin(routeParams.email, routeParams.password);
                 console.log('[CollegeCourseDetailsScreen] Auto-login successful:', JSON.stringify(loginResponse, null, 2));
+                
+                // Show success message from backend if available
+                if (loginResponse?.message) {
+                    console.log('[CollegeCourseDetailsScreen] Login success message from backend:', loginResponse.message);
+                }
                 
                 // Check if user is authorized before navigating to Home
                 console.log('[CollegeCourseDetailsScreen] Checking user authorization...');
@@ -120,6 +132,10 @@ const CollegeCourseDetailsScreen: React.FC = () => {
                     if (authCheck.authorized === true) {
                         // User is authorized - navigate to Home screen
                         console.log('[CollegeCourseDetailsScreen] User is authorized, navigating to Home');
+                        // Show success message from registration if available
+                        if (registerResponse?.message) {
+                            Alert.alert('Success', registerResponse.message);
+                        }
                         navigation.replace('Home');
                     } else {
                         // User is not authorized - show error and logout
@@ -140,16 +156,19 @@ const CollegeCourseDetailsScreen: React.FC = () => {
                     console.error('[CollegeCourseDetailsScreen] Authorization check failed:', authError);
                     // If authorization check fails, still allow login but log the error
                     // This is a fallback in case the authorization API is down
-                    const authErrorMessage = authError?.message || 'Failed to verify authorization';
+                    const authErrorMessage = authError?.response?.data?.message || authError?.message || 'Failed to verify authorization';
                     console.warn('[CollegeCourseDetailsScreen] Authorization check failed, but allowing login:', authErrorMessage);
+                    // Show error message from backend
+                    Alert.alert('Warning', authErrorMessage);
                     navigation.replace('Home');
                 }
             } catch (loginError: any) {
                 console.error('[CollegeCourseDetailsScreen] Auto-login failed:', loginError);
                 // If auto-login fails, show error but registration was successful
+                const loginErrorMessage = loginError?.response?.data?.message || loginError?.message || 'Failed to log in automatically';
                 Alert.alert(
                     'Account Created',
-                    'Your account has been created successfully. Please log in manually.',
+                    registerResponse?.message || 'Your account has been created successfully. Please log in manually.',
                     [
                         {
                             text: 'OK',
@@ -159,6 +178,8 @@ const CollegeCourseDetailsScreen: React.FC = () => {
                         }
                     ]
                 );
+                // Also show the login error message
+                Alert.alert('Login Error', loginErrorMessage);
             }
         } catch (error: any) {
             console.error('[CollegeCourseDetailsScreen] Registration failed:', error);

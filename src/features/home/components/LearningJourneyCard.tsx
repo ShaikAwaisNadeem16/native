@@ -13,6 +13,10 @@ export interface LearningJourneyCardProps {
     description: string;
     level?: string; // e.g., "Beginner"
     duration?: string; // e.g., "3 hours"
+    contentType?: string; // Content type from API (e.g., "survey", "assignment", "stemAssessment")
+    lockedOrUnlocked?: string; // "locked" or "unlocked" status from API
+    retakeDays?: number | null; // Number of days until reattempt
+    retakeExact?: string | null; // Exact retake time (e.g., "0 days 2 hrs 24 mins")
     // For in-progress courses
     progressPercentage?: number; // 0-100
     completedModules?: number;
@@ -32,6 +36,10 @@ const LearningJourneyCard: React.FC<LearningJourneyCardProps> = ({
     description,
     level,
     duration,
+    contentType,
+    lockedOrUnlocked,
+    retakeDays,
+    retakeExact,
     progressPercentage,
     completedModules,
     totalModules,
@@ -74,6 +82,18 @@ const LearningJourneyCard: React.FC<LearningJourneyCardProps> = ({
                     )}
                 </View>
 
+                {/* Content Type at Top (if provided) */}
+                {contentType && (
+                    <View style={styles.contentTypeContainer}>
+                        <Text style={styles.contentTypeText}>{contentType.toUpperCase()}</Text>
+                        {lockedOrUnlocked && (
+                            <Text style={styles.lockedStatusText}>
+                                {lockedOrUnlocked.toUpperCase()}
+                            </Text>
+                        )}
+                    </View>
+                )}
+
                 {/* Subtitle and Title */}
                 <View style={styles.titleSection}>
                     <Text style={styles.subtitle}>{subtitle}</Text>
@@ -111,6 +131,15 @@ const LearningJourneyCard: React.FC<LearningJourneyCardProps> = ({
                             <Text style={styles.detailText}>{level}</Text>
                             <View style={styles.dot} />
                             <Text style={styles.detailText}>{duration}</Text>
+                        </View>
+                    )}
+
+                    {/* Reattempt Information (if available) */}
+                    {(retakeDays !== null || retakeExact) && (
+                        <View style={styles.reattemptContainer}>
+                            <Text style={styles.reattemptText}>
+                                {retakeExact || (retakeDays !== null ? `Reattempt in ${retakeDays} ${retakeDays === 1 ? 'day' : 'days'}` : '')}
+                            </Text>
                         </View>
                     )}
 
@@ -188,6 +217,32 @@ const styles = StyleSheet.create({
     comingSoonText: {
         ...typography.s2SemiBold,
         color: colors.textGrey,
+    },
+    contentTypeContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%',
+        marginBottom: 8,
+    },
+    contentTypeText: {
+        ...typography.s2SemiBold,
+        color: colors.primaryBlue,
+        textTransform: 'uppercase',
+    },
+    lockedStatusText: {
+        ...typography.s2SemiBold,
+        color: colors.textGrey,
+        textTransform: 'uppercase',
+    },
+    reattemptContainer: {
+        marginTop: 8,
+        marginBottom: 8,
+    },
+    reattemptText: {
+        ...typography.s1Regular,
+        color: colors.textGrey,
+        fontStyle: 'italic',
     },
     titleSection: {
         flexDirection: 'column',

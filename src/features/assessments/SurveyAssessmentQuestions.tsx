@@ -7,6 +7,8 @@ import { Bookmark } from 'lucide-react-native';
 import { colors, typography, borderRadius } from '../../styles/theme';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { AssessmentService } from '../../api/assessment';
+import { HomeService } from '../../api/home';
+import Storage from '../../utils/storage';
 import TimerProgress from './components/TimerProgress';
 import TestQuestionTag from './components/TestQuestionTag';
 import AnswerOption from './components/AnswerOption';
@@ -83,92 +85,172 @@ const SurveyAssessmentQuestions: React.FC = () => {
                 console.log('[SurveyAssessmentQuestions] Route attemptId:', routeAttemptId);
                 console.log('[SurveyAssessmentQuestions] Route questionData exists:', !!routeQuestionData);
 
-                // Always call the start API to get questions (even if route params exist)
-                // This ensures we always have the latest question data from the API
-                console.log('[SurveyAssessmentQuestions] Calling start API to get questions');
+                // Check if survey is already started (in progress)
+                // If attemptId exists, it means survey is already started
+                const isSurveyInProgress = !!routeAttemptId;
                 
-                // Use attemptId from route params if available
-                let response;
-                if (routeAttemptId) {
-                    console.log('[SurveyAssessmentQuestions] AttemptId from route params:', routeAttemptId);
-                    response = await AssessmentService.attemptQuiz({
-                        page: 'start',
-                        lessonId: lessonId,
-                        attemptId: routeAttemptId,
-                    });
-                } else {
-                    response = await AssessmentService.attemptQuiz({
-                        page: 'start',
-                        lessonId: lessonId,
-                    });
-                }
-
-                console.log('[SurveyAssessmentQuestions] Start API Response received:', JSON.stringify(response, null, 2));
-
-                // Extract start time and duration from API response
-                if (response.result?.attempt?.startTime) {
-                    const startTimeStr = response.result.attempt.startTime;
-                    setStartTime(new Date(startTimeStr));
-                    console.log('[SurveyAssessmentQuestions] Start time from API:', startTimeStr);
-                } else {
-                    // If no start time in API, use current time
-                    setStartTime(new Date());
-                    console.log('[SurveyAssessmentQuestions] No start time in API, using current time');
-                }
-
-                // Parse duration from API response (format: "1 Hour 30 Mins" or "90 Minutes" or seconds)
-                let durationSeconds = 0;
-                if (response.result?.attempt?.duration) {
-                    // If duration is in seconds or minutes
-                    durationSeconds = parseInt(response.result.attempt.duration) || 0;
-                    // If it's less than 100, assume it's in minutes, convert to seconds
-                    if (durationSeconds < 100) {
-                        durationSeconds = durationSeconds * 60;
+                if (isSurveyInProgress) {
+                    console.log('[SurveyAssessmentQuestions] Survey is already in progress, calling get-enroll-course API first');
+                    
+                    // Call get-enroll-course API when survey is already started
+                    try {
+                        const userId = await Storage.getItem('userId');
+                        const email = await Storage.getItem('username');
+                        
+                        if (userId && email) {
+                            console.log('[SurveyAssessmentQuestions] Calling POST /api/lms/enrol/get-enroll-course');
+                            console.log('[SurveyAssessmentQuestions] Payload:', { email, userId });
+                            
+                            const enrollCourseResponse = await HomeService.getEnrollCourse();
+                            console.log('[SurveyAssessmentQuestions] get-enroll-course Response:', JSON.stringify(enrollCourseResponse, null, 2));
+                            
+                            // Find the survey course in the response
+                            const surveyCourse = Array.isArray(enrollCourseResponse) 
+                                ? enrollCourseResponse.find((course: any) => 
+                                    course?.Courses?.moodleCourseId === lessonId || 
+                                    course?.Courses?.courseId === lessonId ||
+                                    course?.courseId === lessonId
+                                  )
+                                : null;
+                            
+                            if (surveyCourse) {
+                                console.log('[SurveyAssessmentQuestions] Survey course found in enroll-course response:', JSON.stringify(surveyCourse, null, 2));
+                                console.log('[SurveyAssessmentQuestions] Course progress:', surveyCourse?.CourseProgress?.courseProgress);
+                                console.log('[SurveyAssessmentQuestions] AttemptId from enroll-course:', surveyCourse?.Courses?.attemptId);
+                                
+                                // Update attemptId if found in enroll-course response
+                                if (surveyCourse?.Courses?.attemptId) {
+                                    setAttemptId(surveyCourse.Courses.attemptId);
+                                    console.log('[SurveyAssessmentQuestions] Updated attemptId from enroll-course:', surveyCourse.Courses.attemptId);
+                                }
+                            }
+                        }
+                    } catch (enrollError: any) {
+                        console.warn('[SurveyAssessmentQuestions] Failed to fetch enroll-course, continuing with questions API:', enrollError?.message);
+                        // Non-blocking - continue with questions API
                     }
-                } else if (response.duration) {
-                    // Parse duration string like "1 Hour 30 Mins" or "90 Minutes"
-                    const durationStr = response.duration.toLowerCase();
-                    const hoursMatch = durationStr.match(/(\d+)\s*hour/i);
-                    const minsMatch = durationStr.match(/(\d+)\s*min/i);
-                    const hours = hoursMatch ? parseInt(hoursMatch[1]) : 0;
-                    const mins = minsMatch ? parseInt(minsMatch[1]) : 0;
-                    durationSeconds = (hours * 3600) + (mins * 60);
-                    console.log('[SurveyAssessmentQuestions] Parsed duration:', hours, 'hours', mins, 'minutes =', durationSeconds, 'seconds');
+                }
+
+                // Use the new API: POST /api/lms/contents/questions for fetching survey questions
+                console.log('[SurveyAssessmentQuestions] Calling POST /api/lms/contents/questions');
+                console.log('[SurveyAssessmentQuestions] Using new questions API for survey');
+                
+                const response = await AssessmentService.getSurveyQuestions(lessonId);
+
+                console.log('[SurveyAssessmentQuestions] Questions API Response received:', JSON.stringify(response, null, 2));
+
+                // Extract quiz metadata from new API response
+                console.log('[SurveyAssessmentQuestions] Quiz Title:', response.quizTitle);
+                console.log('[SurveyAssessmentQuestions] Number of Questions:', response.numberOfQuestions);
+                console.log('[SurveyAssessmentQuestions] Quiz Type:', response.quizType);
+                console.log('[SurveyAssessmentQuestions] Questions Per Page:', response.questionsPerPage);
+                console.log('[SurveyAssessmentQuestions] Time Limit:', response.timeLimit);
+                console.log('[SurveyAssessmentQuestions] AttemptId:', response.attemptId);
+
+                // Set attemptId from API response
+                if (response.attemptId) {
+                    setAttemptId(response.attemptId);
+                    console.log('[SurveyAssessmentQuestions] AttemptId set from API:', response.attemptId);
+                }
+
+                // Parse time limit (0 means no time limit)
+                let durationSeconds = 0;
+                if (response.timeLimit && response.timeLimit > 0) {
+                    durationSeconds = response.timeLimit * 60; // Convert minutes to seconds
+                    console.log('[SurveyAssessmentQuestions] Time limit from API:', response.timeLimit, 'minutes =', durationSeconds, 'seconds');
                 } else {
-                    // Default to 2 hours if not provided
-                    durationSeconds = 2 * 3600;
-                    console.log('[SurveyAssessmentQuestions] No duration in API, using default 2 hours');
+                    // No time limit for survey
+                    durationSeconds = 0;
+                    console.log('[SurveyAssessmentQuestions] No time limit (survey)');
                 }
                 setTotalDurationSeconds(durationSeconds);
 
-                if (response.questionData) {
-                    // Handle questionData structure (organized by sections)
-                    console.log('[SurveyAssessmentQuestions] Processing questionData structure');
-                    const allQuestions: Question[] = [];
-                    Object.keys(response.questionData).forEach((section) => {
-                        const sectionQuestions = response.questionData[section];
-                        if (Array.isArray(sectionQuestions)) {
-                            sectionQuestions.forEach((q: any) => {
-                                allQuestions.push({
-                                    questionId: q.questionId,
-                                    questionText: q.questionText,
-                                    questionType: q.type || 'mcq',
-                                    type: q.type || 'mcq',
-                                    choices: q.choices || [],
-                                    page: q.page,
-                                    slot: q.slot,
-                                    status: q.status || 'notStarted',
-                                    maxMark: q.maxMark,
-                                });
-                            });
+                // Set start time to current time if no time limit
+                if (durationSeconds === 0) {
+                    setStartTime(new Date());
+                } else {
+                    // For timed surveys, use current time as start
+                    setStartTime(new Date());
+                }
+
+                // Process questionData from new API response structure
+                if (response.questionData && Array.isArray(response.questionData)) {
+                    console.log('[SurveyAssessmentQuestions] Processing questionData array from new API');
+                    console.log('[SurveyAssessmentQuestions] Total questions in array:', response.questionData.length);
+                    
+                    const allQuestions: Question[] = response.questionData.map((q: any) => {
+                        // Extract chosenAnswer if already answered
+                        // Note: chosenAnswer from API might be the choice value (e.g., "1", "2") or the choice text
+                        // We need to match it with the choice index
+                        if (q.chosenAnswer && q.chosenAnswer.length > 0 && q.choices && q.choices.length > 0) {
+                            const chosenValue = q.chosenAnswer[0]; // Get the first chosen answer
+                            
+                            // Find the index of the chosen answer in the choices array
+                            const choiceIndex = q.choices.findIndex((choice: string) => 
+                                choice === chosenValue || String(choice) === String(chosenValue)
+                            );
+                            
+                            // If found, use the index+1 as option number (matching the rendering logic)
+                            // Otherwise, try to parse as a number (if it's "1", "2", etc.)
+                            let answerKey: string;
+                            if (choiceIndex >= 0) {
+                                answerKey = String(choiceIndex + 1);
+                            } else {
+                                // Try parsing as number (if chosenValue is "1", "2", etc.)
+                                const parsedNum = parseInt(chosenValue);
+                                if (!isNaN(parsedNum) && parsedNum >= 1 && parsedNum <= q.choices.length) {
+                                    answerKey = String(parsedNum);
+                                } else {
+                                    // Fallback: use the chosen value as-is
+                                    answerKey = String(chosenValue);
+                                }
+                            }
+                            
+                            setSelectedAnswers(prev => ({
+                                ...prev,
+                                [q.questionId]: answerKey,
+                            }));
                         }
+                        
+                        // Mark as reviewed if status indicates it
+                        if (q.status === 'toReview' || q.status === 'review') {
+                            setMarkedForReview(prev => new Set(prev).add(q.questionId));
+                        }
+                        
+                        return {
+                            questionId: q.questionId,
+                            questionText: q.questionText || '',
+                            questionType: q.questionType || q.type || 'survey',
+                            type: q.questionType || q.type || 'survey',
+                            choices: Array.isArray(q.choices) ? q.choices : [],
+                            page: q.page || 1,
+                            slot: q.slot || 0,
+                            status: q.status || 'notStarted',
+                            maxMark: q.maxMark || 1,
+                        };
                     });
-                    // Sort by page number if available
-                    allQuestions.sort((a, b) => (a.page || 0) - (b.page || 0));
+                    
+                    // Sort by page, then by slot
+                    allQuestions.sort((a, b) => {
+                        if (a.page !== b.page) {
+                            return (a.page || 0) - (b.page || 0);
+                        }
+                        return (a.slot || 0) - (b.slot || 0);
+                    });
+                    
+                    console.log('[SurveyAssessmentQuestions] Processed questions:', allQuestions.length);
+                    console.log('[SurveyAssessmentQuestions] Questions by page:', 
+                        allQuestions.reduce((acc, q) => {
+                            const page = q.page || 1;
+                            acc[page] = (acc[page] || 0) + 1;
+                            return acc;
+                        }, {} as Record<number, number>)
+                    );
+                    
                     setQuestions(allQuestions);
-                    setAttemptId(response.attemptId || null);
                     setCurrentQuestionIndex(0);
                 } else {
+                    console.error('[SurveyAssessmentQuestions] No questionData array found in response');
                     setError('No questions found in response');
                 }
                 console.log('========================================');
@@ -642,13 +724,13 @@ const SurveyAssessmentQuestions: React.FC = () => {
                                  'PASSAGE SINGLE CHOICE QUESTION'}
                             </Text>
                             <Text style={styles.questionText}>
-                                {currentQuestion.questionText}
+                                {currentQuestion.questionText || 'No question text available'}
                             </Text>
                         </View>
 
                         {/* Answer Options */}
                         <View style={styles.optionsContainer}>
-                            {currentQuestion.choices && currentQuestion.choices.length > 0 ? (
+                            {currentQuestion.choices && Array.isArray(currentQuestion.choices) && currentQuestion.choices.length > 0 ? (
                                 currentQuestion.choices.map((choice, index) => {
                                     const optionNumber = String(index + 1);
                                     const isSelected = selectedAnswers[currentQuestion.questionId] === optionNumber;
@@ -666,10 +748,13 @@ const SurveyAssessmentQuestions: React.FC = () => {
                                         optionState = 'attempted';
                                     }
                                     
+                                    // Ensure choice is a string for display
+                                    const choiceText = String(choice || '');
+                                    
                                     return (
                                         <AnswerOption
-                                            key={`${currentQuestion.questionId}-${index}`}
-                                            optionText={choice}
+                                            key={`${currentQuestion.questionId}-${index}-${choiceText}`}
+                                            optionText={choiceText}
                                             optionNumber={optionNumber}
                                             isSelected={isSelected}
                                             state={optionState}
@@ -678,7 +763,14 @@ const SurveyAssessmentQuestions: React.FC = () => {
                                     );
                                 })
                             ) : (
-                                <Text style={styles.noChoicesText}>No answer options available</Text>
+                                <View style={styles.noChoicesContainer}>
+                                    <Text style={styles.noChoicesText}>No answer options available for this question</Text>
+                                    {currentQuestion.choices && !Array.isArray(currentQuestion.choices) && (
+                                        <Text style={styles.noChoicesSubtext}>
+                                            Choices data format is invalid. Expected array, got: {typeof currentQuestion.choices}
+                                        </Text>
+                                    )}
+                                </View>
                             )}
                         </View>
                     </View>
@@ -855,11 +947,22 @@ const styles = StyleSheet.create({
         color: colors.textGrey,
         textAlign: 'center',
     },
+    noChoicesContainer: {
+        padding: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     noChoicesText: {
         ...typography.p4,
         color: colors.textGrey,
         textAlign: 'center',
-        padding: 16,
+        marginBottom: 8,
+    },
+    noChoicesSubtext: {
+        ...typography.s1Regular,
+        color: colors.textGrey,
+        textAlign: 'center',
+        fontSize: 12,
     },
 });
 

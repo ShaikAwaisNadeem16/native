@@ -64,7 +64,10 @@ const LearningPathCard: React.FC<LearningPathCardProps> = ({
                 <View style={styles.startLearningContainer}>
                     <PrimaryButton
                         label="Start Learning"
-                        onPress={onStartLearningPress}
+                        onPress={() => {
+                            console.log('[LearningPathCard] Start Learning button pressed');
+                            onStartLearningPress();
+                        }}
                     />
                 </View>
             )}

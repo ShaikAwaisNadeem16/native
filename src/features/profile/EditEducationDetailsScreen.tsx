@@ -193,12 +193,14 @@ const EditEducationDetailsScreen: React.FC = () => {
 
             // Call API to update education details
             const existingData = profileDetails || profileData || {};
-            await ProfileService.updateProfileDetails(profileUpdateData, existingData);
+            const response = await ProfileService.updateProfileDetails(profileUpdateData, existingData);
 
             // Refresh profile data after successful update
             await initializeHome();
 
-            Alert.alert('Success', 'Education details updated successfully');
+            // Show success message from backend if available
+            const successMessage = response?.message || 'Education details updated successfully';
+            Alert.alert('Success', successMessage);
             navigation.goBack();
         } catch (error: any) {
             console.error('[EditEducationDetailsScreen] Failed to save education details:', error);

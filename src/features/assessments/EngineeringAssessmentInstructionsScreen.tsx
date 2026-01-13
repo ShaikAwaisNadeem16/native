@@ -8,6 +8,7 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { AssessmentService } from '../../api/assessment';
 import AssessmentHeaderCard from './components/AssessmentHeaderCard';
 import AssessmentInstructionsCard from './components/AssessmentInstructionsCard';
+import SurveyInstructionsCard from './components/SurveyInstructionsCard';
 import AssessmentInstructionsFooter from './components/AssessmentInstructionsFooter';
 import { CardSkeleton } from '../../components/common/SkeletonLoaders';
 import { parseInstructionsFromHTML, InstructionItem } from './utils/htmlParser';
@@ -50,8 +51,20 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
     const [agreementChecked, setAgreementChecked] = useState(false);
     const [startingQuiz, setStartingQuiz] = useState(false);
 
-    // Extract lessonId (moodleCourseId) from route params
+    // Extract lessonId (moodleCourseId) and attemptId from route params
     const lessonId = route.params?.lessonId || route.params?.moodleCourseId;
+    const routeAttemptId = route.params?.attemptId;
+
+    // Detect if this is a survey
+    // Check lessonId pattern (surveys often have specific IDs like LID-A-0022, LID-2278, etc.)
+    // Also check route params for survey indicators
+    const isSurvey = lessonId?.includes('LID-A-0022') || // Career Survey lessonId
+                    lessonId?.includes('LID-2278') || // PullaReddy Career Survey
+                    lessonId?.toLowerCase().includes('survey') ||
+                    route.params?.title?.toLowerCase().includes('survey') ||
+                    route.params?.title?.toLowerCase().includes('career') ||
+                    route.params?.contentType?.toLowerCase().includes('survey') ||
+                    route.params?.contentType === 'survey';
 
     useEffect(() => {
         const fetchLessonContents = async () => {
@@ -61,17 +74,61 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                 return;
             }
 
+            // If it's a survey and already in progress (has attemptId), skip instructions and go directly to questions
+            if (isSurvey && routeAttemptId) {
+                console.log('[EngineeringAssessmentInstructions] Survey detected and already in progress, skipping instructions');
+                console.log('[EngineeringAssessmentInstructions] Navigating directly to SurveyAssessmentQuestions');
+                setLoading(false);
+                navigation.replace('SurveyAssessmentQuestions', {
+                    lessonId,
+                    moodleCourseId: lessonId,
+                    attemptId: routeAttemptId,
+                });
+                return;
+            }
+
+            // For surveys without attemptId, skip the API call entirely
+            // The /api/lms/lesson/contents API returns 500 for surveys, so we use default data
+            if (isSurvey && !routeAttemptId) {
+                console.log('[EngineeringAssessmentInstructions] ===== SURVEY DETECTED =====');
+                console.log('[EngineeringAssessmentInstructions] Survey lessonId:', lessonId);
+                console.log('[EngineeringAssessmentInstructions] Skipping /api/lms/lesson/contents API call (returns 500 for surveys)');
+                console.log('[EngineeringAssessmentInstructions] Using default survey data');
+                setLoading(false);
+                setQuizData({
+                    title: 'Career Survey',
+                    description: 'The Career Survey collects information about your interests, goals, and preferences to identify your strengths and areas of interest. It offers personalized recommendations to help you explore potential career paths.',
+                    shortName: 'Survey',
+                    duration: '30 minutes',
+                    questions: 80,
+                    btntext: 'Start Survey',
+                    terms: 'By starting this survey, you agree to provide accurate information.',
+                    html: '',
+                    quizDetails: '',
+                    section: '',
+                });
+                return;
+            }
+
             try {
                 setLoading(true);
                 setError(null);
 
                 console.log('========================================');
                 console.log('[EngineeringAssessmentInstructions] ===== API CALL START =====');
+                console.log('[EngineeringAssessmentInstructions] Is Survey:', isSurvey);
                 console.log('[EngineeringAssessmentInstructions] Fetching lesson contents for lessonId:', lessonId);
                 console.log('[EngineeringAssessmentInstructions] Route params:', JSON.stringify(route.params, null, 2));
 
-                // Use the new API endpoint /api/lms/lj/contents/lesson
-                const response = await AssessmentService.getLessonContents(lessonId);
+                // For non-survey assessments, call the API
+                let response;
+                try {
+                    // Use the API endpoint /api/lms/lesson/contents
+                    response = await AssessmentService.getLessonContents(lessonId);
+                } catch (apiError: any) {
+                    // Re-throw for non-survey assessments - surveys are handled above
+                    throw apiError;
+                }
 
                 console.log('========================================');
                 console.log('[EngineeringAssessmentInstructions] ===== API RESPONSE RECEIVED =====');
@@ -81,31 +138,42 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
 
                 // Log individual fields from response
                 if (response) {
-                    console.log('[EngineeringAssessmentInstructions] shortName:', response.shortName);
-                    console.log('[EngineeringAssessmentInstructions] title:', response.title);
-                    console.log('[EngineeringAssessmentInstructions] description:', response.description);
-                    console.log('[EngineeringAssessmentInstructions] duration:', response.duration);
-                    console.log('[EngineeringAssessmentInstructions] questions:', response.questions);
-                    console.log('[EngineeringAssessmentInstructions] btntext:', response.btntext);
-                    console.log('[EngineeringAssessmentInstructions] terms:', response.terms);
-                    console.log('[EngineeringAssessmentInstructions] html length:', response.html ? response.html.length : 'null/undefined');
-                    console.log('[EngineeringAssessmentInstructions] html preview:', response.html ? response.html.substring(0, 200) + '...' : 'null/undefined');
+                    // Check if response is wrapped in quiz_data
+                    const responseData = response?.quiz_data || response;
+                    console.log('[EngineeringAssessmentInstructions] Response structure check:');
+                    console.log('[EngineeringAssessmentInstructions] Has quiz_data wrapper:', !!response.quiz_data);
+                    console.log('[EngineeringAssessmentInstructions] shortName:', responseData.shortName || responseData.short_name);
+                    console.log('[EngineeringAssessmentInstructions] title:', responseData.title);
+                    console.log('[EngineeringAssessmentInstructions] description:', responseData.description);
+                    console.log('[EngineeringAssessmentInstructions] duration:', responseData.duration);
+                    console.log('[EngineeringAssessmentInstructions] questions:', responseData.questions);
+                    console.log('[EngineeringAssessmentInstructions] btntext:', responseData.btntext || responseData.btn_text || responseData.buttonText);
+                    console.log('[EngineeringAssessmentInstructions] terms:', responseData.terms);
+                    console.log('[EngineeringAssessmentInstructions] html length:', responseData.html ? responseData.html.length : 'null/undefined');
+                    console.log('[EngineeringAssessmentInstructions] html preview:', responseData.html ? responseData.html.substring(0, 200) + '...' : 'null/undefined');
                 }
 
-                // The new API returns data directly (not wrapped in quiz_data)
-                if (response) {
+                // The API may return data directly or wrapped in quiz_data
+                // Handle both cases
+                let responseData = response;
+                if (response?.quiz_data) {
+                    responseData = response.quiz_data;
+                    console.log('[EngineeringAssessmentInstructions] Response wrapped in quiz_data, extracting...');
+                }
+                
+                if (responseData) {
                     // Map the response to quizData format
                     const quizData: QuizData = {
-                        shortName: response.shortName,
-                        title: response.title,
-                        description: response.description,
-                        duration: response.duration,
-                        quizDetails: response.quizDetails,
-                        section: response.section,
-                        terms: response.terms,
-                        btntext: response.btntext,
-                        questions: response.questions,
-                        html: response.html,
+                        shortName: responseData.shortName || responseData.short_name,
+                        title: responseData.title,
+                        description: responseData.description,
+                        duration: responseData.duration,
+                        quizDetails: responseData.quizDetails || responseData.quiz_details,
+                        section: responseData.section,
+                        terms: responseData.terms,
+                        btntext: responseData.btntext || responseData.btn_text || responseData.buttonText,
+                        questions: responseData.questions,
+                        html: responseData.html,
                     };
                     
                     console.log('========================================');
@@ -116,9 +184,9 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                     setQuizData(quizData);
 
                     // Parse HTML to extract instructions
-                    if (response.html) {
+                    if (responseData.html) {
                         console.log('[EngineeringAssessmentInstructions] Parsing HTML for instructions...');
-                        const parsed = parseInstructionsFromHTML(response.html);
+                        const parsed = parseInstructionsFromHTML(responseData.html);
                         console.log('[EngineeringAssessmentInstructions] Parsed aboutItems:', parsed.aboutItems?.length || 0);
                         console.log('[EngineeringAssessmentInstructions] Parsed instructions:', parsed.instructions?.length || 0);
                         console.log('[EngineeringAssessmentInstructions] Parsed procedureItems:', parsed.procedureItems?.length || 0);
@@ -132,10 +200,26 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                     
                     console.log('========================================');
                     console.log('[EngineeringAssessmentInstructions] ===== STATE UPDATED =====');
-                    console.log('[EngineeringAssessmentInstructions] Final aboutText:', aboutText || response.description);
+                    console.log('[EngineeringAssessmentInstructions] Final description:', responseData.description);
+                    console.log('[EngineeringAssessmentInstructions] Final aboutItems count:', aboutItems.length);
                     console.log('[EngineeringAssessmentInstructions] Final instructions count:', instructions.length);
                     console.log('[EngineeringAssessmentInstructions] Button text will be: "Start Assessment" (hardcoded)');
                     console.log('========================================');
+                } else if (isSurvey) {
+                    // For surveys, if no response, use default survey data
+                    console.log('[EngineeringAssessmentInstructions] Survey detected but no API response, using default survey data');
+                    const defaultQuizData: QuizData = {
+                        shortName: 'Survey',
+                        title: 'Career Survey',
+                        description: 'The Career Survey collects information about your interests, goals, and preferences to identify your strengths and areas of interest.',
+                        duration: 'No time limit',
+                        btntext: routeAttemptId ? 'Resume Survey' : 'Start Survey',
+                        questions: '80',
+                    };
+                    setQuizData(defaultQuizData);
+                    setAboutItems([]);
+                    setInstructions([]);
+                    setProcedureItems([]);
                 } else {
                     console.error('[EngineeringAssessmentInstructions] ERROR: No data found in response');
                     setError('No data found in response');
@@ -151,6 +235,19 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                 console.error('[EngineeringAssessmentInstructions] Error response status:', err?.response?.status);
                 console.error('[EngineeringAssessmentInstructions] Full error object:', JSON.stringify(err, null, 2));
                 console.error('========================================');
+                
+                // Check if this is a survey - if API fails, navigate directly to questions screen
+                if (isSurvey) {
+                    console.log('[EngineeringAssessmentInstructions] Survey detected with API error, navigating directly to questions');
+                    console.log('[EngineeringAssessmentInstructions] Will use /api/lms/contents/questions API');
+                    setLoading(false);
+                    navigation.replace('SurveyAssessmentQuestions', {
+                        lessonId,
+                        moodleCourseId: lessonId,
+                        attemptId: routeAttemptId, // May be undefined for new surveys
+                    });
+                    return;
+                }
                 
                 // Check if this is a STEM assessment (500 error might mean API doesn't support this lessonId)
                 // Check lessonId pattern or route params to determine if it's STEM
@@ -185,7 +282,8 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
         console.log('[EngineeringAssessmentInstructions] ===== START ASSESSMENT BUTTON CLICKED =====');
         console.log('[EngineeringAssessmentInstructions] Current lessonId:', lessonId);
         console.log('[EngineeringAssessmentInstructions] Current quizData:', quizData ? JSON.stringify(quizData, null, 2) : 'null');
-        console.log('[EngineeringAssessmentInstructions] Current aboutText:', aboutText);
+        console.log('[EngineeringAssessmentInstructions] Current description:', quizData?.description || 'N/A');
+        console.log('[EngineeringAssessmentInstructions] Current aboutItems count:', aboutItems.length);
         console.log('[EngineeringAssessmentInstructions] Current instructions count:', instructions.length);
         
         if (!lessonId) {
@@ -197,7 +295,42 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
         try {
             setStartingQuiz(true);
             
-            // Call API to start the quiz attempt
+            // Check if survey is already in progress (has attemptId from route params)
+            const isSurveyInProgress = !!routeAttemptId;
+            
+            // If it's a survey (in progress or new), handle it differently
+            if (isSurvey) {
+                if (isSurveyInProgress) {
+                    console.log('[EngineeringAssessmentInstructions] Survey is already in progress');
+                    console.log('[EngineeringAssessmentInstructions] AttemptId from route:', routeAttemptId);
+                    console.log('[EngineeringAssessmentInstructions] Navigating to questions screen - will use new /api/lms/contents/questions API');
+                    
+                    // Navigate to questions screen with attemptId
+                    // The questions screen will:
+                    // 1. Call get-enroll-course API first (if in progress)
+                    // 2. Use the new /api/lms/contents/questions API to fetch questions
+                    navigation.navigate('SurveyAssessmentQuestions', {
+                        lessonId,
+                        moodleCourseId: lessonId,
+                        attemptId: routeAttemptId,
+                    });
+                    setStartingQuiz(false);
+                    return;
+                } else {
+                    // New survey - navigate directly to questions screen
+                    // The questions screen will use the new /api/lms/contents/questions API to start
+                    console.log('[EngineeringAssessmentInstructions] Starting new survey');
+                    console.log('[EngineeringAssessmentInstructions] Navigating to questions screen - will use new /api/lms/contents/questions API');
+                    navigation.navigate('SurveyAssessmentQuestions', {
+                        lessonId,
+                        moodleCourseId: lessonId,
+                    });
+                    setStartingQuiz(false);
+                    return;
+                }
+            }
+            
+            // For non-survey assessments, use the start API
             console.log('========================================');
             console.log('[EngineeringAssessmentInstructions] ===== CALLING START QUIZ API =====');
             console.log('[EngineeringAssessmentInstructions] API: POST /api/lms/attempt/quiz');
@@ -358,13 +491,29 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
 
                 {/* Instructions Card */}
                 <View style={styles.instructionsContainer}>
-                    <AssessmentInstructionsCard
-                        aboutItems={aboutItems}
-                        instructions={instructions}
-                        procedureItems={procedureItems}
-                        navigationItems={navigationItems}
-                        legendItems={legendItems}
-                    />
+                    {isSurvey ? (
+                        // Survey-specific instructions card matching Figma design
+                        <SurveyInstructionsCard
+                            aboutText={quizData.description || 'The Career Survey collects information about your interests, goals, and preferences to identify your strengths and areas of interest. It offers personalized recommendations to help you explore potential career paths.'}
+                            instructions={[
+                                'Each question is timed',
+                                'Do not use search engines or get help from others',
+                                'Once you\'ve submitted an answer, you cannot go back',
+                                'You may exit the test, but the timer will continue to run',
+                                'You can retake the assessment every 60 days',
+                            ]}
+                            navigationItems={navigationItems}
+                        />
+                    ) : (
+                        // Regular assessment instructions card
+                        <AssessmentInstructionsCard
+                            aboutItems={aboutItems}
+                            instructions={instructions}
+                            procedureItems={procedureItems}
+                            navigationItems={navigationItems}
+                            legendItems={legendItems}
+                        />
+                    )}
                 </View>
 
                 {/* Footer: Checkbox + Start Quiz Button */}

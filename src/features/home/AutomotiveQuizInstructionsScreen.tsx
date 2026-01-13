@@ -21,7 +21,7 @@ import RightArrow from '../../components/common/RightArrow';
 import AutomotiveHamburgerMenu, {
     ModuleSection,
 } from '../../components/course-details/AutomotiveHamburgerMenu';
-import { HomeService } from '../../api/home';
+import useCourseStore from '../../store/useCourseStore';
 import { transformCourseDataToMenuSections, getCourseMenuTitle } from '../../utils/courseDataTransform';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'AutomotiveQuizInstructions'>;
@@ -43,28 +43,27 @@ const AutomotiveQuizInstructionsScreen: React.FC = () => {
     const [courseTitle, setCourseTitle] = useState('Awareness On Automotive Industry');
     const [courseSubtitle, setCourseSubtitle] = useState('Automotive Industry Value Chain');
 
+    // Use course store
+    const { courseData, fetchCourseView } = useCourseStore();
+    
     // Fetch course data for hamburger menu
     useEffect(() => {
         if (courseId) {
-            fetchCourseData();
+            fetchCourseView(courseId);
         }
-    }, [courseId]);
-
-    const fetchCourseData = async () => {
-        try {
-            const courseData = await HomeService.getCourseView(courseId);
-            console.log('[AutomotiveQuizInstructions] Course data fetched:', JSON.stringify(courseData, null, 2));
-            
+    }, [courseId, fetchCourseView]);
+    
+    // Update menu sections when course data changes
+    useEffect(() => {
+        if (courseData) {
             const sections = transformCourseDataToMenuSections(courseData, lessonId);
             setCourseSections(sections);
             
             const { title, subtitle } = getCourseMenuTitle(courseData);
             setCourseTitle(title);
             setCourseSubtitle(subtitle);
-        } catch (error: any) {
-            console.error('[AutomotiveQuizInstructions] Failed to fetch course data:', error);
         }
-    };
+    }, [courseData, lessonId]);
 
     const handleProfilePress = () => {
         navigation.navigate('Profile');
@@ -89,13 +88,22 @@ const AutomotiveQuizInstructionsScreen: React.FC = () => {
         if (parts.length >= 2) {
             const extractedLessonId = parts.slice(1).join('-');
             
+            // Find the lesson in course sections to get its type and status
             let lessonType: string | null = null;
+            let lessonStatus: 'completed' | 'current' | 'locked' = 'locked';
             for (const section of courseSections) {
                 const item = section.items?.find(item => item.id === itemId);
                 if (item) {
                     lessonType = item.type;
+                    lessonStatus = item.status;
                     break;
                 }
+            }
+            
+            // CRITICAL: Do not navigate to locked lessons
+            if (lessonStatus === 'locked') {
+                console.log('[AutomotiveQuizInstructions] Lesson is locked, cannot navigate');
+                return;
             }
             
             if (lessonType === 'video') {

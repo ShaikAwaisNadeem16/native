@@ -21,8 +21,9 @@ import RightArrow from '../../components/common/RightArrow';
 import AutomotiveHamburgerMenu, {
     ModuleSection,
 } from '../../components/course-details/AutomotiveHamburgerMenu';
-import { HomeService } from '../../api/home';
+import useCourseStore from '../../store/useCourseStore';
 import { transformCourseDataToMenuSections, getCourseMenuTitle } from '../../utils/courseDataTransform';
+import { CardSkeleton } from '../../components/common/SkeletonLoaders';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'ReadDifferentPlayers'>;
 type ReadDifferentPlayersRouteProp = RouteProp<RootStackParamList, 'ReadDifferentPlayers'>;
@@ -50,27 +51,26 @@ const ReadDifferentPlayersScreen: React.FC = () => {
         }
     }, [courseId]);
 
-    const fetchCourseData = async () => {
-        try {
-            setLoading(true);
-            const courseData = await HomeService.getCourseView(courseId);
-            console.log('[ReadDifferentPlayers] Course data fetched:', JSON.stringify(courseData, null, 2));
-            
-            // Transform course data to menu sections
+    // Use course store
+    const { courseData, loading: courseLoading, error: courseError, fetchCourseView } = useCourseStore();
+    
+    useEffect(() => {
+        if (courseId) {
+            fetchCourseView(courseId);
+        }
+    }, [courseId, fetchCourseView]);
+    
+    // Update menu sections when course data changes
+    useEffect(() => {
+        if (courseData) {
             const sections = transformCourseDataToMenuSections(courseData, lessonId);
             setCourseSections(sections);
             
-            // Get course title and subtitle
             const { title, subtitle } = getCourseMenuTitle(courseData);
             setCourseTitle(title);
             setCourseSubtitle(subtitle);
-        } catch (error: any) {
-            console.error('[ReadDifferentPlayers] Failed to fetch course data:', error);
-            // Keep default sections if API fails
-        } finally {
-            setLoading(false);
         }
-    };
+    }, [courseData, lessonId]);
 
     const handleProfilePress = () => {
         navigation.navigate('Profile');
@@ -96,14 +96,22 @@ const ReadDifferentPlayersScreen: React.FC = () => {
         if (parts.length >= 2) {
             const extractedLessonId = parts.slice(1).join('-'); // Handle lessonIds with hyphens
             
-            // Find the lesson in course sections to get its type
+            // Find the lesson in course sections to get its type and status
             let lessonType: string | null = null;
+            let lessonStatus: 'completed' | 'current' | 'locked' = 'locked';
             for (const section of courseSections) {
                 const item = section.items?.find(item => item.id === itemId);
                 if (item) {
                     lessonType = item.type;
+                    lessonStatus = item.status;
                     break;
                 }
+            }
+            
+            // CRITICAL: Do not navigate to locked lessons
+            if (lessonStatus === 'locked') {
+                console.log('[ReadDifferentPlayers] Lesson is locked, cannot navigate');
+                return;
             }
             
             // Navigate based on lesson type
@@ -210,6 +218,24 @@ const ReadDifferentPlayersScreen: React.FC = () => {
             <View style={styles.flagBody} />
         </View>
     );
+
+    // Show loading skeleton while fetching course data
+    if (courseLoading && !courseData) {
+        return (
+            <SafeAreaView style={styles.container} edges={['top']}>
+                <Header
+                    onProfilePress={handleProfilePress}
+                    onLogoPress={handleLogoPress}
+                />
+                <BreadcrumbBar
+                    items={['Your Learning Journey', 'Awareness On Automotive Industry', 'Different Players In The Automotive Industry']}
+                />
+                <View style={styles.content}>
+                    <CardSkeleton />
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>

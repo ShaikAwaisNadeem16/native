@@ -12,8 +12,9 @@ import { colors } from '../../styles/theme';
 import AutomotiveHamburgerMenu, {
     ModuleSection,
 } from '../../components/course-details/AutomotiveHamburgerMenu';
-import { HomeService } from '../../api/home';
+import useCourseStore from '../../store/useCourseStore';
 import { transformCourseDataToMenuSections, getCourseMenuTitle } from '../../utils/courseDataTransform';
+import { CardSkeleton } from '../../components/common/SkeletonLoaders';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'CourseDetails'>;
 type CourseDetailsRouteProp = RouteProp<RootStackParamList, 'CourseDetails'>;
@@ -32,28 +33,27 @@ const CourseDetailsScreen: React.FC = () => {
     const [menuTitle, setMenuTitle] = useState('Awareness On Automotive Industry');
     const [menuSubtitle, setMenuSubtitle] = useState('Automotive Industry Value Chain');
 
+    // Use course store
+    const { courseData, loading: courseLoading, error: courseError, fetchCourseView } = useCourseStore();
+    
     // Fetch course data for hamburger menu if parentCourseId is available
     useEffect(() => {
         if (parentCourseId) {
-            fetchCourseData();
+            fetchCourseView(parentCourseId);
         }
-    }, [parentCourseId]);
-
-    const fetchCourseData = async () => {
-        try {
-            const courseData = await HomeService.getCourseView(parentCourseId);
-            console.log('[CourseDetails] Course data fetched:', JSON.stringify(courseData, null, 2));
-            
+    }, [parentCourseId, fetchCourseView]);
+    
+    // Update menu sections when course data changes
+    useEffect(() => {
+        if (courseData) {
             const sections = transformCourseDataToMenuSections(courseData, lessonId || courseId);
             setCourseSections(sections);
             
             const { title, subtitle } = getCourseMenuTitle(courseData);
             setMenuTitle(title);
             setMenuSubtitle(subtitle);
-        } catch (error: any) {
-            console.error('[CourseDetails] Failed to fetch course data:', error);
         }
-    };
+    }, [courseData, lessonId, courseId]);
 
     const handleProfilePress = () => {
         navigation.navigate('Profile');
@@ -67,20 +67,35 @@ const CourseDetailsScreen: React.FC = () => {
         setIsMenuVisible(false);
     };
 
-    const handleMenuItemPress = (sectionId: string, itemId: string) => {
+    const handleMenuItemPress = (sectionId: string, itemId: string, status?: 'completed' | 'current' | 'locked') => {
         setIsMenuVisible(false);
+        
+        // CRITICAL: Do not navigate to locked lessons
+        if (status === 'locked') {
+            Alert.alert('Locked Lesson', 'This lesson is locked and cannot be accessed yet.');
+            return;
+        }
         
         const parts = itemId.split('-');
         if (parts.length >= 2) {
             const extractedLessonId = parts.slice(1).join('-');
             
+            // Find the lesson in course sections to get its type and status
             let lessonType: string | null = null;
+            let lessonStatus: 'completed' | 'current' | 'locked' = 'locked';
             for (const section of courseSections) {
                 const item = section.items?.find(item => item.id === itemId);
                 if (item) {
                     lessonType = item.type;
+                    lessonStatus = item.status;
                     break;
                 }
+            }
+            
+            // CRITICAL: Do not navigate to locked lessons
+            if (lessonStatus === 'locked') {
+                console.log('[CourseDetails] Lesson is locked, cannot navigate');
+                return;
             }
             
             if (lessonType === 'video') {
@@ -137,6 +152,10 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.mainBgGrey,
+    },
+    content: {
+        flex: 1,
+        padding: 16,
     },
 });
 

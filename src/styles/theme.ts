@@ -15,6 +15,7 @@ export const colors = {
     black2: '#1D1D1D',
     highlightBlue: '#f2f7fe', // Highlight blue for coming soon tag
     successGreen: '#27ae60', // Success green for percentage
+    highestStrengthGreen: '#239f57', // Green color for highest strength in radar chart (from Figma)
     reportBlue: '#0049b5', // Blue color for assessment report card
     tableHeaderBlue: '#e6f3ff', // Light blue for table header background
     passBg: 'rgba(39, 174, 96, 0.05)', // Light green background for Pass tag

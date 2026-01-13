@@ -250,12 +250,14 @@ const EditPersonalDetailsScreen: React.FC = () => {
             // Get existing profile data to merge with update
             const existingData = profileDetails || profileData || {};
             
-            await ProfileService.updateProfileDetails(profileUpdateData, existingData);
+            const response = await ProfileService.updateProfileDetails(profileUpdateData, existingData);
 
             // Refresh profile data after successful update
             await initializeHome();
 
-            Alert.alert('Success', 'Profile updated successfully');
+            // Show success message from backend if available
+            const successMessage = response?.message || 'Profile updated successfully';
+            Alert.alert('Success', successMessage);
             navigation.goBack();
         } catch (error: any) {
             console.error('Failed to save profile:', error);

@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 import { colors, typography, borderRadius } from '../../styles/theme';
+import PrimaryButton from '../../components/SignUp/PrimaryButton';
 import SecondaryButton from '../../components/SignUp/SecondaryButton';
 import { Target, CheckCircle2, Clock, Lock } from 'lucide-react-native';
+import AssessmentService from '../../api/assessment';
+import Storage from '../../utils/storage';
+import { CardSkeleton } from '../../components/common/SkeletonLoaders';
 
 type AssessmentFailedScreenNavigationProp = StackNavigationProp<RootStackParamList, 'AssessmentFailed'>;
 type AssessmentFailedScreenRouteProp = RouteProp<RootStackParamList, 'AssessmentFailed'>;
@@ -24,31 +28,153 @@ type AssessmentFailedScreenRouteProp = RouteProp<RootStackParamList, 'Assessment
 const AssessmentFailedScreen: React.FC = () => {
     const navigation = useNavigation<AssessmentFailedScreenNavigationProp>();
     const route = useRoute<AssessmentFailedScreenRouteProp>();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [reportData, setReportData] = useState<any>(null);
     
-    // Extract data from route params (passed from assessment submission)
+    // Extract lessonId from route params to fetch data from API
+    const lessonId = route.params?.lessonId || route.params?.moodleCourseId;
+    const moodleCourseId = route.params?.moodleCourseId || route.params?.lessonId;
+    const quizReportDataFromRoute = route.params?.quizReportData;
+    const finalResult = route.params?.finalResult || 'Fail';
+    
+    // Fallback data from route params (used if API fails or while loading)
     const {
-        finalScore,      // Percentage (e.g., 30)
-        correctAnswers,  // String format "40/60"
-        timeTaken,       // String format "01m 15s"
-        failMessage,     // Fail message/reason from API
-        cooldownDays,    // Number of days for cooldown (e.g., 60)
-        minimumScore,    // Minimum score required (e.g., 50)
+        finalScore: fallbackFinalScore,
+        correctAnswers: fallbackCorrectAnswers,
+        timeTaken: fallbackTimeTaken,
+        failMessage: fallbackFailMessage,
+        cooldownDays: fallbackCooldownDays,
+        minimumScore: fallbackMinimumScore,
     } = route.params || {};
+
+    // Fetch quiz report data from API
+    useEffect(() => {
+        const fetchQuizReport = async () => {
+            if (!lessonId) {
+                console.warn('[AssessmentFailedScreen] No lessonId provided, using fallback data from route params');
+                setLoading(false);
+                return;
+            }
+
+            try {
+                setLoading(true);
+                setError(null);
+
+                const userId = await Storage.getItem('userId');
+                if (!userId) {
+                    throw new Error('User ID not found');
+                }
+
+                // Call API: POST /api/lms/attempt/quiz with page: "score"
+                console.log('[AssessmentFailedScreen] Fetching quiz report for lessonId:', lessonId);
+                const response = await AssessmentService.attemptQuiz({
+                    page: 'score',
+                    userId,
+                    lessonId,
+                });
+
+                console.log('[AssessmentFailedScreen] Quiz report response:', JSON.stringify(response, null, 2));
+                setReportData(response);
+            } catch (err: any) {
+                console.error('[AssessmentFailedScreen] Failed to fetch quiz report:', err);
+                setError(err?.message || 'Failed to load quiz report');
+                // Continue with fallback data from route params
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchQuizReport();
+    }, [lessonId]);
+
+    // Extract data from API response - handle multiple possible response structures
+    const finalData = reportData?.final || reportData?.result?.final || reportData?.quizResult?.final || {};
+    const questionsData = reportData?.questions || reportData?.result?.questions || reportData?.quizResult?.questions || {};
+    const overallData = questionsData?.overall || questionsData?.summary || {};
+
+    // Extract scoredMarks and totalMarks from API
+    const scoredMarks = overallData?.scoredMarks || 
+                       overallData?.marksScored || 
+                       finalData?.scoredMarks || 
+                       finalData?.marksScored ||
+                       reportData?.scoredMarks || 
+                       (fallbackCorrectAnswers ? parseInt(fallbackCorrectAnswers.split('/')[0]) : 0);
+    const totalMarks = overallData?.totalMarks || 
+                      finalData?.totalMarks || 
+                      reportData?.totalMarks || 
+                      (fallbackCorrectAnswers ? parseInt(fallbackCorrectAnswers.split('/')[1]) : 7);
+    
+    // Format correct answers as "0/7" from API
+    const correctAnswersDisplay = `${scoredMarks}/${totalMarks}`;
+    
+    // Calculate final score percentage
+    const finalScorePercentage = totalMarks > 0 ? Math.round((scoredMarks / totalMarks) * 100) : (fallbackFinalScore || 0);
+    const finalScoreDisplay = `${finalScorePercentage}%`;
+    
+    // Time taken from API
+    const timeTakenRaw = finalData?.timeTaken || 
+                        finalData?.timeSpent || 
+                        reportData?.timeTaken || 
+                        reportData?.timeSpent ||
+                        overallData?.timeTaken ||
+                        fallbackTimeTaken ||
+                        '';
+    const timeTakenDisplay = timeTakenRaw || '00m 00s';
+    
+    // Fail message from API - use "you didn't clear it" message
+    const failMessage = finalData?.failReason || 
+                       finalData?.failureReason || 
+                       finalData?.message ||
+                       reportData?.failReason || 
+                       fallbackFailMessage ||
+                       '';
+    
+    // Cooldown days from API
+    const cooldownDays = finalData?.cooldownDays || 
+                        finalData?.reattemptDays || 
+                        reportData?.cooldownDays ||
+                        fallbackCooldownDays || 
+                        60;
+    
+    // Minimum score from API
+    const minimumScore = finalData?.minimumScore || 
+                        finalData?.passingScore || 
+                        reportData?.minimumScore ||
+                        fallbackMinimumScore || 
+                        50;
+    
+    // Build warning message - use API message or default
+    const warningMessage = failMessage || `You didn't clear it. You must score at least ${minimumScore}% in-order to clear the test. You must now reattempt the STEM Assessment and the Engineering Systems Assessment in ${cooldownDays} days`;
 
     const handleHome = () => {
         // Navigate to Home page
         navigation.navigate('Home');
     };
 
-    // Format final score as percentage
-    const finalScoreDisplay = finalScore !== undefined ? `${finalScore}%` : '0%';
-    const correctAnswersDisplay = correctAnswers || '0/0';
-    const timeTakenDisplay = timeTaken || '00m 00s';
-    const cooldownDaysDisplay = cooldownDays !== undefined ? cooldownDays : 60;
-    
-    // Build fail message - use API message or default
-    const defaultMessage = `You must score at least ${minimumScore !== undefined ? minimumScore : 50}% in-order to clear the test. You must now reattempt the STEM Assessment and the Engineering Systems Assessment in ${cooldownDaysDisplay} days`;
-    const warningMessage = failMessage || defaultMessage;
+    const handleViewReport = async () => {
+        // Navigate to report screen with lessonId and quizReportData
+        // If we have reportData from API, use it; otherwise use data from route
+        const reportDataToPass = reportData || quizReportDataFromRoute;
+        
+        navigation.navigate('StemAssessmentReport', {
+            lessonId: lessonId || moodleCourseId,
+            moodleCourseId: moodleCourseId || lessonId,
+            quizReportData: reportDataToPass,
+            finalResult: finalResult || 'Fail',
+        });
+    };
+
+    // Show loading skeleton while fetching data
+    if (loading && lessonId) {
+        return (
+            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+                <View style={styles.content}>
+                    <CardSkeleton />
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -66,17 +192,10 @@ const AssessmentFailedScreen: React.FC = () => {
                         <Text style={styles.title}>Assessment Failed</Text>
                     </View>
 
-                    {/* Warning Message Box */}
+                    {/* Warning Message Box - Red border box with fail message */}
                     <View style={styles.warningBox}>
                         <Text style={styles.warningText}>
-                            You must{' '}
-                            <Text style={styles.warningTextBold}>
-                                score at least {minimumScore !== undefined ? minimumScore : 50}%
-                            </Text>
-                            {' '}in-order to clear the test. You must now reattempt the STEM Assessment and the Engineering Systems Assessment in{' '}
-                            <Text style={styles.warningTextBold}>
-                                {cooldownDaysDisplay} days
-                            </Text>
+                            {warningMessage}
                         </Text>
                     </View>
 
@@ -130,10 +249,16 @@ const AssessmentFailedScreen: React.FC = () => {
                         <View style={styles.disabledButtonContent}>
                             <Lock size={24} color="#72818c" />
                             <Text style={styles.disabledButtonText}>
-                                Reattempt in {cooldownDaysDisplay} Days
+                                Reattempt in {cooldownDays} Days
                             </Text>
                         </View>
                     </TouchableOpacity>
+                </View>
+                <View style={styles.buttonWrapper}>
+                    <PrimaryButton
+                        label="View Report"
+                        onPress={handleViewReport}
+                    />
                 </View>
                 <View style={styles.buttonWrapper}>
                     <SecondaryButton
@@ -184,13 +309,12 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     warningBox: {
-        backgroundColor: '#fcefdc', // Light orange background from Figma
-        borderWidth: 0.5,
-        borderColor: colors.error || '#eb5757', // Orange border from Figma
+        backgroundColor: '#fff5f5', // Light red background
+        borderWidth: 1,
+        borderColor: colors.error || '#eb5757', // Red border
         borderRadius: borderRadius.input, // 8px
-        padding: 12,
+        padding: 16,
         width: '100%',
-        gap: 12,
     },
     warningText: {
         ...typography.p4, // 14px Regular, line-height 20px

@@ -1,61 +1,5 @@
 import { ModuleSection, ModuleItem, ModuleItemStatus } from '../components/course-details/AutomotiveHamburgerMenu';
-
-// Types matching LearningPathScreen
-interface Lesson {
-    lessonId: string;
-    type: string;
-    name: string;
-    isLocked: boolean;
-    lessonType: string;
-    sub: string;
-    order: number;
-    url: string;
-    duration: string;
-    category: string | null;
-    globalOrder: number;
-    completionStatus?: string;
-    completedAt?: string | null;
-}
-
-interface Module {
-    unitId: string;
-    order: number;
-    skills: Record<string, any>;
-    modules: number;
-    summary: string;
-    name: string;
-    duration: string;
-    durationInHrs: string;
-    rawDuration: number;
-    lessons: Lesson[];
-    isLocked: boolean;
-}
-
-interface CourseViewResponse {
-    id: string;
-    name: string;
-    type: string;
-    summary: string;
-    is_reviewed: boolean;
-    lockLessons: boolean;
-    learningJourney: boolean;
-    duration: string;
-    duartionInHr: string;
-    module: Module[];
-    noOfModules: number;
-    skills: string[];
-    can_review: boolean;
-    resume1?: {
-        lessonId: string;
-        globalOrder: number;
-        completedAt: string;
-        lessonType: string;
-        name: string;
-    };
-    resumeUrl: string;
-    timeTaken: string;
-    percent: number;
-}
+import { CourseViewResponse, Lesson, Module } from '../store/useCourseStore';
 
 /**
  * Transform lesson type to hamburger menu item type
@@ -70,40 +14,85 @@ const getLessonTypeForMenu = (lessonType: string, type: string): 'video' | 'read
 
 /**
  * Determine lesson status for hamburger menu
+ * CRITICAL: Uses API flags - do NOT guess unlock logic
  */
 const getLessonStatus = (lesson: Lesson, currentLessonId?: string): ModuleItemStatus => {
-    if (lesson.isLocked) return 'locked';
-    if (lesson.lessonId === currentLessonId) return 'current';
-    if (lesson.completionStatus === 'completed' || lesson.completedAt) return 'completed';
-    return 'current'; // Default to current if not locked
+    // CRITICAL: Locked lessons are always locked (from API) - check this FIRST
+    if (lesson.isLocked === true) {
+        return 'locked';
+    }
+    
+    // Current lesson is marked as current
+    if (lesson.lessonId === currentLessonId) {
+        return 'current';
+    }
+    
+    // Completed lessons (from API completionStatus or completedAt)
+    if (lesson.completionStatus === 'completed' || lesson.completedAt) {
+        return 'completed';
+    }
+    
+    // Unlocked but not completed = current (available to access)
+    return 'current';
 };
 
 /**
  * Transform course data from API to ModuleSection format for hamburger menu
+ * Uses API locking flags from course data
  */
 export const transformCourseDataToMenuSections = (
     courseData: CourseViewResponse,
     currentLessonId?: string
 ): ModuleSection[] => {
     if (!courseData?.module || courseData.module.length === 0) {
+        console.log('[courseDataTransform] No modules found in course data');
         return [];
     }
 
-    return courseData.module.map((module, index) => {
-        const items: ModuleItem[] = module.lessons.map((lesson) => ({
-            id: `${module.unitId}-${lesson.lessonId}`,
-            title: lesson.name,
-            type: getLessonTypeForMenu(lesson.lessonType, lesson.type),
-            status: getLessonStatus(lesson, currentLessonId),
-        }));
+    console.log('[courseDataTransform] ===== TRANSFORMING COURSE DATA TO MENU SECTIONS =====');
+    console.log('[courseDataTransform] Course name:', courseData.name);
+    console.log('[courseDataTransform] Number of modules:', courseData.module.length);
+
+    const sections = courseData.module.map((module, index) => {
+        console.log(`[courseDataTransform] Module ${index + 1}:`, {
+            unitId: module.unitId,
+            name: module.name,
+            summary: module.summary,
+            duration: module.duration,
+            isLocked: module.isLocked,
+            lessonsCount: module.lessons?.length || 0,
+        });
+
+        const items: ModuleItem[] = module.lessons.map((lesson) => {
+            const item = {
+                id: `${module.unitId}-${lesson.lessonId}`,
+                title: lesson.name || 'Untitled Lesson',
+                type: getLessonTypeForMenu(lesson.lessonType, lesson.type),
+                status: getLessonStatus(lesson, currentLessonId), // Use API flags to determine status
+            };
+            
+            console.log(`[courseDataTransform]   Lesson:`, {
+                lessonId: lesson.lessonId,
+                name: lesson.name,
+                sub: lesson.sub,
+                type: item.type,
+                status: item.status,
+                isLocked: lesson.isLocked,
+            });
+            
+            return item;
+        });
 
         return {
             id: module.unitId || `module-${index}`,
-            title: module.name,
+            title: module.name || 'Untitled Module',
             items: items.length > 0 ? items : undefined,
-            isLocked: module.isLocked,
+            isLocked: module.isLocked || false, // Use API flag from course data
         };
     });
+
+    console.log('[courseDataTransform] Transformed sections:', JSON.stringify(sections, null, 2));
+    return sections;
 };
 
 /**
@@ -117,4 +106,5 @@ export const getCourseMenuTitle = (courseData: CourseViewResponse): { title: str
             : 'Automotive Industry Value Chain',
     };
 };
+
 

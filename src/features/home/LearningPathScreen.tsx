@@ -13,67 +13,15 @@ import {
     ProgressWidget,
 } from '../../components/learning-path';
 import PrimaryButton from '../../components/SignUp/PrimaryButton';
-import { HomeService } from '../../api/home';
+import useCourseStore from '../../store/useCourseStore';
 import { CardSkeleton } from '../../components/common/SkeletonLoaders';
 import { RootStackParamList } from '../../navigation/AppNavigator';
 
 type NavigationProp = StackNavigationProp<RootStackParamList, 'LearningPath'>;
 type LearningPathRouteProp = RouteProp<RootStackParamList, 'LearningPath'>;
 
-// Type definitions based on API response
-interface Lesson {
-    lessonId: string;
-    type: string;
-    name: string;
-    isLocked: boolean;
-    lessonType: string;
-    sub: string;
-    order: number;
-    url: string;
-    duration: string;
-    category: string | null;
-    globalOrder: number;
-}
-
-interface Module {
-    unitId: string;
-    order: number;
-    skills: Record<string, any>;
-    modules: number;
-    summary: string;
-    name: string;
-    duration: string;
-    durationInHrs: string;
-    rawDuration: number;
-    lessons: Lesson[];
-    isLocked: boolean;
-}
-
-interface CourseViewResponse {
-    id: string;
-    name: string;
-    type: string;
-    summary: string;
-    is_reviewed: boolean;
-    lockLessons: boolean;
-    learningJourney: boolean;
-    duration: string;
-    duartionInHr: string;
-    module: Module[];
-    noOfModules: number;
-    skills: string[];
-    can_review: boolean;
-    resume1?: {
-        lessonId: string;
-        globalOrder: number;
-        completedAt: string;
-        lessonType: string;
-        name: string;
-    };
-    resumeUrl: string;
-    timeTaken: string;
-    percent: number;
-}
+// Import types from course store
+import type { Lesson, Module, CourseViewResponse } from '../../store/useCourseStore';
 
 /**
  * LearningPathScreen - Screen component for displaying learning path details
@@ -84,33 +32,48 @@ const LearningPathScreen: React.FC = () => {
     const route = useRoute<LearningPathRouteProp>();
     const { courseId } = route.params || {};
 
-    const [loading, setLoading] = useState(true);
-    const [courseData, setCourseData] = useState<CourseViewResponse | null>(null);
-    const [error, setError] = useState<string | null>(null);
-    const [expandedModuleIndex, setExpandedModuleIndex] = useState<number | null>(0); // First module expanded by default
+    // Use course store as single source of truth
+    const { courseData, loading, error, fetchCourseView } = useCourseStore();
+    const [expandedModuleIndices, setExpandedModuleIndices] = useState<Set<number>>(new Set());
 
     useEffect(() => {
         if (courseId) {
-            fetchCourseView();
+            console.log('[LearningPathScreen] ===== FETCHING COURSE VIEW =====');
+            console.log('[LearningPathScreen] CourseId from route params:', courseId);
+            console.log('[LearningPathScreen] CourseId type:', typeof courseId);
+            fetchCourseView(courseId);
         } else {
-            setError('Course ID is required');
-            setLoading(false);
+            console.warn('[LearningPathScreen] No courseId provided in route params');
         }
-    }, [courseId]);
+    }, [courseId, fetchCourseView]);
 
-    const fetchCourseView = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            const data = await HomeService.getCourseView(courseId);
-            setCourseData(data);
-        } catch (err: any) {
-            console.error('[LearningPathScreen] Error fetching course view:', err);
-            setError(err?.message || 'Failed to load course data');
-        } finally {
-            setLoading(false);
+    // Auto-expand ALL modules on load and console log the data
+    useEffect(() => {
+        if (courseData?.module) {
+            console.log('[LearningPathScreen] ===== COURSE DATA =====');
+            console.log('[LearningPathScreen] Full course data:', JSON.stringify(courseData, null, 2));
+            console.log('[LearningPathScreen] Number of modules:', courseData.module.length);
+            
+            // Expand all modules (both locked and unlocked)
+            const allIndices = new Set<number>();
+            courseData.module.forEach((module, index) => {
+                allIndices.add(index);
+                console.log(`[LearningPathScreen] Module ${index + 1}:`, {
+                    name: module.name,
+                    isLocked: module.isLocked,
+                    lessonsCount: module.lessons?.length || 0,
+                    lessons: module.lessons?.map(l => ({
+                        name: l.name,
+                        lessonId: l.lessonId,
+                        isLocked: l.isLocked,
+                        lessonType: l.lessonType,
+                    })),
+                });
+            });
+            setExpandedModuleIndices(allIndices);
+            console.log('[LearningPathScreen] All modules expanded:', Array.from(allIndices));
         }
-    };
+    }, [courseData]);
 
     const handleProfilePress = () => {
         navigation.navigate('Profile');
@@ -121,99 +84,215 @@ const LearningPathScreen: React.FC = () => {
     };
 
     const handleResumeLearning = () => {
-        if (courseData?.resume1) {
-            // Navigate to the resume lesson
+        if (!courseData) return;
+        
+        // Use resume1 from API if available
+        if (courseData.resume1) {
             const resumeLesson = courseData.resume1;
-            // Determine navigation based on lesson type
-            if (resumeLesson.lessonType === 'quiz' || resumeLesson.lessonType === 'nongraded') {
-                // Navigate to quiz/assessment
-                navigation.navigate('EngineeringAssessmentInstructions', {
-                    lessonId: resumeLesson.lessonId,
-                    moodleCourseId: courseId,
-                });
-            } else if (resumeLesson.lessonType === 'assignment') {
-                // Navigate to assignment
-                navigation.navigate('AssignmentInstructions', {
-                    lessonId: resumeLesson.lessonId,
-                    moodleCourseId: courseId,
+            navigateToLesson(resumeLesson.lessonId, resumeLesson.lessonType, resumeLesson.name, courseId!);
+            return;
+        }
+        
+        // Fallback: Use resumeUrl if available
+        if (courseData.resumeUrl) {
+            // Extract lessonId from resumeUrl or navigate directly
+            // This is a fallback - prefer resume1
+            console.log('[LearningPathScreen] Using resumeUrl:', courseData.resumeUrl);
+        }
+        
+        // Final fallback: Find first unlocked lesson
+        const firstUnlockedLesson = findFirstUnlockedLesson(courseData.module);
+        if (firstUnlockedLesson) {
+            navigateToLesson(
+                firstUnlockedLesson.lessonId,
+                firstUnlockedLesson.lessonType,
+                firstUnlockedLesson.name,
+                courseId!
+            );
+        }
+    };
+    
+    // Helper to find first unlocked lesson across all modules
+    const findFirstUnlockedLesson = (modules: Module[]): Lesson | null => {
+        for (const module of modules) {
+            if (module.isLocked) continue;
+            for (const lesson of module.lessons) {
+                if (!lesson.isLocked) {
+                    return lesson;
+                }
+            }
+        }
+        return null;
+    };
+    
+    // Helper to navigate to lesson based on type
+    const navigateToLesson = (lessonId: string, lessonType: string, lessonName: string, parentCourseId: string) => {
+        console.log('[LearningPathScreen] navigateToLesson called:', {
+            lessonId,
+            lessonType,
+            lessonName,
+            parentCourseId,
+        });
+        
+        if (lessonType === 'quiz' || lessonType === 'nongraded' || lessonType === 'graded') {
+            console.log('[LearningPathScreen] Navigating to EngineeringAssessmentInstructions for quiz');
+            navigation.navigate('EngineeringAssessmentInstructions', {
+                lessonId: lessonId,
+                moodleCourseId: parentCourseId,
+            });
+        } else if (lessonType === 'assignment') {
+            console.log('[LearningPathScreen] Navigating to AssignmentInstructions for assignment');
+            navigation.navigate('AssignmentInstructions', {
+                lessonId: lessonId,
+                moodleCourseId: parentCourseId,
+            });
+        } else if (lessonType === 'video') {
+            // Video lessons go to CourseDetails
+            console.log('[LearningPathScreen] Navigating to CourseDetails for video');
+            navigation.navigate('CourseDetails', {
+                courseId: lessonId,
+                courseTitle: lessonName,
+                parentCourseId: parentCourseId,
+            });
+        } else if (lessonType === 'article') {
+            // Only navigate to ReadDifferentPlayers if lesson name specifically includes "different players"
+            // Otherwise, go to CourseDetails or ReadingCompletion
+            const lessonNameLower = lessonName.toLowerCase();
+            if (lessonNameLower.includes('different players')) {
+                console.log('[LearningPathScreen] Navigating to ReadDifferentPlayers (article with "different players" in name)');
+                navigation.navigate('ReadDifferentPlayers', {
+                    courseId: parentCourseId,
+                    lessonId: lessonId,
                 });
             } else {
-                // Navigate to course details for video/article
+                // For other articles, navigate to CourseDetails or ReadingCompletion
+                console.log('[LearningPathScreen] Navigating to CourseDetails for article');
                 navigation.navigate('CourseDetails', {
-                    courseId: resumeLesson.lessonId,
-                    courseTitle: resumeLesson.name,
+                    courseId: lessonId,
+                    courseTitle: lessonName,
+                    parentCourseId: parentCourseId,
                 });
             }
+        } else {
+            // Default navigation - go to CourseDetails
+            console.log('[LearningPathScreen] Navigating to CourseDetails (default)');
+            navigation.navigate('CourseDetails', {
+                courseId: lessonId,
+                courseTitle: lessonName,
+                parentCourseId: parentCourseId,
+            });
         }
     };
 
     const handleStartLearning = () => {
-        // Navigate to "Different Players in Automotive Industry" screen
-        // Check all modules to find the "Different Players" lesson
-        if (courseData?.module && courseData.module.length > 0) {
-            // Search for "Different Players in Automotive Industry" lesson
-            let differentPlayersLesson: Lesson | null = null;
-            
-            for (const module of courseData.module) {
-                if (module.lessons && module.lessons.length > 0) {
-                    const foundLesson = module.lessons.find(
-                        (lesson) => 
-                            lesson.name.toLowerCase().includes('different players') ||
-                            lesson.lessonId === 'LID-A-0096'
-                    );
-                    if (foundLesson) {
-                        differentPlayersLesson = foundLesson;
-                        break;
-                    }
-                }
-            }
-            
-            // If found, navigate to ReadDifferentPlayers screen
-            if (differentPlayersLesson) {
-                console.log('[LearningPathScreen] Navigating to ReadDifferentPlayers for lesson:', differentPlayersLesson.name);
-                navigation.navigate('ReadDifferentPlayers', {
-                    courseId: courseId!,
-                    lessonId: differentPlayersLesson.lessonId,
+        console.log('[LearningPathScreen] ===== START LEARNING CLICKED =====');
+        console.log('[LearningPathScreen] courseData:', courseData ? 'exists' : 'null');
+        console.log('[LearningPathScreen] courseId:', courseId);
+        console.log('[LearningPathScreen] courseData modules:', courseData?.module?.length || 0);
+        
+        if (!courseData || !courseId) {
+            console.warn('[LearningPathScreen] Cannot start learning - missing courseData or courseId');
+            return;
+        }
+        
+        // Log all lessons for debugging
+        if (courseData.module) {
+            console.log('[LearningPathScreen] All lessons in course:');
+            courseData.module.forEach((module, moduleIndex) => {
+                console.log(`[LearningPathScreen] Module ${moduleIndex + 1} (${module.name}):`, {
+                    isLocked: module.isLocked,
+                    lessonsCount: module.lessons?.length || 0,
                 });
-                return;
-            }
-            
-            // Fallback: Navigate to the first lesson of the first module
-            const firstModule = courseData.module[0];
-            if (firstModule.lessons && firstModule.lessons.length > 0) {
-                const firstLesson = firstModule.lessons[0];
-                // Determine navigation based on lesson type
-                if (firstLesson.lessonType === 'quiz' || firstLesson.lessonType === 'nongraded' || firstLesson.lessonType === 'graded') {
-                    navigation.navigate('EngineeringAssessmentInstructions', {
-                        lessonId: firstLesson.lessonId,
-                        moodleCourseId: courseId,
+                module.lessons?.forEach((lesson, lessonIndex) => {
+                    console.log(`[LearningPathScreen]   Lesson ${lessonIndex + 1}:`, {
+                        name: lesson.name,
+                        lessonId: lesson.lessonId,
+                        lessonType: lesson.lessonType,
+                        isLocked: lesson.isLocked,
+                        globalOrder: lesson.globalOrder,
+                        includesDifferentPlayers: lesson.name?.toLowerCase().includes('different players'),
                     });
-                } else if (firstLesson.lessonType === 'assignment') {
-                    navigation.navigate('AssignmentInstructions', {
-                        lessonId: firstLesson.lessonId,
-                        moodleCourseId: courseId,
-                    });
-                } else if (firstLesson.lessonType === 'video' || firstLesson.type === 'videoPage') {
-                    // For video lessons, check if it's "Different Players"
-                    if (firstLesson.name.toLowerCase().includes('different players')) {
-                        navigation.navigate('ReadDifferentPlayers', {
-                            courseId: courseId!,
-                            lessonId: firstLesson.lessonId,
-                        });
-                    } else {
-                        navigation.navigate('CourseDetails', {
-                            courseId: firstLesson.lessonId,
-                            courseTitle: firstLesson.name,
-                        });
-                    }
-                } else {
-                    navigation.navigate('CourseDetails', {
-                        courseId: firstLesson.lessonId,
-                        courseTitle: firstLesson.name,
-                    });
+                });
+            });
+        }
+        
+        // First, check if there's resume data from API
+        if (courseData.resume1) {
+            const resumeLesson = courseData.resume1;
+            console.log('[LearningPathScreen] Using resume1 data from API:', {
+                lessonId: resumeLesson.lessonId,
+                lessonType: resumeLesson.lessonType,
+                lessonName: resumeLesson.name,
+                globalOrder: resumeLesson.globalOrder,
+            });
+            navigateToLesson(
+                resumeLesson.lessonId,
+                resumeLesson.lessonType,
+                resumeLesson.name,
+                courseId
+            );
+            return;
+        }
+        
+        // If no resume data, find first unlocked lesson by globalOrder (respecting API locking)
+        const firstUnlockedLesson = findFirstUnlockedLessonByOrder(courseData.module);
+        console.log('[LearningPathScreen] First unlocked lesson (by order):', firstUnlockedLesson ? {
+            name: firstUnlockedLesson.name,
+            lessonId: firstUnlockedLesson.lessonId,
+            lessonType: firstUnlockedLesson.lessonType,
+            globalOrder: firstUnlockedLesson.globalOrder,
+        } : 'null');
+        
+        if (firstUnlockedLesson) {
+            console.log('[LearningPathScreen] ===== NAVIGATING TO LESSON =====');
+            console.log('[LearningPathScreen] Lesson details:', {
+                lessonId: firstUnlockedLesson.lessonId,
+                lessonType: firstUnlockedLesson.lessonType,
+                lessonName: firstUnlockedLesson.name,
+                globalOrder: firstUnlockedLesson.globalOrder,
+                courseId: courseId,
+                willNavigateToReadDifferentPlayers: firstUnlockedLesson.name?.toLowerCase().includes('different players'),
+            });
+            navigateToLesson(
+                firstUnlockedLesson.lessonId,
+                firstUnlockedLesson.lessonType,
+                firstUnlockedLesson.name,
+                courseId
+            );
+        } else {
+            console.warn('[LearningPathScreen] No unlocked lesson found');
+            console.warn('[LearningPathScreen] All modules:', courseData.module?.map(m => ({
+                name: m.name,
+                isLocked: m.isLocked,
+                lessonsCount: m.lessons?.length || 0,
+                unlockedLessons: m.lessons?.filter(l => !l.isLocked).length || 0,
+            })));
+        }
+    };
+    
+    // Helper to find first unlocked lesson by globalOrder (more accurate than just first in array)
+    const findFirstUnlockedLessonByOrder = (modules: Module[]): Lesson | null => {
+        const allUnlockedLessons: Lesson[] = [];
+        
+        for (const module of modules) {
+            if (module.isLocked) continue;
+            for (const lesson of module.lessons) {
+                if (!lesson.isLocked) {
+                    allUnlockedLessons.push(lesson);
                 }
             }
         }
+        
+        if (allUnlockedLessons.length === 0) return null;
+        
+        // Sort by globalOrder and return the first one
+        const sortedLessons = allUnlockedLessons.sort((a, b) => {
+            const orderA = a.globalOrder || 0;
+            const orderB = b.globalOrder || 0;
+            return orderA - orderB;
+        });
+        
+        return sortedLessons[0];
     };
 
     // Transform lesson type to display format
@@ -225,25 +304,73 @@ const LearningPathScreen: React.FC = () => {
         return 'Lesson';
     };
 
-    // Transform modules data for ModuleAccordion
+    // Transform modules data for ModuleAccordion - Use API locking flags from course data
     const transformModules = (modules: Module[]) => {
         return modules.map((module) => ({
-            title: module.name, // Unit name as accordion heading
-            description: module.summary, // Summary as description
+            title: module.name,
+            description: module.summary,
             duration: module.duration,
+            isLocked: module.isLocked, // Use API flag from course data
             lessons: module.lessons.map((lesson) => ({
-                title: lesson.name, // Lesson name as heading
-                sub: lesson.sub, // Sub as description (e.g., "Graded Quiz 2 hours", "Video 5 mins")
+                title: lesson.name,
+                sub: lesson.sub,
                 type: getLessonTypeDisplay(lesson.lessonType, lesson.type),
                 duration: lesson.duration,
-                lessonId: lesson.lessonId, // Lesson ID for navigation
+                lessonId: lesson.lessonId,
+                isLocked: lesson.isLocked, // Use API flag from course data
             })),
         }));
     };
 
     const handleModulePress = (moduleIndex: number) => {
-        // If the clicked module is already expanded, close it. Otherwise, expand it and close others.
-        setExpandedModuleIndex(expandedModuleIndex === moduleIndex ? null : moduleIndex);
+        if (!courseData) return;
+        
+        // Check if module is locked from API data
+        const module = courseData.module[moduleIndex];
+        if (module?.isLocked) {
+            console.log('[LearningPathScreen] Module is locked, cannot expand');
+            return;
+        }
+        
+        // Toggle module expansion (allow multiple modules to be expanded)
+        setExpandedModuleIndices(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(moduleIndex)) {
+                newSet.delete(moduleIndex);
+            } else {
+                newSet.add(moduleIndex);
+            }
+            return newSet;
+        });
+    };
+    
+    const handleLessonPress = (lessonId: string, isLocked: boolean) => {
+        if (!courseData || !courseId) return;
+        
+        // Check if lesson is locked from API data
+        if (isLocked) {
+            console.log('[LearningPathScreen] Lesson is locked, cannot navigate');
+            return;
+        }
+        
+        // Find the lesson in course data
+        let targetLesson: Lesson | null = null;
+        for (const module of courseData.module) {
+            const lesson = module.lessons.find(l => l.lessonId === lessonId);
+            if (lesson) {
+                targetLesson = lesson;
+                break;
+            }
+        }
+        
+        if (targetLesson) {
+            navigateToLesson(
+                targetLesson.lessonId,
+                targetLesson.lessonType,
+                targetLesson.name,
+                courseId
+            );
+        }
     };
 
     if (loading) {
@@ -308,6 +435,7 @@ const LearningPathScreen: React.FC = () => {
                     level="Beginner" // This should come from API if available
                     duration={courseData.duration}
                     onStartLearningPress={handleStartLearning}
+                    onResumePress={undefined}
                 />
 
                 {/* Learning Path Journey Section */}
@@ -322,8 +450,10 @@ const LearningPathScreen: React.FC = () => {
                                     description={module.description}
                                     duration={module.duration}
                                     lessons={module.lessons}
-                                    isExpanded={expandedModuleIndex === index}
+                                    isExpanded={expandedModuleIndices.has(index)}
+                                    isLocked={module.isLocked}
                                     onPress={() => handleModulePress(index)}
+                                    onLessonPress={handleLessonPress}
                                 />
                             ))
                         ) : (

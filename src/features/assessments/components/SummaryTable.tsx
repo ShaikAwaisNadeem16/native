@@ -14,6 +14,51 @@ interface SummaryTableProps {
 }
 
 const SummaryTable: React.FC<SummaryTableProps> = ({ rows }) => {
+    console.log('[SummaryTable] Rendering table with rows:', rows?.length || 0);
+    console.log('[SummaryTable] Rows data:', JSON.stringify(rows, null, 2));
+    
+    if (!Array.isArray(rows) || rows.length === 0) {
+        console.warn('[SummaryTable] No rows provided or rows is not an array');
+        return (
+            <View style={styles.container}>
+                <View style={styles.headerRow}>
+                    <View style={[styles.headerCell, styles.firstCell]}>
+                        <View style={styles.cellContent}>
+                            <Text style={styles.headerText}>Test Part</Text>
+                        </View>
+                    </View>
+                    <View style={styles.headerCell}>
+                        <View style={styles.cellContent}>
+                            <Text style={styles.headerText}>Result</Text>
+                        </View>
+                    </View>
+                    <View style={styles.headerCell}>
+                        <View style={styles.cellContent}>
+                            <Text style={styles.headerText}>Score</Text>
+                        </View>
+                    </View>
+                </View>
+                <View style={styles.dataRow}>
+                    <View style={[styles.dataCell, styles.firstCell]}>
+                        <View style={styles.cellContent}>
+                            <Text style={styles.dataText}>No data available</Text>
+                        </View>
+                    </View>
+                    <View style={styles.dataCell}>
+                        <View style={styles.cellContent}>
+                            <Text style={styles.dataText}>-</Text>
+                        </View>
+                    </View>
+                    <View style={styles.dataCell}>
+                        <View style={styles.cellContent}>
+                            <Text style={styles.dataText}>-</Text>
+                        </View>
+                    </View>
+                </View>
+            </View>
+        );
+    }
+    
     return (
         <View style={styles.container}>
             {/* Table Header */}
@@ -36,31 +81,34 @@ const SummaryTable: React.FC<SummaryTableProps> = ({ rows }) => {
             </View>
 
             {/* Table Rows */}
-            {Array.isArray(rows) && rows.map((row, index) => (
-                <View
-                    key={index}
-                    style={[
-                        styles.dataRow,
-                        index < rows.length - 1 && styles.dataRowWithBorder,
-                    ]}
-                >
-                    <View style={[styles.dataCell, styles.firstCell]}>
-                        <View style={styles.cellContent}>
-                            <Text style={styles.dataText}>{row?.testPart || ''}</Text>
+            {rows.map((row, index) => {
+                console.log(`[SummaryTable] Rendering row ${index}:`, row);
+                return (
+                    <View
+                        key={`row-${index}-${row?.testPart || index}`}
+                        style={[
+                            styles.dataRow,
+                            index < rows.length - 1 && styles.dataRowWithBorder,
+                        ]}
+                    >
+                        <View style={[styles.dataCell, styles.firstCell]}>
+                            <View style={styles.cellContent}>
+                                <Text style={styles.dataText}>{row?.testPart || 'Unknown'}</Text>
+                            </View>
+                        </View>
+                        <View style={styles.dataCell}>
+                            <View style={styles.cellContent}>
+                                <ResultTag result={row?.result || 'Pass'} />
+                            </View>
+                        </View>
+                        <View style={styles.dataCell}>
+                            <View style={styles.cellContent}>
+                                <Text style={styles.dataText}>{row?.score || '0/0'}</Text>
+                            </View>
                         </View>
                     </View>
-                    <View style={styles.dataCell}>
-                        <View style={styles.cellContent}>
-                            <ResultTag result={row?.result || 'Pass'} />
-                        </View>
-                    </View>
-                    <View style={styles.dataCell}>
-                        <View style={styles.cellContent}>
-                            <Text style={styles.dataText}>{row?.score || ''}</Text>
-                        </View>
-                    </View>
-                </View>
-            ))}
+                );
+            })}
         </View>
     );
 };

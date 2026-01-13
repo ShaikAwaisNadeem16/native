@@ -28,6 +28,10 @@ const AssessmentClearedSuccessScreen: React.FC = () => {
     
     // Extract data from route params (passed from assessment submission)
     const {
+        lessonId,
+        moodleCourseId,
+        quizReportData,
+        finalResult,
         finalScore,      // Percentage (e.g., 60)
         correctAnswers,  // String format "40/60"
         timeTaken,       // String format "01m 15s"
@@ -43,6 +47,16 @@ const AssessmentClearedSuccessScreen: React.FC = () => {
     const handleHome = () => {
         // Navigate to Home page
         navigation.navigate('Home');
+    };
+
+    const handleViewReport = () => {
+        // Navigate to report screen with lessonId and quizReportData
+        navigation.navigate('StemAssessmentReport', {
+            lessonId: lessonId || moodleCourseId,
+            moodleCourseId: moodleCourseId || lessonId,
+            quizReportData: quizReportData,
+            finalResult: finalResult || 'Pass',
+        });
     };
 
     // Format final score as percentage
@@ -115,8 +129,8 @@ const AssessmentClearedSuccessScreen: React.FC = () => {
             <View style={styles.actionsContainer}>
                 <View style={styles.buttonWrapper}>
                     <PrimaryButton
-                        label="Continue"
-                        onPress={handleContinue}
+                        label="View Report"
+                        onPress={handleViewReport}
                     />
                 </View>
                 <View style={styles.buttonWrapper}>

@@ -232,7 +232,7 @@ const AuthService = {
      * Register User
      * POST /api/auth/user/register
      * Registers a new user account
-     * Request body: { email: string, firstName: string, lastName: string, mobileNumber: string, password: string, platform: "student" }
+     * Request body: { email: string, firstName: string, lastName: string, mobileNumber: string, password: string, platform: "student", phase?: string }
      * Response: { statusCode: number, message: string, ... } or error with 409 if user already exists
      */
     register: async (userData: {
@@ -242,6 +242,7 @@ const AuthService = {
         mobileNumber: string;
         password: string;
         platform?: string;
+        phase?: string;
     }) => {
         try {
             const payload = {
@@ -251,6 +252,7 @@ const AuthService = {
                 mobileNumber: userData.mobileNumber,
                 password: userData.password,
                 platform: userData.platform || 'student',
+                ...(userData.phase && { phase: userData.phase }), // Include phase if provided
             };
             
             console.log('[AuthService] register - Request URL: POST /api/auth/user/register');

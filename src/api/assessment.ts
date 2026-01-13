@@ -84,7 +84,7 @@ export const AssessmentService = {
     },
 
     /**
-     * POST /api/lms/lj/contents/lesson
+     * POST /api/lms/lesson/contents
      * Fetches lesson contents for assessment/quiz instructions
      * Request body: { lessonId: string, userId: string }
      * Note: lessonId is actually the moodleCourseId
@@ -100,6 +100,8 @@ export const AssessmentService = {
                 throw new Error('Lesson ID is required');
             }
 
+            console.log('[AssessmentService] ===== CALLING LESSON CONTENTS API =====');
+            console.log('[AssessmentService] API: POST /api/lms/lesson/contents');
             console.log('[AssessmentService] getLessonContents - lessonId:', lessonId);
             console.log('[AssessmentService] getLessonContents - userId:', userId);
 
@@ -107,19 +109,28 @@ export const AssessmentService = {
             console.log('[AssessmentService] getLessonContents - Request payload:', JSON.stringify(requestPayload, null, 2));
 
             const response = await GlobalAxiosConfig.post(
-                '/api/lms/lj/contents/lesson',
+                '/api/lms/lesson/contents',
                 requestPayload
             );
 
+            console.log('[AssessmentService] ===== LESSON CONTENTS API RESPONSE =====');
             console.log('[AssessmentService] getLessonContents - Response status:', response.status);
             console.log('[AssessmentService] getLessonContents - Full response.data:', JSON.stringify(response.data, null, 2));
-
-            return response.data;
+            console.log('[AssessmentService] Response keys:', response.data ? Object.keys(response.data) : 'null/undefined');
+            
+            // Return the response data (may be wrapped in quiz_data or directly available)
+            const responseData = response.data?.quiz_data || response.data;
+            console.log('[AssessmentService] Returning data:', JSON.stringify(responseData, null, 2));
+            console.log('[AssessmentService] =========================================');
+            
+            return responseData;
         } catch (error: any) {
+            console.error('[AssessmentService] ===== LESSON CONTENTS API ERROR =====');
             console.error('[AssessmentService] getLessonContents - Error occurred:', error);
             console.error('[AssessmentService] getLessonContents - Error message:', error?.message);
             console.error('[AssessmentService] getLessonContents - Error response:', error?.response?.data);
             console.error('[AssessmentService] getLessonContents - Error status:', error?.response?.status);
+            console.error('[AssessmentService] =====================================');
             throw error;
         }
     },
@@ -162,6 +173,48 @@ export const AssessmentService = {
             console.error('[AssessmentService] getStemLessonContents - Error message:', error?.message);
             console.error('[AssessmentService] getStemLessonContents - Error response:', error?.response?.data);
             console.error('[AssessmentService] getStemLessonContents - Error status:', error?.response?.status);
+            throw error;
+        }
+    },
+
+    /**
+     * POST /api/lms/contents/questions
+     * Fetches survey questions when survey is already started
+     * Request body: { userId: string, lessonId: string }
+     * Response structure: { quizTitle, numberOfQuestions, questionData: [...], attemptId }
+     */
+    getSurveyQuestions: async (lessonId: string) => {
+        try {
+            const userId = await Storage.getItem('userId');
+            if (!userId) {
+                throw new Error('User ID not found');
+            }
+
+            if (!lessonId) {
+                throw new Error('Lesson ID is required');
+            }
+
+            console.log('[AssessmentService] getSurveyQuestions - lessonId:', lessonId);
+            console.log('[AssessmentService] getSurveyQuestions - userId:', userId);
+
+            const requestPayload = { userId, lessonId };
+            console.log('[AssessmentService] getSurveyQuestions - Request payload:', JSON.stringify(requestPayload, null, 2));
+            console.log('[AssessmentService] getSurveyQuestions - Calling POST /api/lms/contents/questions');
+
+            const response = await GlobalAxiosConfig.post(
+                '/api/lms/contents/questions',
+                requestPayload
+            );
+
+            console.log('[AssessmentService] getSurveyQuestions - Response status:', response.status);
+            console.log('[AssessmentService] getSurveyQuestions - Full response.data:', JSON.stringify(response.data, null, 2));
+
+            return response.data;
+        } catch (error: any) {
+            console.error('[AssessmentService] getSurveyQuestions - Error occurred:', error);
+            console.error('[AssessmentService] getSurveyQuestions - Error message:', error?.message);
+            console.error('[AssessmentService] getSurveyQuestions - Error response:', error?.response?.data);
+            console.error('[AssessmentService] getSurveyQuestions - Error status:', error?.response?.status);
             throw error;
         }
     },

@@ -15,9 +15,10 @@ const styles = StyleSheet.create({
         height: 1,
         width: '100%',
         backgroundColor: colors.lightGrey,
-        marginVertical: 24,
+        marginVertical: 24, // 24px gap between sections (matches Figma)
     },
 });
 
 export default SectionDivider;
+
 

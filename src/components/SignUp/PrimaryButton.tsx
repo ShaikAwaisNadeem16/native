@@ -9,10 +9,17 @@ interface PrimaryButtonProps {
 }
 
 const PrimaryButton: React.FC<PrimaryButtonProps> = ({ label, onPress, disabled = false }) => {
+    const handlePress = () => {
+        console.log(`[PrimaryButton] Button "${label}" pressed, disabled:`, disabled);
+        if (!disabled && onPress) {
+            onPress();
+        }
+    };
+
     return (
         <TouchableOpacity
             style={[styles.button, disabled && styles.buttonDisabled]}
-            onPress={onPress}
+            onPress={handlePress}
             disabled={disabled}
             activeOpacity={0.7}
         >

@@ -90,12 +90,24 @@ export const AssignmentService = {
      * Fetches assignment content and instructions
      * Request body: { lessonId: string, userId: string }
      */
+    /**
+     * POST /api/lms/lesson/contents
+     * Fetches assignment content and instructions
+     * Request body: { lessonId: string, userId: string }
+     * This API is used when viewing assignment submission
+     */
     getLessonContents: async (lessonId: string) => {
         try {
             const userId = await Storage.getItem('userId');
             if (!userId) {
                 throw new Error('User ID not found');
             }
+
+            console.log('[AssignmentService] ===== CALLING LESSON CONTENTS API =====');
+            console.log('[AssignmentService] API: POST /api/lms/lesson/contents');
+            console.log('[AssignmentService] Purpose: Fetch assignment details for view submission');
+            console.log('[AssignmentService] lessonId:', lessonId);
+            console.log('[AssignmentService] userId:', userId);
 
             const payload = { lessonId, userId };
             console.log('[AssignmentService] Request payload:', JSON.stringify(payload, null, 2));
@@ -105,12 +117,27 @@ export const AssignmentService = {
                 payload
             );
 
-            console.log('[AssignmentService] Response received:', JSON.stringify(response.data, null, 2));
+            console.log('[AssignmentService] ===== LESSON CONTENTS API RESPONSE =====');
+            console.log('[AssignmentService] Response status:', response.status);
+            console.log('[AssignmentService] Response keys:', response.data ? Object.keys(response.data) : 'null/undefined');
+            console.log('[AssignmentService] Full response:', JSON.stringify(response.data, null, 2));
+            
+            // Log key fields from response
+            if (response.data) {
+                console.log('[AssignmentService] assign_data:', response.data.assign_data);
+                console.log('[AssignmentService] assign_data.assign_data:', response.data.assign_data?.assign_data);
+                console.log('[AssignmentService] studentData:', response.data.assign_data?.studentData);
+            }
+            console.log('[AssignmentService] ========================================');
+            
             return response.data;
         } catch (error: any) {
+            console.error('[AssignmentService] ===== LESSON CONTENTS API ERROR =====');
             console.error('[AssignmentService] Failed to fetch lesson contents:', error);
+            console.error('[AssignmentService] Error message:', error?.message);
             console.error('[AssignmentService] Error response:', error?.response?.data);
             console.error('[AssignmentService] Error status:', error?.response?.status);
+            console.error('[AssignmentService] =====================================');
             throw error;
         }
     },

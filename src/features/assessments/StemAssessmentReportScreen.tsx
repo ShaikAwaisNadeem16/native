@@ -35,13 +35,72 @@ const StemAssessmentReportScreen: React.FC = () => {
 
     // Extract lessonId from route params (moodleCourseId)
     const lessonId = route.params?.lessonId || route.params?.moodleCourseId;
+    const quizReportDataFromRoute = route.params?.quizReportData;
     
     console.log('[StemAssessmentReportScreen] Route params:', JSON.stringify(route.params, null, 2));
     console.log('[StemAssessmentReportScreen] Extracted lessonId:', lessonId);
+    console.log('[StemAssessmentReportScreen] Quiz report data from route:', quizReportDataFromRoute ? 'Present' : 'Not present');
 
-    // Fetch quiz report data on mount
+    // Fetch quiz report data on mount (or use data passed from navigation)
     useEffect(() => {
         const fetchQuizReport = async () => {
+            // If data was passed from navigation, use it directly
+            if (quizReportDataFromRoute) {
+                console.log('[StemAssessmentReportScreen] Using quiz report data from route params');
+                console.log('[StemAssessmentReportScreen] Data:', JSON.stringify(quizReportDataFromRoute, null, 2));
+                
+                // Parse JSON strings if they exist in the response
+                let parsedResponse = { ...quizReportDataFromRoute };
+                
+                // If finalData is a JSON string, parse it
+                if (typeof quizReportDataFromRoute?.final === 'string') {
+                    try {
+                        parsedResponse.final = JSON.parse(quizReportDataFromRoute.final);
+                    } catch (e) {
+                        console.warn('[StemAssessmentReportScreen] Failed to parse finalData JSON string:', e);
+                    }
+                }
+                
+                // If questions.overall is a JSON string, parse it
+                if (typeof quizReportDataFromRoute?.questions?.overall === 'string') {
+                    try {
+                        parsedResponse.questions = {
+                            ...quizReportDataFromRoute.questions,
+                            overall: JSON.parse(quizReportDataFromRoute.questions.overall),
+                        };
+                    } catch (e) {
+                        console.warn('[StemAssessmentReportScreen] Failed to parse overallData JSON string:', e);
+                    }
+                }
+                
+                // If questions.sectionDetails is a JSON string, parse it
+                if (typeof quizReportDataFromRoute?.questions?.sectionDetails === 'string') {
+                    try {
+                        parsedResponse.questions = {
+                            ...quizReportDataFromRoute.questions,
+                            sectionDetails: JSON.parse(quizReportDataFromRoute.questions.sectionDetails),
+                        };
+                    } catch (e) {
+                        console.warn('[StemAssessmentReportScreen] Failed to parse sectionDetails JSON string:', e);
+                    }
+                }
+                
+                // Also check for sectionDetails at root level
+                if (typeof quizReportDataFromRoute?.sectionDetails === 'string') {
+                    try {
+                        parsedResponse.sectionDetails = JSON.parse(quizReportDataFromRoute.sectionDetails);
+                    } catch (e) {
+                        console.warn('[StemAssessmentReportScreen] Failed to parse sectionDetails JSON string:', e);
+                    }
+                }
+
+                console.log('[StemAssessmentReportScreen] Parsed response from route:', JSON.stringify(parsedResponse, null, 2));
+                setReportData(parsedResponse);
+                setLoading(false);
+                return;
+            }
+
+            // Otherwise, fetch from API
             if (!lessonId) {
                 console.warn('[StemAssessmentReportScreen] No lessonId provided, showing error');
                 setError('Lesson ID is required to view report. Please try again.');
@@ -59,16 +118,77 @@ const StemAssessmentReportScreen: React.FC = () => {
                 }
 
                 // Call API: POST /api/lms/attempt/quiz with page: "score"
+                console.log('[StemAssessmentReportScreen] ===== CALLING QUIZ REPORT API =====');
+                console.log('[StemAssessmentReportScreen] API: POST /api/lms/attempt/quiz');
+                console.log('[StemAssessmentReportScreen] Payload:', JSON.stringify({
+                    page: 'score',
+                    userId,
+                    lessonId,
+                }, null, 2));
+                
                 const response = await AssessmentService.attemptQuiz({
                     page: 'score',
                     userId,
                     lessonId,
                 });
 
-                console.log('[StemAssessmentReportScreen] Quiz report response:', JSON.stringify(response, null, 2));
+                console.log('[StemAssessmentReportScreen] ===== QUIZ REPORT API RESPONSE =====');
+                console.log('[StemAssessmentReportScreen] Full response:', JSON.stringify(response, null, 2));
+                console.log('[StemAssessmentReportScreen] Response keys:', response ? Object.keys(response) : 'null');
+                console.log('[StemAssessmentReportScreen] Root pass:', response?.pass);
+                console.log('[StemAssessmentReportScreen] Final object:', response?.final);
+                console.log('[StemAssessmentReportScreen] Questions object:', response?.questions);
+                console.log('[StemAssessmentReportScreen] AttemptId:', response?.attemptId);
+
+                // Parse JSON strings if they exist in the response
+                let parsedResponse = { ...response };
+                
+                // If finalData is a JSON string, parse it
+                if (typeof response?.final === 'string') {
+                    try {
+                        parsedResponse.final = JSON.parse(response.final);
+                    } catch (e) {
+                        console.warn('[StemAssessmentReportScreen] Failed to parse finalData JSON string:', e);
+                    }
+                }
+                
+                // If questions.overall is a JSON string, parse it
+                if (typeof response?.questions?.overall === 'string') {
+                    try {
+                        parsedResponse.questions = {
+                            ...response.questions,
+                            overall: JSON.parse(response.questions.overall),
+                        };
+                    } catch (e) {
+                        console.warn('[StemAssessmentReportScreen] Failed to parse overallData JSON string:', e);
+                    }
+                }
+                
+                // If questions.sectionDetails is a JSON string, parse it
+                if (typeof response?.questions?.sectionDetails === 'string') {
+                    try {
+                        parsedResponse.questions = {
+                            ...response.questions,
+                            sectionDetails: JSON.parse(response.questions.sectionDetails),
+                        };
+                    } catch (e) {
+                        console.warn('[StemAssessmentReportScreen] Failed to parse sectionDetails JSON string:', e);
+                    }
+                }
+                
+                // Also check for sectionDetails at root level
+                if (typeof response?.sectionDetails === 'string') {
+                    try {
+                        parsedResponse.sectionDetails = JSON.parse(response.sectionDetails);
+                    } catch (e) {
+                        console.warn('[StemAssessmentReportScreen] Failed to parse sectionDetails JSON string:', e);
+                    }
+                }
+
+                console.log('[StemAssessmentReportScreen] Parsed response:', JSON.stringify(parsedResponse, null, 2));
 
                 // Store report data regardless of pass/fail status
-                setReportData(response);
+                setReportData(parsedResponse);
             } catch (err: any) {
                 console.error('[StemAssessmentReportScreen] Failed to fetch quiz report:', err);
                 setError(err?.message || 'Failed to load quiz report');
@@ -78,23 +198,66 @@ const StemAssessmentReportScreen: React.FC = () => {
         };
 
         fetchQuizReport();
-    }, [lessonId]);
+    }, [lessonId, quizReportDataFromRoute]);
 
     // Extract data from API response - handle multiple possible response structures
-    const finalData = reportData?.final || reportData?.result?.final || reportData?.quizResult?.final || {};
+    // Data may already be parsed or may need parsing
+    // The API response structure: { pass, final: {...}, questions: { overall: {...}, sectionDetails: {...} }, ... }
+    let finalData = reportData?.final || reportData?.result?.final || reportData?.quizResult?.final || {};
     const questionsData = reportData?.questions || reportData?.result?.questions || reportData?.quizResult?.questions || {};
-    const overallData = questionsData?.overall || questionsData?.summary || {};
-    const sectionDetailsRaw = questionsData?.sectionDetails || questionsData?.sections || reportData?.sectionDetails || {};
+    let overallData = questionsData?.overall || questionsData?.summary || {};
+    let sectionDetailsRaw = questionsData?.sectionDetails || questionsData?.sections || reportData?.sectionDetails || {};
+    
+    // Also check root level pass if final.pass is not available
+    const rootPass = reportData?.pass;
+    
+    // Parse JSON strings if they're still strings
+    if (typeof finalData === 'string') {
+        try {
+            finalData = JSON.parse(finalData);
+        } catch (e) {
+            console.warn('[StemAssessmentReportScreen] Failed to parse finalData:', e);
+            finalData = {};
+        }
+    }
+    
+    if (typeof overallData === 'string') {
+        try {
+            overallData = JSON.parse(overallData);
+        } catch (e) {
+            console.warn('[StemAssessmentReportScreen] Failed to parse overallData:', e);
+            overallData = {};
+        }
+    }
+    
+    if (typeof sectionDetailsRaw === 'string') {
+        try {
+            sectionDetailsRaw = JSON.parse(sectionDetailsRaw);
+        } catch (e) {
+            console.warn('[StemAssessmentReportScreen] Failed to parse sectionDetailsRaw:', e);
+            sectionDetailsRaw = {};
+        }
+    }
 
-    console.log('[StemAssessmentReportScreen] Extracted data:', {
-        finalData: JSON.stringify(finalData, null, 2),
-        overallData: JSON.stringify(overallData, null, 2),
-        sectionDetailsRaw: JSON.stringify(sectionDetailsRaw, null, 2),
-    });
+    console.log('[StemAssessmentReportScreen] ===== EXTRACTED DATA =====');
+    console.log('[StemAssessmentReportScreen] Root pass:', rootPass);
+    console.log('[StemAssessmentReportScreen] FinalData:', JSON.stringify(finalData, null, 2));
+    console.log('[StemAssessmentReportScreen] OverallData:', JSON.stringify(overallData, null, 2));
+    console.log('[StemAssessmentReportScreen] SectionDetailsRaw:', JSON.stringify(sectionDetailsRaw, null, 2));
+    console.log('[StemAssessmentReportScreen] FinalData.pass:', finalData?.pass);
+    console.log('[StemAssessmentReportScreen] FinalData.message:', finalData?.message);
+    console.log('[StemAssessmentReportScreen] FinalData.finalScore:', finalData?.finalScore);
+    console.log('[StemAssessmentReportScreen] FinalData.correctAnswers:', finalData?.correctAnswers);
+    console.log('[StemAssessmentReportScreen] FinalData.timeTaken:', finalData?.timeTaken);
+    console.log('[StemAssessmentReportScreen] OverallData.scoredMarks:', overallData?.scoredMarks);
+    console.log('[StemAssessmentReportScreen] OverallData.totalMarks:', overallData?.totalMarks);
+    console.log('[StemAssessmentReportScreen] OverallData.correctQuestions:', overallData?.correctQuestions);
+    console.log('[StemAssessmentReportScreen] OverallData.totalQuestions:', overallData?.totalQuestions);
 
     // Determine if result is Pass or Fail - check multiple possible fields
-    const isPass = finalData?.pass === true || 
-                   reportData?.pass === true ||
+    // Check root level pass first, then final.pass, then quizStatus
+    const isPass = rootPass === true ||
+                   finalData?.pass === true || 
                    reportData?.result?.pass === true ||
                    reportData?.quizResult?.pass === true ||
                    finalData?.quizStatus?.toLowerCase() === 'pass' ||
@@ -104,16 +267,20 @@ const StemAssessmentReportScreen: React.FC = () => {
                    (finalData?.quizStatus !== 'Fail' && 
                     finalData?.status !== 'Fail' &&
                     finalData?.pass !== false && 
+                    rootPass !== false &&
                     (finalData?.message?.toLowerCase().includes('pass') ||
                      finalData?.message?.toLowerCase().includes('cleared') ||
                      finalData?.message?.toLowerCase().includes('success')));
     
     const finalResult = isPass ? 'Pass' : 'Fail';
     // Use scoredMarks and totalMarks from overall data - check multiple possible fields
+    // Priority: overallData > finalData > reportData root level
     const scoredMarks = overallData?.scoredMarks || 
                        overallData?.marksScored || 
                        finalData?.scoredMarks || 
                        finalData?.marksScored ||
+                       finalData?.rawScore ||
+                       reportData?.rawScore ||
                        reportData?.scoredMarks || 
                        0;
     const totalMarks = overallData?.totalMarks || 
@@ -123,9 +290,18 @@ const StemAssessmentReportScreen: React.FC = () => {
                       0;
     const finalScoreDisplay = totalMarks > 0 ? `${scoredMarks}/${totalMarks}` : '0/0';
 
-    // Calculate percentage score for success screen
-    const percentageScore = totalMarks > 0 ? Math.round((scoredMarks / totalMarks) * 100) : 0;
-    const finalScorePercentage = `${percentageScore}%`;
+    // Calculate percentage score - use finalScore from API if available, otherwise calculate
+    let finalScorePercentage = finalData?.finalScore || finalData?.finalScorePercentage || '';
+    if (!finalScorePercentage && totalMarks > 0) {
+        const percentageScore = Math.round((scoredMarks / totalMarks) * 100);
+        finalScorePercentage = `${percentageScore}%`;
+    } else if (!finalScorePercentage) {
+        finalScorePercentage = '0%';
+    }
+    // Ensure finalScorePercentage is always a string
+    if (typeof finalScorePercentage !== 'string') {
+        finalScorePercentage = String(finalScorePercentage);
+    }
 
     // Message from API - use API message or fallback based on pass/fail
     const message = finalData?.message || 
@@ -147,37 +323,47 @@ const StemAssessmentReportScreen: React.FC = () => {
                         overallData?.timeTaken ||
                         '';
     // Format time taken (e.g., "01m 15s" or "1h 30m")
-    const formatTimeTaken = (timeStr: string): string => {
+    const formatTimeTaken = (timeStr: string | number | undefined): string => {
         if (!timeStr) return '00m 00s';
+        // Convert to string if needed
+        const timeStrFormatted = String(timeStr);
         // If already formatted, return as is
-        if (timeStr.includes('m') || timeStr.includes('s') || timeStr.includes('h')) {
-            return timeStr;
+        if (timeStrFormatted.includes('m') || timeStrFormatted.includes('s') || timeStrFormatted.includes('h')) {
+            return timeStrFormatted;
         }
         // If it's a number (seconds), convert to mm:ss format
-        const seconds = parseInt(timeStr, 10);
+        const seconds = parseInt(timeStrFormatted, 10);
         if (!isNaN(seconds)) {
             const mins = Math.floor(seconds / 60);
             const secs = seconds % 60;
             return `${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
         }
-        return timeStr;
+        return timeStrFormatted;
     };
     const timeTaken = formatTimeTaken(timeTakenRaw);
 
     // Correct answers - format as "X/Y" - check multiple possible fields
-    const correctAnswers = finalData?.correctAnswers || 
-                          finalData?.correctQuestions ||
-                          overallData?.correctAnswers || 
-                          overallData?.correctQuestions || 
-                          reportData?.correctAnswers ||
-                          scoredMarks;
-    const totalQuestions = overallData?.totalQuestions || 
-                          overallData?.totalQuestionsCount ||
-                          finalData?.totalQuestions ||
-                          reportData?.totalQuestions ||
-                          totalMarks || 
-                          0;
-    const correctAnswersDisplay = totalQuestions > 0 ? `${correctAnswers}/${totalQuestions}` : '0/0';
+    // finalData.correctAnswers might already be in "0/7" format
+    let correctAnswersDisplay = finalData?.correctAnswers || '';
+    
+    if (!correctAnswersDisplay || typeof correctAnswersDisplay !== 'string') {
+        // If not in format, extract and format it
+        const correctAnswers = overallData?.correctQuestions || 
+                              overallData?.correctAnswers ||
+                              finalData?.correctQuestions ||
+                              finalData?.rawScore ||
+                              scoredMarks;
+        const totalQuestions = overallData?.totalQuestions || 
+                              overallData?.totalQuestionsCount ||
+                              finalData?.totalQuestions ||
+                              totalMarks || 
+                              0;
+        correctAnswersDisplay = totalQuestions > 0 ? `${correctAnswers}/${totalQuestions}` : '0/0';
+    }
+    // Ensure correctAnswersDisplay is always a string
+    if (typeof correctAnswersDisplay !== 'string') {
+        correctAnswersDisplay = String(correctAnswersDisplay);
+    }
 
     // Reattempt days from API (default to 60 days)
     const reattemptDays = finalData?.reattemptDays || 
@@ -195,55 +381,96 @@ const StemAssessmentReportScreen: React.FC = () => {
                         50;
 
     // Build table data from sectionDetails
+    // API response structure: questions.sectionDetails = { "Section 1": { pass: true, scoredMarks: 2, totalMarks: 4, ... } }
     // sectionDetails can be an object (key-value pairs) or an array
     let tableData: Array<{ testPart: string; result: 'Pass' | 'Fail'; score: string }> = [];
+    
+    console.log('[StemAssessmentReportScreen] ===== BUILDING TABLE DATA =====');
+    console.log('[StemAssessmentReportScreen] sectionDetailsRaw type:', typeof sectionDetailsRaw);
+    console.log('[StemAssessmentReportScreen] sectionDetailsRaw is array?', Array.isArray(sectionDetailsRaw));
+    console.log('[StemAssessmentReportScreen] sectionDetailsRaw keys:', sectionDetailsRaw && typeof sectionDetailsRaw === 'object' ? Object.keys(sectionDetailsRaw) : 'N/A');
+    console.log('[StemAssessmentReportScreen] sectionDetailsRaw value:', JSON.stringify(sectionDetailsRaw, null, 2));
     
     if (sectionDetailsRaw && typeof sectionDetailsRaw === 'object') {
         // Check if it's an array
         if (Array.isArray(sectionDetailsRaw)) {
-            tableData = sectionDetailsRaw.map((section: any) => {
-                const sectionName = section?.sectionName || section?.name || section?.section || 'Unknown';
+            console.log('[StemAssessmentReportScreen] Processing sectionDetails as array, length:', sectionDetailsRaw.length);
+            tableData = sectionDetailsRaw.map((section: any, index: number) => {
+                const sectionName = section?.sectionName || section?.name || section?.section || `Section ${index + 1}`;
                 const isSectionPass = section?.passed === true || 
                                      section?.result === 'Pass' || 
                                      section?.pass === true ||
                                      (section?.quizStatus === 'Pass');
                 const result: 'Pass' | 'Fail' = isSectionPass ? 'Pass' : 'Fail';
-                const scoredMarks = section?.scoredMarks || 0;
-                const totalMarks = section?.totalMarks || 0;
+                const scoredMarks = section?.scoredMarks || section?.marksScored || 0;
+                const totalMarks = section?.totalMarks || section?.maxMarks || 0;
+                
+                console.log(`[StemAssessmentReportScreen] Section ${index}:`, { sectionName, result, scoredMarks, totalMarks });
                 
                 return {
                     testPart: sectionName,
                     result: result,
-                    score: `${scoredMarks}/${totalMarks}`,
+                    score: totalMarks > 0 ? `${scoredMarks}/${totalMarks}` : '0/0',
                 };
             });
         } else {
-            // It's an object with section names as keys
-            tableData = Object.entries(sectionDetailsRaw).map(([sectionKey, section]: [string, any]) => {
+            // It's an object with section names as keys (e.g., { "Section 1": {...}, "Section 2": {...} })
+            console.log('[StemAssessmentReportScreen] Processing sectionDetails as object');
+            const entries = Object.entries(sectionDetailsRaw);
+            console.log('[StemAssessmentReportScreen] Number of sections:', entries.length);
+            
+            tableData = entries.map(([sectionKey, section]: [string, any], index: number) => {
                 // Use the key as section name, or section name from the object
-                const sectionName = section?.sectionName || section?.name || sectionKey || 'Unknown';
+                const sectionName = section?.sectionName || section?.name || sectionKey || `Section ${index + 1}`;
                 
-                // Determine Pass/Fail
+                // Determine Pass/Fail - check multiple possible fields
                 const isSectionPass = section?.pass === true || 
                                      section?.passed === true ||
                                      section?.result === 'Pass' ||
-                                     (section?.quizStatus === 'Pass');
+                                     section?.result === 'pass' ||
+                                     (section?.quizStatus === 'Pass') ||
+                                     (section?.quizStatus === 'pass');
                 const result: 'Pass' | 'Fail' = isSectionPass ? 'Pass' : 'Fail';
                 
-                // Extract scoredMarks and totalMarks
-                const scoredMarks = section?.scoredMarks || 0;
-                const totalMarks = section?.totalMarks || 0;
+                // Extract scoredMarks and totalMarks - check multiple possible fields
+                const scoredMarks = section?.scoredMarks || section?.marksScored || section?.correctQuestions || 0;
+                const totalMarks = section?.totalMarks || section?.maxMarks || section?.totalQuestions || 0;
+                
+                console.log(`[StemAssessmentReportScreen] Section "${sectionKey}":`, {
+                    sectionName,
+                    result,
+                    scoredMarks,
+                    totalMarks,
+                    pass: section?.pass,
+                    passed: section?.passed,
+                    sectionData: JSON.stringify(section, null, 2)
+                });
                 
                 return {
                     testPart: sectionName,
                     result: result,
-                    score: `${scoredMarks}/${totalMarks}`,
+                    score: totalMarks > 0 ? `${scoredMarks}/${totalMarks}` : '0/0',
                 };
             });
         }
+    } else {
+        console.warn('[StemAssessmentReportScreen] sectionDetailsRaw is not an object or is null/undefined');
     }
     
+    console.log('[StemAssessmentReportScreen] ===== TABLE DATA BUILT =====');
+    console.log('[StemAssessmentReportScreen] Table data length:', tableData.length);
     console.log('[StemAssessmentReportScreen] Table data:', JSON.stringify(tableData, null, 2));
+    console.log('[StemAssessmentReportScreen] ============================');
+    
+    // Final rendering verification
+    console.log('[StemAssessmentReportScreen] ===== RENDERING VERIFICATION =====');
+    console.log('[StemAssessmentReportScreen] isPass:', isPass);
+    console.log('[StemAssessmentReportScreen] finalScorePercentage:', finalScorePercentage);
+    console.log('[StemAssessmentReportScreen] correctAnswersDisplay:', correctAnswersDisplay);
+    console.log('[StemAssessmentReportScreen] timeTaken:', timeTaken);
+    console.log('[StemAssessmentReportScreen] message:', message);
+    console.log('[StemAssessmentReportScreen] tableData.length:', tableData.length);
+    console.log('[StemAssessmentReportScreen] ====================================');
 
     const handleBackToHomepage = () => {
         navigation.navigate('Home');
@@ -316,162 +543,183 @@ const StemAssessmentReportScreen: React.FC = () => {
     // Render main report screen (with or without data - will show loading if data is being fetched)
     console.log('[StemAssessmentReportScreen] Rendering report screen - loading:', loading, 'hasData:', !!reportData, 'error:', error);
     
-    // If assessment is failed, show failed screen matching Figma design
+    // If assessment is failed, show report screen with blue card and table (matching Figma design)
     if (!isPass && !loading && reportData) {
         return (
-            <SafeAreaView style={styles.failedContainer} edges={['top', 'bottom']}>
-                {/* Main Content - Centered */}
-                <View style={styles.failedContent}>
-                    {/* Rocket Section */}
-                    <View style={styles.rocketSection}>
-                        <ErrorRocketSvg width={138} height={211} />
-                    </View>
+            <SafeAreaView style={styles.container} edges={['top']}>
+                {/* Header */}
+                <Header onProfilePress={handleProfilePress} onLogoPress={() => navigation.navigate('Home')} />
 
-                    {/* Title and Stats Section */}
-                    <View style={styles.failedStatsSection}>
-                        {/* Title */}
-                        <View style={styles.failedTitleContainer}>
-                            <Text style={styles.failedTitle}>Assessment Failed</Text>
+                {/* Breadcrumb Bar */}
+                <BreadcrumbBar items={['STEM Assessment Report']} />
+
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Assessment Report Card - Blue Card */}
+                    <View style={styles.reportCard}>
+                        {/* Assessment Logo at top of card */}
+                        <View style={styles.illustrationContainer}>
+                            <AssessmentLogo size={70} />
                         </View>
 
-                        {/* Warning Message Box */}
-                        <View style={styles.failedWarningBox}>
-                            <Text style={styles.failedWarningText}>
-                                <Text>You must </Text>
-                                <Text style={styles.failedWarningBold}>score at least {minimumScore}% </Text>
-                                <Text>in-order to clear the test. You must now reattempt the STEM Assessment and the Engineering Systems Assessment in </Text>
-                                <Text style={styles.failedWarningBold}>{reattemptDaysDisplay}</Text>
-                            </Text>
-                        </View>
-
-                        {/* Statistics Cards */}
-                        <View style={styles.failedStatsContainer}>
-                            {/* Final Score */}
-                            <View style={styles.failedStatCard}>
-                                <Text style={styles.failedStatLabel}>Final Score</Text>
-                                <View style={styles.failedStatValueContainer}>
-                                    <BarChart2 size={24} color={colors.primaryBlue} />
-                                    <Text style={styles.failedStatValue}>{finalScorePercentage}</Text>
-                                </View>
+                        {/* Content Section */}
+                        <View style={styles.contentSection}>
+                            {/* Title and Message */}
+                            <View style={styles.titleSection}>
+                                <Text style={styles.title}>STEM Assessment Report</Text>
+                                <Text style={styles.message}>
+                                    {message}
+                                </Text>
                             </View>
 
-                            {/* Correct Answers */}
-                            <View style={styles.failedStatCard}>
-                                <Text style={styles.failedStatLabel}>Correct Answers</Text>
-                                <View style={styles.failedStatValueContainer}>
-                                    <Target size={24} color={colors.primaryBlue} />
-                                    <Text style={styles.failedStatValue}>{correctAnswersDisplay}</Text>
-                                </View>
-                            </View>
+                            {/* Divider */}
+                            <View style={styles.divider} />
 
-                            {/* Time Taken */}
-                            <View style={styles.failedStatCard}>
-                                <Text style={styles.failedStatLabel}>Time Taken</Text>
-                                <View style={styles.failedStatValueContainer}>
-                                    <Clock size={24} color={colors.primaryBlue} />
-                                    <Text style={styles.failedStatValue}>{timeTaken}</Text>
+                            {/* Statistics */}
+                            <View style={styles.statisticsSection}>
+                                <View style={styles.statItem}>
+                                    <Text style={styles.statLabel}>FINAL RESULT</Text>
+                                    <View style={styles.resultContainer}>
+                                        <View style={styles.resultIconContainer}>
+                                            <X size={24} color={colors.error || '#EB5757'} />
+                                        </View>
+                                        <Text style={styles.resultText}>Fail</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.statItem}>
+                                    <Text style={styles.statLabel}>FINAL SCORE</Text>
+                                    <Text style={styles.scoreText}>{finalScoreDisplay}</Text>
                                 </View>
                             </View>
                         </View>
                     </View>
-                </View>
 
-                {/* Bottom Action Buttons */}
-                <View style={styles.failedActionsContainer}>
-                    <View style={styles.failedButtonWrapper}>
-                        <TouchableOpacity
-                            style={styles.reattemptButton}
-                            disabled={true}
-                            activeOpacity={0.7}
-                        >
-                            <Lock size={24} color="#72818c" />
-                            <Text style={styles.reattemptButtonText}>
-                                Reattempt in {reattemptDaysDisplay}
-                            </Text>
-                        </TouchableOpacity>
+                    {/* Summary Section with Table */}
+                    <View style={styles.summarySection}>
+                        <Text style={styles.summaryTitle}>Summary Of Your Attempt</Text>
+                        {/* Always render the table - it will show "No data available" if empty */}
+                        <SummaryTable rows={tableData} />
+
+                        {/* Action Buttons */}
+                        <View style={styles.actionsSection}>
+                            <PrimaryButton
+                                label="Back To Homepage"
+                                onPress={handleBackToHomepage}
+                            />
+                            <View style={styles.actionLinks}>
+                                <TouchableOpacity
+                                    style={styles.actionLink}
+                                    onPress={handleGiveFeedback}
+                                    activeOpacity={0.7}
+                                >
+                                    <Star size={24} color={colors.textGrey} />
+                                    <Text style={styles.actionLinkText}>Give Us Feeback</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.actionLink}
+                                    onPress={handleReportIssue}
+                                    activeOpacity={0.7}
+                                >
+                                    <Flag size={24} color={colors.textGrey} />
+                                    <Text style={styles.actionLinkText}>Report An Issue</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
                     </View>
-                    <View style={styles.failedButtonWrapper}>
-                        <SecondaryButton
-                            label="Home"
-                            onPress={handleBackToHomepage}
-                        />
-                    </View>
-                </View>
+                </ScrollView>
             </SafeAreaView>
         );
     }
     
     // If assessment is passed, show success screen matching Figma design
+    // BUT also show the table below the blue card (as per Figma design)
     if (isPass && !loading && reportData) {
         return (
-            <SafeAreaView style={styles.successContainer} edges={['top', 'bottom']}>
-                {/* Main Content - Centered */}
-                <View style={styles.successContent}>
-                    {/* Trophy with Confetti Section */}
-                    <View style={styles.trophySection}>
-                        <View style={styles.confettiContainer}>
-                            {/* Confetti background - placeholder for now */}
-                            <View style={styles.confettiPlaceholder} />
-                        </View>
-                        <View style={styles.trophyContainer}>
-                            <TrophySvg width={190} height={190} />
-                        </View>
-                    </View>
+            <SafeAreaView style={styles.container} edges={['top']}>
+                {/* Header */}
+                <Header onProfilePress={handleProfilePress} onLogoPress={() => navigation.navigate('Home')} />
 
-                    {/* Title and Stats Section */}
-                    <View style={styles.successStatsSection}>
-                        {/* Title */}
-                        <View style={styles.successTitleContainer}>
-                            <Text style={styles.successTitle}>Assessment Cleared!</Text>
+                {/* Breadcrumb Bar */}
+                <BreadcrumbBar items={['STEM Assessment Report']} />
+
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* Assessment Report Card - Blue Card */}
+                    <View style={styles.reportCard}>
+                        {/* Assessment Logo at top of card */}
+                        <View style={styles.illustrationContainer}>
+                            <AssessmentLogo size={70} />
                         </View>
 
-                        {/* Statistics Cards */}
-                        <View style={styles.successStatsContainer}>
-                            {/* Final Score */}
-                            <View style={styles.successStatCard}>
-                                <Text style={styles.successStatLabel}>Final Score</Text>
-                                <View style={styles.successStatValueContainer}>
-                                    <BarChart2 size={24} color={colors.primaryBlue} />
-                                    <Text style={styles.successStatValue}>{finalScorePercentage}</Text>
-                                </View>
+                        {/* Content Section */}
+                        <View style={styles.contentSection}>
+                            {/* Title and Message */}
+                            <View style={styles.titleSection}>
+                                <Text style={styles.title}>STEM Assessment Report</Text>
+                                <Text style={styles.message}>
+                                    {message}
+                                </Text>
                             </View>
 
-                            {/* Correct Answers */}
-                            <View style={styles.successStatCard}>
-                                <Text style={styles.successStatLabel}>Correct Answers</Text>
-                                <View style={styles.successStatValueContainer}>
-                                    <Target size={24} color={colors.primaryBlue} />
-                                    <Text style={styles.successStatValue}>{correctAnswersDisplay}</Text>
-                                </View>
-                            </View>
+                            {/* Divider */}
+                            <View style={styles.divider} />
 
-                            {/* Time Taken */}
-                            <View style={styles.successStatCard}>
-                                <Text style={styles.successStatLabel}>Time Taken</Text>
-                                <View style={styles.successStatValueContainer}>
-                                    <Clock size={24} color={colors.primaryBlue} />
-                                    <Text style={styles.successStatValue}>{timeTaken}</Text>
+                            {/* Statistics */}
+                            <View style={styles.statisticsSection}>
+                                <View style={styles.statItem}>
+                                    <Text style={styles.statLabel}>FINAL RESULT</Text>
+                                    <View style={styles.resultContainer}>
+                                        <View style={styles.resultIconContainer}>
+                                            <Check size={24} color={colors.successGreen || '#27AE60'} />
+                                        </View>
+                                        <Text style={styles.resultText}>Pass</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.statItem}>
+                                    <Text style={styles.statLabel}>FINAL SCORE</Text>
+                                    <Text style={styles.scoreText}>{finalScoreDisplay}</Text>
                                 </View>
                             </View>
                         </View>
                     </View>
-                </View>
 
-                {/* Bottom Action Buttons */}
-                <View style={styles.successActionsContainer}>
-                    <View style={styles.successButtonWrapper}>
-                        <PrimaryButton
-                            label="Continue"
-                            onPress={handleBackToHomepage}
-                        />
+                    {/* Summary Section with Table */}
+                    <View style={styles.summarySection}>
+                        <Text style={styles.summaryTitle}>Summary Of Your Attempt</Text>
+                        {/* Always render the table - it will show "No data available" if empty */}
+                        <SummaryTable rows={tableData} />
+
+                        {/* Action Buttons */}
+                        <View style={styles.actionsSection}>
+                            <PrimaryButton
+                                label="Back To Homepage"
+                                onPress={handleBackToHomepage}
+                            />
+                            <View style={styles.actionLinks}>
+                                <TouchableOpacity
+                                    style={styles.actionLink}
+                                    onPress={handleGiveFeedback}
+                                    activeOpacity={0.7}
+                                >
+                                    <Star size={24} color={colors.textGrey} />
+                                    <Text style={styles.actionLinkText}>Give Us Feeback</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.actionLink}
+                                    onPress={handleReportIssue}
+                                    activeOpacity={0.7}
+                                >
+                                    <Flag size={24} color={colors.textGrey} />
+                                    <Text style={styles.actionLinkText}>Report An Issue</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
                     </View>
-                    <View style={styles.successButtonWrapper}>
-                        <SecondaryButton
-                            label="Home"
-                            onPress={handleBackToHomepage}
-                        />
-                    </View>
-                </View>
+                </ScrollView>
             </SafeAreaView>
         );
     }
@@ -542,13 +790,8 @@ const StemAssessmentReportScreen: React.FC = () => {
                 {/* Summary Section */}
                 <View style={styles.summarySection}>
                     <Text style={styles.summaryTitle}>Summary Of Your Attempt</Text>
-                    {tableData.length > 0 ? (
-                        <SummaryTable rows={tableData} />
-                    ) : (
-                        <View style={styles.noDataContainer}>
-                            <Text style={styles.noDataText}>No section details available</Text>
-                        </View>
-                    )}
+                    {/* Always render the table - it will show "No data available" if empty */}
+                    <SummaryTable rows={tableData} />
 
                     {/* Action Buttons */}
                     <View style={styles.actionsSection}>

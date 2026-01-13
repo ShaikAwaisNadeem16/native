@@ -40,6 +40,11 @@ const LoginScreen: React.FC = () => {
             const response = await AuthService.doLogin(emailOrMobile.trim(), password);
             if (response.message === "Login successful") {
                 // Login successful - tokens are already stored by AuthService
+                // Show success message from backend if available
+                if (response.message && response.message !== "Login successful") {
+                    console.log('[LoginScreen] Success message from backend:', response.message);
+                    // Note: We'll show success after authorization check
+                }
                 // Check if user is authorized before navigating to Home
                 console.log('[LoginScreen] Login successful, checking user authorization...');
                 try {
@@ -49,6 +54,10 @@ const LoginScreen: React.FC = () => {
                     if (authCheck.authorized === true) {
                         // User is authorized - navigate to Home screen
                         console.log('[LoginScreen] User is authorized, navigating to Home');
+                        // Show success message from backend if available
+                        if (response.message && response.message !== "Login successful") {
+                            Alert.alert('Success', response.message);
+                        }
                         navigation.replace('Home');
                     } else {
                         // User is not authorized - show error and logout
@@ -69,14 +78,20 @@ const LoginScreen: React.FC = () => {
                     console.error('[LoginScreen] Authorization check failed:', authError);
                     // If authorization check fails, still allow login but log the error
                     // This is a fallback in case the authorization API is down
-                    const authErrorMessage = authError?.message || 'Failed to verify authorization';
+                    const authErrorMessage = authError?.response?.data?.message || authError?.message || 'Failed to verify authorization';
                     console.warn('[LoginScreen] Authorization check failed, but allowing login:', authErrorMessage);
+                    // Show error message from backend
+                    Alert.alert('Warning', authErrorMessage);
                     navigation.replace('Home');
                 }
             }
         } catch (error: any) {
             console.error('Login error:', error);
-            const errorMessage = error?.message || 'Please enter correct Email ID / Phone Number or Password.';
+            // Extract error message from backend response
+            const errorMessage = error?.response?.data?.message || 
+                                error?.response?.data?.error || 
+                                error?.message || 
+                                'Please enter correct Email ID / Phone Number or Password.';
             setError(errorMessage);
             Alert.alert('Login Failed', errorMessage);
         } finally {
