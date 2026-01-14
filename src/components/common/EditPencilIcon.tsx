@@ -6,6 +6,7 @@ interface EditPencilIconProps {
     width?: number;
     height?: number;
     size?: number; // Convenience prop for square icons
+    color?: string; // Optional color tint
     style?: any;
 }
 
@@ -18,20 +19,22 @@ interface EditPencilIconProps {
  * 
  * Used for edit buttons, pencil icons, and editing actions.
  */
-const EditPencilIcon: React.FC<EditPencilIconProps> = ({ 
-    width, 
+const EditPencilIcon: React.FC<EditPencilIconProps> = ({
+    width,
     height,
     size,
-    style 
+    color,
+    style
 }) => {
     const finalWidth = size || width || 24;
     const finalHeight = size || height || 24;
 
     return (
         <View style={[styles.container, { width: finalWidth, height: finalHeight }, style]}>
-            <EditPencilIconSvg 
-                width={finalWidth} 
+            <EditPencilIconSvg
+                width={finalWidth}
                 height={finalHeight}
+                fill={color}
             />
         </View>
     );

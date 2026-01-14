@@ -57,12 +57,7 @@ const CertificateCard: React.FC<CertificateCardProps> = ({
                             onPress={onEditPress}
                             activeOpacity={0.7}
                         >
-                            <View style={styles.iconBg}>
-                                <View style={styles.iconBgImage} />
-                            </View>
-                            <View style={styles.iconWrapper}>
-                                <EditPencilIcon size={24} />
-                            </View>
+                            <EditPencilIcon size={16} color={colors.primaryBlue} />
                         </TouchableOpacity>
                     )}
                     {/* Delete Button - ONLY this button triggers onDeletePress */}
@@ -72,12 +67,7 @@ const CertificateCard: React.FC<CertificateCardProps> = ({
                             onPress={onDeletePress}
                             activeOpacity={0.7}
                         >
-                            <View style={styles.iconBg}>
-                                <View style={styles.iconBgImage} />
-                            </View>
-                            <View style={styles.iconWrapper}>
-                                <DeleteIcon size={24} />
-                            </View>
+                            <DeleteIcon size={16} color={colors.primaryBlue} />
                         </TouchableOpacity>
                     )}
                 </View>
@@ -121,33 +111,17 @@ const styles = StyleSheet.create({
     iconButton: {
         width: 32,
         height: 32,
-        position: 'relative',
+        borderRadius: 16,
+        backgroundColor: colors.white,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    iconBg: {
-        position: 'absolute',
-        width: 32,
-        height: 32,
-        top: 0,
-        left: 0,
-    },
-    iconBgImage: {
-        width: '100%',
-        height: '100%',
-    },
-    iconWrapper: {
-        position: 'absolute',
-        width: 24,
-        height: 24,
-        top: 4,
-        left: 4,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    // Removed unused iconBg, iconBgImage, iconWrapper styles
 });
 
 export default CertificateCard;
+
+
 
 
 

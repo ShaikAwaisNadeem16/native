@@ -6,6 +6,7 @@ interface PlusIconProps {
     width?: number;
     height?: number;
     size?: number; // Convenience prop for square icons
+    color?: string; // Compulsory if matching other icons, but optional here
     style?: any;
 }
 
@@ -16,20 +17,22 @@ interface PlusIconProps {
  * Default dimensions: 16x16 (from SVG viewBox).
  * Can be customized with width/height or size prop for square icons.
  */
-const PlusIcon: React.FC<PlusIconProps> = ({ 
-    width, 
+const PlusIcon: React.FC<PlusIconProps> = ({
+    width,
     height,
     size,
-    style 
+    color,
+    style
 }) => {
     const finalWidth = size || width || 16;
     const finalHeight = size || height || 16;
 
     return (
         <View style={[styles.container, { width: finalWidth, height: finalHeight }, style]}>
-            <PlusIconSvg 
-                width={finalWidth} 
+            <PlusIconSvg
+                width={finalWidth}
                 height={finalHeight}
+                fill={color}
             />
         </View>
     );

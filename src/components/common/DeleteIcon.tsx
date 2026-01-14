@@ -5,20 +5,23 @@ interface DeleteIconProps {
     width?: number;
     height?: number;
     size?: number; // Convenience prop for square icons
+    color?: string; // Optional color tint
     style?: any;
 }
 
 /**
  * Delete Icon Component
  * 
- * Reusable component for the delete icon (deleteIcon.png).
+ * Reusable component for the delete icon (DeletIcon.png).
  * Used in delete buttons, remove actions, and anywhere deletion is needed.
+ * Supports tintColor for customization.
  */
-const DeleteIcon: React.FC<DeleteIconProps> = ({ 
-    width, 
+const DeleteIcon: React.FC<DeleteIconProps> = ({
+    width,
     height,
     size,
-    style 
+    color,
+    style
 }) => {
     // If size is provided, use it for both width and height (square)
     // Otherwise use width/height or default to 24x24
@@ -28,8 +31,12 @@ const DeleteIcon: React.FC<DeleteIconProps> = ({
     return (
         <View style={[styles.container, { width: finalWidth, height: finalHeight }, style]}>
             <Image
-                source={require('../../../assets/deleteIcon.png')}
-                style={[styles.icon, { width: finalWidth, height: finalHeight }]}
+                source={require('../../../assets/DeletIcon.png')}
+                style={[
+                    styles.icon,
+                    { width: finalWidth, height: finalHeight },
+                    color ? { tintColor: color } : undefined
+                ]}
                 resizeMode="contain"
             />
         </View>
@@ -48,4 +55,3 @@ const styles = StyleSheet.create({
 });
 
 export default DeleteIcon;
-

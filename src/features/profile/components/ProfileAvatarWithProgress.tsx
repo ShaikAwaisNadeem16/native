@@ -107,10 +107,10 @@ const ProfileAvatarWithProgress: React.FC<ProfileAvatarWithProgressProps> = ({
                 activeOpacity={0.7}
             >
                 <View style={styles.editIconBg}>
-                    <View style={styles.editIconBgImage} />
+                    {/* Background is now white color from styles */}
                 </View>
                 <View style={styles.editIconWrapper}>
-                    <EditPencilIcon size={16} />
+                    <EditPencilIcon size={16} color={colors.primaryBlue} />
                 </View>
             </TouchableOpacity>
         </View>
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
         width: 61.591,
         height: 61.576,
         top: 8.636,
-        left: 21.201,
+        left: 5.2045, // Centered: (72 - 61.591) / 2
         borderRadius: 30.795,
         overflow: 'hidden',
         backgroundColor: colors.lightGrey,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
         width: 61.591,
         height: 61.576,
         top: 8.636,
-        left: 21.201,
+        left: 5.2045, // Centered: (72 - 61.591) / 2
         borderRadius: 30.795,
         overflow: 'hidden',
         backgroundColor: colors.lightGrey,
@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     percentageContainer: {
         position: 'absolute',
         top: 0,
-        left: 30.748,
+        alignSelf: 'center', // Center horizontally
         backgroundColor: colors.white,
         borderWidth: 0.714,
         borderColor: colors.lightGrey,
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
         paddingTop: 4.819,
         paddingBottom: 2.409,
         minWidth: 43.373,
-        height: 17.345,
+        // height removed to allow text to fit
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -238,13 +238,12 @@ const styles = StyleSheet.create({
         top: -3,
         left: -3,
         borderRadius: 12,
-        backgroundColor: colors.primaryBlue,
+        backgroundColor: colors.white, // Changed to white to match delete icon style
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    editIconBgImage: {
-        width: '100%',
-        height: '100%',
+        // Add shadow/border to ensure visibility on white background if any, 
+        // though typically this is on grey or image. 
+        // Since it's on top of avatar border/grey bg, it should be fine.
     },
     editIconWrapper: {
         position: 'absolute',

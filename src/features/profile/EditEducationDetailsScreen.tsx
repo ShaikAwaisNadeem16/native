@@ -26,13 +26,13 @@ const EditEducationDetailsScreen: React.FC = () => {
     const userData = profileDetails || profileData || {};
     const educationalDetailsArray = Array.isArray(userData.educationalDetails) ? userData.educationalDetails : [];
     const educationData = educationalDetailsArray.length > 0 ? educationalDetailsArray[0] : {};
-    
+
     // Helper function to parse date from "YYYY-MM" format
     const parseDate = (dateStr: string) => {
         if (!dateStr || dateStr.length !== 7) return { month: '', year: '' };
         const [year, month] = dateStr.split('-');
-        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
-                           'July', 'August', 'September', 'October', 'November', 'December'];
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'];
         return { month: monthNames[parseInt(month) - 1] || '', year: year || '' };
     };
 
@@ -109,7 +109,7 @@ const EditEducationDetailsScreen: React.FC = () => {
             };
 
             // Format start date as "YYYY-MM"
-            const formattedStartDate = startYear && startMonth 
+            const formattedStartDate = startYear && startMonth
                 ? `${startYear}-${monthNameToNumber(startMonth)}`
                 : null;
 
@@ -132,7 +132,7 @@ const EditEducationDetailsScreen: React.FC = () => {
 
             // Prepare educationalDetails array in API format
             const existingId = educationData.id || undefined;
-            
+
             // Handle specialization - only include if we have both branch and branchId
             let specializationObj: any = null;
             if (specialization && branchId !== null && branchId > 0) {
@@ -140,9 +140,9 @@ const EditEducationDetailsScreen: React.FC = () => {
                     branch: specialization,
                     branchId: branchId,
                 };
-            } else if (educationData.specialization && 
-                      educationData.specialization.branch && 
-                      educationData.specialization.branchId) {
+            } else if (educationData.specialization &&
+                educationData.specialization.branch &&
+                educationData.specialization.branchId) {
                 const existingBranchId = Number(educationData.specialization.branchId);
                 if (existingBranchId > 0) {
                     specializationObj = {
@@ -162,7 +162,7 @@ const EditEducationDetailsScreen: React.FC = () => {
             } else if (gradingSystem === 'Grade' && aggregateCGPA) {
                 grade = aggregateCGPA;
             }
-            
+
             const educationalDetails = [{
                 ...(existingId && { id: existingId }),
                 courses: course || education || '',
@@ -206,10 +206,10 @@ const EditEducationDetailsScreen: React.FC = () => {
             console.error('[EditEducationDetailsScreen] Failed to save education details:', error);
             console.error('[EditEducationDetailsScreen] Error response:', error?.response?.data);
             console.error('[EditEducationDetailsScreen] Error status:', error?.response?.status);
-            const errorMessage = error?.response?.data?.message || 
-                                error?.response?.data?.error || 
-                                error?.message || 
-                                'Failed to update education details. Please try again.';
+            const errorMessage = error?.response?.data?.message ||
+                error?.response?.data?.error ||
+                error?.message ||
+                'Failed to update education details. Please try again.';
             Alert.alert('Error', errorMessage);
         } finally {
             setSaving(false);
@@ -235,129 +235,125 @@ const EditEducationDetailsScreen: React.FC = () => {
 
                     {/* Form Fields Container - gap 28px between rows */}
                     <View style={styles.formFieldsContainer}>
-                        {/* Row 1: Education | University/College */}
-                        <View style={styles.row}>
-                            <View style={styles.rowField}>
-                                <DropdownField
-                                    value={education}
-                                    onValueChange={setEducation}
-                                    placeholder="Education"
-                                    options={educationOptions}
-                                />
-                            </View>
-                            <View style={styles.rowField}>
-                                <TextInputField
-                                    value={universityCollege}
-                                    onChangeText={setUniversityCollege}
-                                    placeholder="University/College"
-                                />
-                            </View>
+                        {/* Education Level */}
+                        <View style={styles.fieldRow}>
+                            <DropdownField
+                                value={education}
+                                onValueChange={setEducation}
+                                placeholder="Education"
+                                options={educationOptions}
+                            />
                         </View>
 
-                        {/* Row 2: Course | Specialisation */}
-                        <View style={styles.row}>
-                            <View style={styles.rowField}>
+                        {/* University/College */}
+                        <View style={styles.fieldRow}>
+                            <TextInputField
+                                value={universityCollege}
+                                onChangeText={setUniversityCollege}
+                                placeholder="University/College"
+                            />
+                        </View>
+
+                        {/* Course */}
+                        <View style={styles.fieldRow}>
+                            <DropdownField
+                                value={course}
+                                onValueChange={setCourse}
+                                placeholder="Course"
+                                options={courseOptions}
+                            />
+                        </View>
+
+                        {/* Specialisation */}
+                        <View style={styles.fieldRow}>
+                            {(education === 'Diploma' || education === 'Graduation' || education === 'Post Graduation') && branchOptions.length > 0 ? (
                                 <DropdownField
-                                    value={course}
-                                    onValueChange={setCourse}
-                                    placeholder="Course"
-                                    options={courseOptions}
+                                    value={specialization}
+                                    onValueChange={setSpecialization}
+                                    placeholder="Specialisation"
+                                    options={branchOptions}
                                 />
-                            </View>
-                            <View style={styles.rowField}>
-                                {(education === 'Diploma' || education === 'Graduation' || education === 'Post Graduation') && branchOptions.length > 0 ? (
+                            ) : (
+                                <View style={styles.disabledField}>
+                                    <Text style={styles.disabledText}>Specialisation</Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* Start Date Section */}
+                        <View style={styles.dateSection}>
+                            <Text style={styles.dateLabel}>Start Date</Text>
+                            <View style={styles.dateFields}>
+                                <View style={styles.dateField}>
                                     <DropdownField
-                                        value={specialization}
-                                        onValueChange={setSpecialization}
-                                        placeholder="Specialisation"
-                                        options={branchOptions}
+                                        value={startMonth}
+                                        onValueChange={setStartMonth}
+                                        placeholder="Select Month"
+                                        options={monthOptions}
                                     />
-                                ) : (
-                                    <View style={styles.disabledField}>
-                                        <Text style={styles.disabledText}>Specialisation</Text>
-                                    </View>
-                                )}
-                            </View>
-                        </View>
-
-                        {/* Row 3: Start Date | End Date + Currently Pursuing */}
-                        <View style={styles.row}>
-                            <View style={styles.rowField}>
-                                <View style={styles.dateSection}>
-                                    <Text style={styles.dateLabel}>Start Date</Text>
-                                    <View style={styles.dateFields}>
-                                        <View style={styles.dateField}>
-                                            <DropdownField
-                                                value={startMonth}
-                                                onValueChange={setStartMonth}
-                                                placeholder="Select Month"
-                                                options={monthOptions}
-                                            />
-                                        </View>
-                                        <View style={styles.dateField}>
-                                            <DropdownField
-                                                value={startYear}
-                                                onValueChange={setStartYear}
-                                                placeholder="Select Year"
-                                                options={yearOptions}
-                                            />
-                                        </View>
-                                    </View>
                                 </View>
-                            </View>
-                            <View style={styles.rowField}>
-                                <View style={styles.dateSection}>
-                                    <Text style={styles.dateLabel}>End Date</Text>
-                                    <View style={styles.dateFields}>
-                                        <View style={styles.dateField}>
-                                            <DropdownField
-                                                value={endMonth}
-                                                onValueChange={setEndMonth}
-                                                placeholder="Select Month"
-                                                options={monthOptions}
-                                                disabled={currentlyPursuing}
-                                            />
-                                        </View>
-                                        <View style={styles.dateField}>
-                                            <DropdownField
-                                                value={endYear}
-                                                onValueChange={setEndYear}
-                                                placeholder="Select Year"
-                                                options={yearOptions}
-                                                disabled={currentlyPursuing}
-                                            />
-                                        </View>
-                                    </View>
-                                    <View style={styles.checkboxContainer}>
-                                        <Checkbox
-                                            checked={currentlyPursuing}
-                                            onToggle={() => setCurrentlyPursuing(!currentlyPursuing)}
-                                            size={16}
-                                        />
-                                        <Text style={styles.checkboxLabel}>Currently Pursuing</Text>
-                                    </View>
+                                <View style={styles.dateField}>
+                                    <DropdownField
+                                        value={startYear}
+                                        onValueChange={setStartYear}
+                                        placeholder="Select Year"
+                                        options={yearOptions}
+                                    />
                                 </View>
                             </View>
                         </View>
 
-                        {/* Row 4: Grading System | Aggregate CGPA */}
-                        <View style={styles.row}>
-                            <View style={styles.rowField}>
-                                <DropdownField
-                                    value={gradingSystem}
-                                    onValueChange={setGradingSystem}
-                                    placeholder="Grading System"
-                                    options={gradingSystemOptions}
-                                />
+                        {/* End Date Section */}
+                        <View style={styles.dateSection}>
+                            <Text style={styles.dateLabel}>End Date</Text>
+                            <View style={styles.dateFields}>
+                                <View style={styles.dateField}>
+                                    <DropdownField
+                                        value={endMonth}
+                                        onValueChange={setEndMonth}
+                                        placeholder="Select Month"
+                                        options={monthOptions}
+                                        disabled={currentlyPursuing}
+                                    />
+                                </View>
+                                <View style={styles.dateField}>
+                                    <DropdownField
+                                        value={endYear}
+                                        onValueChange={setEndYear}
+                                        placeholder="Select Year"
+                                        options={yearOptions}
+                                        disabled={currentlyPursuing}
+                                    />
+                                </View>
                             </View>
-                            <View style={styles.rowField}>
-                                <TextInputField
-                                    value={aggregateCGPA}
-                                    onChangeText={setAggregateCGPA}
-                                    placeholder="Aggregate CGPA"
-                                    disabled={!gradingSystem}
+                            <View style={styles.checkboxContainer}>
+                                <Checkbox
+                                    checked={currentlyPursuing}
+                                    onToggle={() => setCurrentlyPursuing(!currentlyPursuing)}
+                                    size={16}
                                 />
+                                <Text style={styles.checkboxLabel}>Currently Pursuing</Text>
                             </View>
+                        </View>
+
+                        {/* Grading System */}
+                        <View style={styles.fieldRow}>
+                            <DropdownField
+                                value={gradingSystem}
+                                onValueChange={setGradingSystem}
+                                placeholder="Grading System"
+                                options={gradingSystemOptions}
+                            />
+                        </View>
+
+                        {/* Aggregate CGPA */}
+                        <View style={styles.fieldRow}>
+                            <TextInputField
+                                value={aggregateCGPA}
+                                onChangeText={setAggregateCGPA}
+                                placeholder="Aggregate CGPA"
+                                disabled={!gradingSystem}
+                            />
                         </View>
 
                         {/* Course Type Section */}
@@ -422,26 +418,21 @@ const styles = StyleSheet.create({
     },
     formCard: {
         backgroundColor: colors.white,
-        paddingHorizontal: 32, // Figma: px-[32px]
-        paddingVertical: 32, // Figma: py-[32px]
-        gap: 32, // Figma: gap-[32px] between main sections
+        paddingHorizontal: 16, // Matches EditCertificates
+        paddingVertical: 32,
+        gap: 32,
     },
     title: {
-        ...typography.p2Bold, // Figma: Desktop/P2 Bold, 18px, line-height 25px, weight 700
-        color: colors.primaryDarkBlue, // Figma: text-[color:var(--primary-dark-blue,#00213d)]
+        ...typography.p2Bold,
+        color: colors.primaryDarkBlue,
     },
     formFieldsContainer: {
         width: '100%',
-        gap: 28, // Figma: gap-[28px] between rows
+        gap: 24, // Matches EditCertificates
     },
-    row: {
-        flexDirection: 'row',
-        gap: 32, // Figma: gap-[32px] between fields in row
+    // fieldRow replaces row and rowField
+    fieldRow: {
         width: '100%',
-    },
-    rowField: {
-        flex: 1,
-        minWidth: 0,
     },
     dateSection: {
         width: '100%',

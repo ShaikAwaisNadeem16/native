@@ -40,7 +40,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
                         activeOpacity={0.7}
                     >
                         <View style={styles.iconContainer}>
-                            <PlusIcon size={16} />
+                            <PlusIcon size={16} color={colors.white} />
                         </View>
                     </TouchableOpacity>
                 )}
@@ -52,7 +52,7 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
                         activeOpacity={0.7}
                     >
                         <View style={styles.iconContainer}>
-                            <EditPencilIcon size={16} />
+                            <EditPencilIcon size={16} color={colors.white} />
                         </View>
                     </TouchableOpacity>
                 )}
