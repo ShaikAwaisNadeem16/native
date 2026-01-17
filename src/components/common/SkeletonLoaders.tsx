@@ -11,4 +11,6 @@ export {
     ProfileScreenSkeleton,
     ButtonSkeleton,
     InlineLoaderSkeleton,
+    CompleteProfileWidgetSkeleton,
+    CompletedActivitiesCardSkeleton,
 } from './ExpoSkeletonLoaders';

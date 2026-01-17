@@ -6,67 +6,67 @@ import { colors, borderRadius, shadows } from '../../styles/theme';
  * Simple skeleton component compatible with Expo (no native modules required)
  * Uses opacity animation instead of gradient shimmer
  */
-const BaseSkeleton: React.FC<{ 
+export const BaseSkeleton: React.FC<{
     children: React.ReactNode;
     enabled?: boolean;
     backgroundColor?: string;
     highlightColor?: string;
     speed?: number;
-}> = ({ 
-    children, 
+}> = ({
+    children,
     enabled = true,
     backgroundColor = colors.lightGrey,
     highlightColor = colors.white,
     speed = 1200
 }) => {
-    const animatedValue = useRef(new Animated.Value(0)).current;
+        const animatedValue = useRef(new Animated.Value(0)).current;
 
-    useEffect(() => {
-        if (!enabled) return;
+        useEffect(() => {
+            if (!enabled) return;
 
-        const animation = Animated.loop(
-            Animated.sequence([
-                Animated.timing(animatedValue, {
-                    toValue: 1,
-                    duration: speed,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(animatedValue, {
-                    toValue: 0,
-                    duration: speed,
-                    useNativeDriver: true,
-                }),
-            ])
+            const animation = Animated.loop(
+                Animated.sequence([
+                    Animated.timing(animatedValue, {
+                        toValue: 1,
+                        duration: speed,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(animatedValue, {
+                        toValue: 0,
+                        duration: speed,
+                        useNativeDriver: true,
+                    }),
+                ])
+            );
+
+            animation.start();
+            return () => animation.stop();
+        }, [enabled, speed, animatedValue]);
+
+        const opacity = animatedValue.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.3, 0.7],
+        });
+
+        if (!enabled) {
+            return <View>{children}</View>;
+        }
+
+        return (
+            <View style={styles.container}>
+                <Animated.View
+                    style={[
+                        styles.overlay,
+                        {
+                            backgroundColor: highlightColor,
+                            opacity,
+                        },
+                    ]}
+                />
+                <View style={styles.content}>{children}</View>
+            </View>
         );
-
-        animation.start();
-        return () => animation.stop();
-    }, [enabled, speed, animatedValue]);
-
-    const opacity = animatedValue.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0.3, 0.7],
-    });
-
-    if (!enabled) {
-        return <View>{children}</View>;
-    }
-
-    return (
-        <View style={styles.container}>
-            <Animated.View
-                style={[
-                    styles.overlay,
-                    {
-                        backgroundColor: highlightColor,
-                        opacity,
-                    },
-                ]}
-            />
-            <View style={styles.content}>{children}</View>
-        </View>
-    );
-};
+    };
 
 /**
  * Card skeleton - matches card structure with padding and border
@@ -200,38 +200,78 @@ export const AssessmentCardSkeleton: React.FC = () => (
 );
 
 /**
- * Home screen skeleton - complete home screen layout
+ * Complete Profile Widget skeleton - matches CompleteProfileWidget structure
  */
-export const HomeScreenSkeleton: React.FC = () => (
+export const CompleteProfileWidgetSkeleton: React.FC = () => (
     <BaseSkeleton>
-        <View style={styles.homeScreenContainer}>
-            <View style={styles.profileWidgetSkeleton} />
-            <View style={styles.sectionTitleSkeleton} />
-            <ListSkeleton count={3} />
+        <View style={styles.completeProfileContainer}>
+            <View style={styles.completeProfileProgress} />
+            <View style={styles.completeProfileContent}>
+                <View style={styles.completeProfileTitle} />
+                <View style={styles.completeProfileButton} />
+            </View>
         </View>
     </BaseSkeleton>
+);
+
+/**
+ * Completed Activities Card skeleton - header only
+ */
+export const CompletedActivitiesCardSkeleton: React.FC = () => (
+    <BaseSkeleton>
+        <View style={styles.completedActivitiesContainer}>
+            <View style={styles.completedActivitiesHeader}>
+                <View style={styles.completedActivitiesTitle} />
+                <View style={styles.completedActivitiesCount} />
+            </View>
+            <View style={styles.completedActivitiesArrow} />
+        </View>
+    </BaseSkeleton>
+);
+
+/**
+ * Home screen skeleton - complete home screen layout
+ * Composition of individual skeletons without top-level BaseSkeleton wrapper to avoid double animation opacity
+ */
+export const HomeScreenSkeleton: React.FC = () => (
+    <View style={styles.homeScreenContainer}>
+        <CompleteProfileWidgetSkeleton />
+
+        <View style={styles.learningJourneySectionSkeleton}>
+            <View style={styles.sectionTitleContainer}>
+                <BaseSkeleton>
+                    <View style={styles.sectionTitleSkeleton} />
+                </BaseSkeleton>
+            </View>
+
+            <View style={styles.blocksContainerSkeleton}>
+                <CompletedActivitiesCardSkeleton />
+                <CourseCardSkeleton />
+                <AssessmentCardSkeleton />
+                <CourseCardSkeleton />
+            </View>
+        </View>
+    </View>
 );
 
 /**
  * Profile screen skeleton - complete profile screen layout
  */
 export const ProfileScreenSkeleton: React.FC = () => (
-    <BaseSkeleton>
-        <View style={styles.profileScreenContainer}>
-            <ProfileHeaderSkeleton />
-            {[1, 2, 3].map((i) => (
-                <ProfileSectionSkeleton key={i} />
-            ))}
-        </View>
-    </BaseSkeleton>
+    <View style={styles.profileScreenContainer}>
+        <ProfileHeaderSkeleton />
+        {[1, 2, 3].map((i) => (
+            <ProfileSectionSkeleton key={i} />
+        ))}
+    </View>
 );
 
 /**
  * Button skeleton - for loading button states
  */
-export const ButtonSkeleton: React.FC<{ width?: string | number }> = ({ width = '100%' }) => (
+export const ButtonSkeleton: React.FC<{ width?: number | string }> = ({ width = '100%' }) => (
     <BaseSkeleton>
-        <View style={[styles.buttonSkeleton, { width }]} />
+        <View style={[styles.buttonSkeleton, { width: width as any }]} />
     </BaseSkeleton>
 );
 
@@ -397,8 +437,8 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     sectionTitleSkeleton: {
-        width: 150,
-        height: 20,
+        width: 200,
+        height: 24,
         borderRadius: 4,
         backgroundColor: colors.lightGrey,
     },
@@ -429,7 +469,6 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.card,
         padding: 24,
         width: '100%',
-        marginBottom: 16,
         ...shadows.activeElement,
     },
     courseCardHeader: {
@@ -445,12 +484,13 @@ const styles = StyleSheet.create({
     },
     courseTitleContainer: {
         flex: 1,
+        justifyContent: 'center',
     },
     courseSubtitleSkeleton: {
         width: 60,
         height: 14,
         borderRadius: 4,
-        marginBottom: 4,
+        marginBottom: 8,
         backgroundColor: colors.lightGrey,
     },
     courseTitleSkeleton: {
@@ -480,18 +520,18 @@ const styles = StyleSheet.create({
         backgroundColor: colors.lightGrey,
     },
     courseButtonsRow: {
-        flexDirection: 'row',
+        flexDirection: 'column',
         gap: 12,
     },
     primaryButtonSkeleton: {
-        flex: 1,
-        height: 44,
+        width: '100%',
+        height: 48,
         borderRadius: 8,
         backgroundColor: colors.lightGrey,
     },
     secondaryButtonSkeleton: {
-        flex: 1,
-        height: 44,
+        width: '100%',
+        height: 48,
         borderRadius: 8,
         backgroundColor: colors.lightGrey,
     },
@@ -503,7 +543,6 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.card,
         padding: 24,
         width: '100%',
-        marginBottom: 16,
         ...shadows.activeElement,
     },
     assessmentIconSkeleton: {
@@ -514,32 +553,33 @@ const styles = StyleSheet.create({
         backgroundColor: colors.lightGrey,
     },
     assessmentTitleContainer: {
-        marginBottom: 20,
+        marginBottom: 12,
+        width: '100%',
     },
     assessmentSubtitleSkeleton: {
         width: 50,
         height: 14,
         borderRadius: 4,
-        marginBottom: 4,
+        marginBottom: 8,
         backgroundColor: colors.lightGrey,
     },
     assessmentTitleSkeleton: {
-        width: '90%',
-        height: 20,
+        width: '100%',
+        height: 24, // Larger title
         borderRadius: 4,
         backgroundColor: colors.lightGrey,
     },
     assessmentDescriptionSkeleton: {
         width: '100%',
-        height: 16,
+        height: 40, // Multi-line description assumption
         borderRadius: 4,
-        marginBottom: 8,
+        marginBottom: 16,
         backgroundColor: colors.lightGrey,
     },
     assessmentMetadataRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8,
+        marginBottom: 16,
     },
     assessmentMetadataSkeleton: {
         width: 60,
@@ -562,16 +602,26 @@ const styles = StyleSheet.create({
     },
     assessmentButtonSkeleton: {
         width: '100%',
-        height: 44,
+        height: 48,
         borderRadius: 8,
-        marginTop: 20,
         backgroundColor: colors.lightGrey,
     },
     // Screen skeleton styles
     homeScreenContainer: {
-        padding: 16,
+        paddingBottom: 32, // Match HomeScreen scrollContent paddingBottom
+    },
+    learningJourneySectionSkeleton: {
+        paddingHorizontal: 16,
+        paddingTop: 24,
+        gap: 24,
+        width: '100%',
+    },
+    blocksContainerSkeleton: {
+        gap: 16,
+        width: '100%',
     },
     profileWidgetSkeleton: {
+        // Legacy support if needed, but we used specific component now
         width: '100%',
         height: 100,
         borderRadius: borderRadius.card,
@@ -587,11 +637,82 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         backgroundColor: colors.lightGrey,
     },
+    // Copmlete Profile Widget Skeleton
+    completeProfileContainer: {
+        backgroundColor: colors.white,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.lightGrey,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 16,
+        gap: 16,
+        width: '100%',
+        marginBottom: 0,
+    },
+    completeProfileProgress: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: colors.lightGrey,
+    },
+    completeProfileContent: {
+        flex: 1,
+        gap: 8,
+    },
+    completeProfileTitle: {
+        width: 180,
+        height: 20,
+        borderRadius: 4,
+        backgroundColor: colors.lightGrey,
+    },
+    completeProfileButton: {
+        width: 140,
+        height: 20,
+        borderRadius: 4,
+        backgroundColor: colors.lightGrey,
+    },
+    // Completed Activities
+    completedActivitiesContainer: {
+        backgroundColor: colors.white,
+        borderWidth: 1,
+        borderColor: colors.lightGrey,
+        borderRadius: borderRadius.card,
+        width: '100%',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    completedActivitiesHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    completedActivitiesTitle: {
+        width: 120,
+        height: 18,
+        borderRadius: 4,
+        backgroundColor: colors.lightGrey,
+    },
+    completedActivitiesCount: {
+        width: 40,
+        height: 16,
+        borderRadius: 4,
+        backgroundColor: colors.lightGrey,
+    },
+    completedActivitiesArrow: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: colors.lightGrey,
+    },
+    sectionTitleContainer: {
+        width: '100%',
+    },
+    courseListContainer: {
+        marginTop: 16,
+    },
 });
-
-
-
-
-
-
 

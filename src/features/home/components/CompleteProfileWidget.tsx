@@ -9,12 +9,29 @@ import CircularProgress from './CircularProgress';
 interface CompleteProfileWidgetProps {
     percentage: number;
     onUpdatePress?: () => void;
+    loading?: boolean;
 }
 
 const CompleteProfileWidget: React.FC<CompleteProfileWidgetProps> = ({
     percentage,
     onUpdatePress,
+    loading = false,
 }) => {
+    if (loading) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.progressSection}>
+                    <CircularProgress percentage={0} loading={true} size={60} />
+                </View>
+                <View style={styles.contentSection}>
+                    <View style={styles.textSection}>
+                        <View style={styles.titleSkeleton} />
+                    </View>
+                    <View style={styles.buttonSkeleton} />
+                </View>
+            </View>
+        );
+    }
 
     return (
         <View style={styles.container}>
@@ -76,6 +93,12 @@ const styles = StyleSheet.create({
         ...typography.p3Bold,
         color: colors.primaryDarkBlue,
     },
+    titleSkeleton: {
+        width: 150,
+        height: 20,
+        borderRadius: 4,
+        backgroundColor: colors.lightGrey,
+    },
     button: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -84,6 +107,13 @@ const styles = StyleSheet.create({
     buttonText: {
         ...typography.p4SemiBold,
         color: colors.primaryBlue,
+    },
+    buttonSkeleton: {
+        width: 120,
+        height: 20,
+        borderRadius: 4,
+        backgroundColor: colors.lightGrey,
+        marginTop: 4,
     },
     iconContainer: {
         width: 20,

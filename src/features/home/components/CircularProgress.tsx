@@ -9,6 +9,7 @@ interface CircularProgressProps {
     size?: number;
     strokeWidth?: number;
     avatarUrl?: string | number; // Can be URI string or require() result (number)
+    loading?: boolean;
 }
 
 const CircularProgress: React.FC<CircularProgressProps> = ({
@@ -16,6 +17,7 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
     size = 60,
     strokeWidth = 0.723,
     avatarUrl = '',
+    loading = false,
 }) => {
     // Ensure percentage is a valid number between 0-100
     const safePercentage = typeof percentage === 'number' && !isNaN(percentage) ? Math.min(Math.max(percentage, 0), 100) : 0;
@@ -39,24 +41,26 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
                     strokeWidth={strokeWidth}
                     fill="none"
                 />
-                {/* Progress circle (green) */}
-                <Circle
-                    cx={center}
-                    cy={center}
-                    r={radius}
-                    stroke={colors.successGreen}
-                    strokeWidth={strokeWidth}
-                    fill="none"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={strokeDashoffset}
-                    strokeLinecap="round"
-                    transform={`rotate(-90 ${center} ${center})`}
-                />
+                {/* Progress circle (green) - ONLY show if not loading */}
+                {!loading && (
+                    <Circle
+                        cx={center}
+                        cy={center}
+                        r={radius}
+                        stroke={colors.successGreen}
+                        strokeWidth={strokeWidth}
+                        fill="none"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round"
+                        transform={`rotate(-90 ${center} ${center})`}
+                    />
+                )}
             </Svg>
             {/* Avatar in center */}
             {avatarUrl && avatarUrl !== '' ? (
-                <View style={[styles.avatarContainer, { 
-                    width: avatarSize, 
+                <View style={[styles.avatarContainer, {
+                    width: avatarSize,
                     height: avatarSize,
                     top: avatarTop,
                     left: avatarLeft,
@@ -68,8 +72,8 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
                     />
                 </View>
             ) : (
-                <View style={[styles.avatarContainer, { 
-                    width: avatarSize, 
+                <View style={[styles.avatarContainer, {
+                    width: avatarSize,
                     height: avatarSize,
                     top: avatarTop,
                     left: avatarLeft,
@@ -78,9 +82,11 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
                 </View>
             )}
             {/* Percentage badge - positioned at top right of circle */}
-            <View style={styles.percentageContainer}>
-                <Text style={styles.percentageText}>{safePercentage}%</Text>
-            </View>
+            {!loading && (
+                <View style={styles.percentageContainer}>
+                    <Text style={styles.percentageText}>{safePercentage}%</Text>
+                </View>
+            )}
         </View>
     );
 };
