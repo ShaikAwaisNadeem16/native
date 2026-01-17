@@ -40,8 +40,11 @@ const TestQuestionTag: React.FC<TestQuestionTagProps> = ({
         if (isAnswered) {
             return [styles.container, styles.containerAnswered];
         }
-        if (isReviewUnanswered || isReviewAnswered) {
-            return [styles.container, styles.containerReview];
+        if (isReviewUnanswered) {
+            return [styles.container, styles.containerReviewUnanswered];
+        }
+        if (isReviewAnswered) {
+            return [styles.container, styles.containerReviewAnswered];
         }
         return styles.container;
     };
@@ -57,16 +60,22 @@ const TestQuestionTag: React.FC<TestQuestionTagProps> = ({
         if (isSelected) {
             return styles.textSelected;
         }
-        if (isAnswered || isReviewUnanswered || isReviewAnswered) {
+        if (isAnswered) {
             return styles.textAnswered;
+        }
+        if (isReviewUnanswered) {
+            return styles.textReviewUnanswered;
+        }
+        if (isReviewAnswered) {
+            return styles.textReviewAnswered;
         }
         return styles.textUnanswered;
     };
 
     return (
         <View style={[getContainerStyle(), { width: size, height: size }]}>
-            {questionNo && <Text style={getTextStyle()}>{questionNo}</Text>}
             {isReviewAnswered && <View style={styles.reviewIndicator} />}
+            {questionNo && <Text style={getTextStyle()}>{questionNo}</Text>}
         </View>
     );
 };
@@ -94,8 +103,13 @@ const styles = StyleSheet.create({
     containerAnswered: {
         backgroundColor: colors.primaryBlue,
     },
-    containerReview: {
-        backgroundColor: colors.reviewOrange, // Orange from Figma (#f18522)
+    containerReviewUnanswered: {
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: colors.reviewOrange,
+    },
+    containerReviewAnswered: {
+        backgroundColor: colors.primaryBlue,
     },
     containerCorrect: {
         backgroundColor: colors.successGreen, // Green for correct answers
@@ -113,6 +127,16 @@ const styles = StyleSheet.create({
     },
     textAnswered: {
         ...typography.p4,
+        color: '#FFFFFF',
+        zIndex: 10,
+        elevation: 5, // Android z-index equivalent
+    },
+    textReviewUnanswered: {
+        ...typography.p4,
+        color: colors.reviewOrange,
+    },
+    textReviewAnswered: {
+        ...typography.p4,
         color: colors.white,
     },
     reviewIndicator: {
@@ -121,7 +145,7 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         height: 18,
-        backgroundColor: colors.primaryBlue,
+        backgroundColor: colors.reviewOrange,
         borderBottomLeftRadius: 4,
         borderBottomRightRadius: 4,
     },

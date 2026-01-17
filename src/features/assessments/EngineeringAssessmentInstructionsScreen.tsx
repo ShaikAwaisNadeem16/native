@@ -59,12 +59,12 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
     // Check lessonId pattern (surveys often have specific IDs like LID-A-0022, LID-2278, etc.)
     // Also check route params for survey indicators
     const isSurvey = lessonId?.includes('LID-A-0022') || // Career Survey lessonId
-                    lessonId?.includes('LID-2278') || // PullaReddy Career Survey
-                    lessonId?.toLowerCase().includes('survey') ||
-                    route.params?.title?.toLowerCase().includes('survey') ||
-                    route.params?.title?.toLowerCase().includes('career') ||
-                    route.params?.contentType?.toLowerCase().includes('survey') ||
-                    route.params?.contentType === 'survey';
+        lessonId?.includes('LID-2278') || // PullaReddy Career Survey
+        lessonId?.toLowerCase().includes('survey') ||
+        route.params?.title?.toLowerCase().includes('survey') ||
+        route.params?.title?.toLowerCase().includes('career') ||
+        route.params?.contentType?.toLowerCase().includes('survey') ||
+        route.params?.contentType === 'survey';
 
     useEffect(() => {
         const fetchLessonContents = async () => {
@@ -83,6 +83,8 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                     lessonId,
                     moodleCourseId: lessonId,
                     attemptId: routeAttemptId,
+                    title: route.params?.title || 'Career Survey',
+                    subtitle: 'SURVEY',
                 });
                 return;
             }
@@ -100,7 +102,7 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                     description: 'The Career Survey collects information about your interests, goals, and preferences to identify your strengths and areas of interest. It offers personalized recommendations to help you explore potential career paths.',
                     shortName: 'Survey',
                     duration: '30 minutes',
-                    questions: 80,
+                    questions: '80',
                     btntext: 'Start Survey',
                     terms: 'By starting this survey, you agree to provide accurate information.',
                     html: '',
@@ -160,7 +162,7 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                     responseData = response.quiz_data;
                     console.log('[EngineeringAssessmentInstructions] Response wrapped in quiz_data, extracting...');
                 }
-                
+
                 if (responseData) {
                     // Map the response to quizData format
                     const quizData: QuizData = {
@@ -175,12 +177,12 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                         questions: responseData.questions,
                         html: responseData.html,
                     };
-                    
+
                     console.log('========================================');
                     console.log('[EngineeringAssessmentInstructions] ===== QUIZ DATA MAPPED =====');
                     console.log('[EngineeringAssessmentInstructions] Mapped QuizData:', JSON.stringify(quizData, null, 2));
                     console.log('[EngineeringAssessmentInstructions] QuizData keys:', Object.keys(quizData));
-                    
+
                     setQuizData(quizData);
 
                     // Parse HTML to extract instructions
@@ -190,14 +192,14 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                         console.log('[EngineeringAssessmentInstructions] Parsed aboutItems:', parsed.aboutItems?.length || 0);
                         console.log('[EngineeringAssessmentInstructions] Parsed instructions:', parsed.instructions?.length || 0);
                         console.log('[EngineeringAssessmentInstructions] Parsed procedureItems:', parsed.procedureItems?.length || 0);
-                        
+
                         setAboutItems(parsed.aboutItems || []);
                         setInstructions(parsed.instructions || []);
                         setProcedureItems(parsed.procedureItems || []);
                     } else {
                         console.log('[EngineeringAssessmentInstructions] No HTML found');
                     }
-                    
+
                     console.log('========================================');
                     console.log('[EngineeringAssessmentInstructions] ===== STATE UPDATED =====');
                     console.log('[EngineeringAssessmentInstructions] Final description:', responseData.description);
@@ -235,7 +237,7 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                 console.error('[EngineeringAssessmentInstructions] Error response status:', err?.response?.status);
                 console.error('[EngineeringAssessmentInstructions] Full error object:', JSON.stringify(err, null, 2));
                 console.error('========================================');
-                
+
                 // Check if this is a survey - if API fails, navigate directly to questions screen
                 if (isSurvey) {
                     console.log('[EngineeringAssessmentInstructions] Survey detected with API error, navigating directly to questions');
@@ -244,24 +246,26 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                     navigation.replace('SurveyAssessmentQuestions', {
                         lessonId,
                         moodleCourseId: lessonId,
-                        attemptId: routeAttemptId, // May be undefined for new surveys
+                        attemptId: routeAttemptId,
+                        title: route.params?.title || 'Career Survey',
+                        subtitle: 'SURVEY',
                     });
                     return;
                 }
-                
+
                 // Check if this is a STEM assessment (500 error might mean API doesn't support this lessonId)
                 // Check lessonId pattern or route params to determine if it's STEM
-                const isStemAssessment = lessonId?.includes('LID-A-0019') || 
-                                        lessonId?.includes('STEM') ||
-                                        route.params?.title?.toLowerCase().includes('stem');
-                
+                const isStemAssessment = lessonId?.includes('LID-A-0019') ||
+                    lessonId?.includes('STEM') ||
+                    route.params?.title?.toLowerCase().includes('stem');
+
                 if (isStemAssessment && err?.response?.status === 500) {
                     console.log('[EngineeringAssessmentInstructions] Detected STEM assessment with 500 error, navigating to StemAssessmentInstructions');
                     // Navigate to STEM Assessment Instructions screen (doesn't require API)
                     navigation.replace('StemAssessmentInstructions');
                     return;
                 }
-                
+
                 setError(err?.message || 'Failed to load assessment instructions');
                 Alert.alert('Error', 'Failed to load assessment instructions. Please try again.');
             } finally {
@@ -285,7 +289,7 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
         console.log('[EngineeringAssessmentInstructions] Current description:', quizData?.description || 'N/A');
         console.log('[EngineeringAssessmentInstructions] Current aboutItems count:', aboutItems.length);
         console.log('[EngineeringAssessmentInstructions] Current instructions count:', instructions.length);
-        
+
         if (!lessonId) {
             console.error('[EngineeringAssessmentInstructions] ERROR: No lesson ID available');
             Alert.alert('Error', 'No lesson ID available');
@@ -294,17 +298,17 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
 
         try {
             setStartingQuiz(true);
-            
+
             // Check if survey is already in progress (has attemptId from route params)
             const isSurveyInProgress = !!routeAttemptId;
-            
+
             // If it's a survey (in progress or new), handle it differently
             if (isSurvey) {
                 if (isSurveyInProgress) {
                     console.log('[EngineeringAssessmentInstructions] Survey is already in progress');
                     console.log('[EngineeringAssessmentInstructions] AttemptId from route:', routeAttemptId);
                     console.log('[EngineeringAssessmentInstructions] Navigating to questions screen - will use new /api/lms/contents/questions API');
-                    
+
                     // Navigate to questions screen with attemptId
                     // The questions screen will:
                     // 1. Call get-enroll-course API first (if in progress)
@@ -313,6 +317,8 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                         lessonId,
                         moodleCourseId: lessonId,
                         attemptId: routeAttemptId,
+                        title: quizData?.title || 'Career Survey',
+                        subtitle: quizData?.shortName || 'SURVEY',
                     });
                     setStartingQuiz(false);
                     return;
@@ -324,12 +330,14 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                     navigation.navigate('SurveyAssessmentQuestions', {
                         lessonId,
                         moodleCourseId: lessonId,
+                        title: quizData?.title || 'Career Survey',
+                        subtitle: quizData?.shortName || 'SURVEY',
                     });
                     setStartingQuiz(false);
                     return;
                 }
             }
-            
+
             // For non-survey assessments, use the start API
             console.log('========================================');
             console.log('[EngineeringAssessmentInstructions] ===== CALLING START QUIZ API =====');
@@ -355,7 +363,7 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                 console.log('[EngineeringAssessmentInstructions] QuestionData exists');
                 console.log('[EngineeringAssessmentInstructions] QuestionData keys (sections):', Object.keys(startQuizResponse.questionData));
                 console.log('[EngineeringAssessmentInstructions] QuestionData:', JSON.stringify(startQuizResponse.questionData, null, 2));
-                
+
                 // Log question counts per section
                 Object.keys(startQuizResponse.questionData).forEach((section) => {
                     const questions = startQuizResponse.questionData[section];
@@ -383,13 +391,15 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
             console.log('[EngineeringAssessmentInstructions] - questionData exists:', !!startQuizResponse?.questionData);
             console.log('[EngineeringAssessmentInstructions] - result exists:', !!startQuizResponse?.result);
             console.log('========================================');
-            
+
             navigation.navigate('SurveyAssessmentQuestions', {
                 lessonId,
                 moodleCourseId: lessonId,
                 attemptId: startQuizResponse?.attemptId,
                 questionData: startQuizResponse?.questionData,
                 quizResult: startQuizResponse?.result,
+                title: quizData?.title || 'Assessment',
+                subtitle: quizData?.shortName || 'ASSESSMENT',
             });
         } catch (error: any) {
             console.error('========================================');
@@ -402,7 +412,7 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
             console.error('[EngineeringAssessmentInstructions] Error response status:', error?.response?.status);
             console.error('[EngineeringAssessmentInstructions] Full error object:', JSON.stringify(error, null, 2));
             console.error('========================================');
-            
+
             Alert.alert('Error', 'Failed to start assessment. Please try again.');
         } finally {
             setStartingQuiz(false);

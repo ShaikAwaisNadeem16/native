@@ -42,15 +42,15 @@ import { AssignmentAttemptData, AssignmentAttemptInfo } from '../api/assignment'
 export type RootStackParamList = {
     Login: undefined;
     Register: undefined;
-    VerificationOTP: { 
-        phoneNumber?: string; 
+    VerificationOTP: {
+        phoneNumber?: string;
         email?: string;
         firstName?: string;
         lastName?: string;
         password?: string;
     };
     PersonalDetails: { email?: string } | undefined;
-    CollegeCourseDetails: { 
+    CollegeCourseDetails: {
         email?: string;
         firstName?: string;
         lastName?: string;
@@ -60,12 +60,12 @@ export type RootStackParamList = {
     } | undefined;
     AccountCreatedSuccess: undefined;
     Home: undefined;
-    StemAssessmentReport: { finalResult?: 'Pass' | 'Fail'; lessonId?: string; moodleCourseId?: string; assignmentData?: any; quizReportData?: any } | undefined;
+    StemAssessmentReport: { finalResult?: 'Pass' | 'Fail'; lessonId?: string; moodleCourseId?: string; assignmentData?: any; quizReportData?: any; attemptId?: string } | undefined;
     StemAssessmentInstructions: { lessonId?: string } | undefined;
     StemAssessmentTest: { lessonId?: string; moodleCourseId?: string } | undefined;
     EngineeringSystemsAssessment: undefined;
-    EngineeringAssessmentInstructions: { lessonId?: string; moodleCourseId?: string; attemptId?: string } | undefined;
-    SurveyAssessmentQuestions: { lessonId?: string; moodleCourseId?: string; attemptId?: string; questionData?: any; quizResult?: any } | undefined;
+    EngineeringAssessmentInstructions: { lessonId?: string; moodleCourseId?: string; attemptId?: string; title?: string; contentType?: string; subtitle?: string } | undefined;
+    SurveyAssessmentQuestions: { lessonId?: string; moodleCourseId?: string; attemptId?: string; questionData?: any; quizResult?: any; title?: string; subtitle?: string } | undefined;
     Profile: undefined;
     EditPersonalDetails: undefined;
     EditEducationDetails: undefined;

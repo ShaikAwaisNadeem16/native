@@ -41,7 +41,7 @@ interface Question {
 const SurveyAssessmentQuestions: React.FC = () => {
     const navigation = useNavigation<NavigationProp>();
     const route = useRoute<RouteProps>();
-    
+
     const [loading, setLoading] = useState(true);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
@@ -52,12 +52,12 @@ const SurveyAssessmentQuestions: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [showSubmitModal, setShowSubmitModal] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isMenuExpanded, setIsMenuExpanded] = useState(true);
+    const [isMenuExpanded, setIsMenuExpanded] = useState(false);
     const [timeRemaining, setTimeRemaining] = useState('02:00:00'); // Format: "HH:MM:SS"
     const [timeRemainingSeconds, setTimeRemainingSeconds] = useState(0); // Total seconds remaining
     const [startTime, setStartTime] = useState<Date | null>(null);
     const [totalDurationSeconds, setTotalDurationSeconds] = useState(0); // Total duration in seconds
-    
+
     // Ref for ScrollView to scroll to top when question changes
     const scrollViewRef = useRef<ScrollView>(null);
 
@@ -65,6 +65,8 @@ const SurveyAssessmentQuestions: React.FC = () => {
     const lessonId = route.params?.lessonId || route.params?.moodleCourseId;
     const routeAttemptId = route.params?.attemptId;
     const routeQuestionData = route.params?.questionData;
+    const routeTitle = route.params?.title;
+    const routeSubtitle = route.params?.subtitle;
 
     useEffect(() => {
         const fetchQuestions = async () => {
@@ -85,39 +87,137 @@ const SurveyAssessmentQuestions: React.FC = () => {
                 console.log('[SurveyAssessmentQuestions] Route attemptId:', routeAttemptId);
                 console.log('[SurveyAssessmentQuestions] Route questionData exists:', !!routeQuestionData);
 
+                // Check if we have pre-loaded question data (e.g. from Engineering Assessment start)
+                if (routeQuestionData) {
+                    console.log('[SurveyAssessmentQuestions] Using pre-loaded question data from route params');
+
+                    // Attempt to flatten question data if it's an object (keyed by section)
+                    let allRawQuestions: any[] = [];
+                    if (Array.isArray(routeQuestionData)) {
+                        allRawQuestions = routeQuestionData;
+                    } else if (typeof routeQuestionData === 'object' && routeQuestionData !== null) {
+                        // Flatten sections
+                        Object.values(routeQuestionData).forEach((sectionQuestions: any) => {
+                            if (Array.isArray(sectionQuestions)) {
+                                allRawQuestions = [...allRawQuestions, ...sectionQuestions];
+                            }
+                        });
+                    }
+
+                    if (allRawQuestions.length > 0) {
+                        const processedQuestions: Question[] = allRawQuestions.map((q: any) => {
+                            // Extract chosenAnswer if already answered
+                            if (q.chosenAnswer && q.chosenAnswer.length > 0 && q.choices && q.choices.length > 0) {
+                                const chosenValue = q.chosenAnswer[0];
+
+                                // Find index or use value directly logic (same as API path)
+                                const choiceIndex = q.choices.findIndex((choice: string) =>
+                                    choice === chosenValue || String(choice) === String(chosenValue)
+                                );
+
+                                let answerKey: string = String(chosenValue);
+                                if (choiceIndex >= 0) {
+                                    answerKey = String(choiceIndex + 1);
+                                } else {
+                                    const parsedNum = parseInt(chosenValue);
+                                    if (!isNaN(parsedNum) && parsedNum >= 1 && parsedNum <= q.choices.length) {
+                                        answerKey = String(parsedNum);
+                                    }
+                                }
+
+                                setSelectedAnswers(prev => ({
+                                    ...prev,
+                                    [q.questionId]: answerKey,
+                                }));
+                            }
+
+                            // Mark reviews
+                            if (q.status === 'toReview' || q.status === 'review') {
+                                setMarkedForReview(prev => new Set(prev).add(q.questionId));
+                            }
+
+                            // Robust mapping for question text
+                            const rawText = q.questionText || q.text || q.question || q.name || q.question_text || q.content || q.body || q.intro || '';
+                            const cleanText = rawText.replace(/<[^>]*>?/gm, '').replace(/&nbsp;/g, ' ').trim();
+
+                            // Robust mapping for choices
+                            let choices: string[] = [];
+                            if (Array.isArray(q.choices)) {
+                                choices = q.choices;
+                            } else if (Array.isArray(q.options)) {
+                                // Handle if options are objects or strings
+                                choices = q.options.map((opt: any) => typeof opt === 'string' ? opt : (opt.text || opt.label || JSON.stringify(opt)));
+                            }
+
+                            return {
+                                questionId: q.questionId || q.id || `q-${Math.random()}`,
+                                questionText: cleanText,
+                                questionType: q.questionType || q.type || q.qtype || 'survey',
+                                type: q.questionType || q.type || q.qtype || 'survey',
+                                choices: choices,
+                                page: q.page || 1,
+                                slot: q.slot || 0,
+                                status: q.status || 'notStarted',
+                                maxMark: q.maxMark || 1,
+                            };
+                        });
+
+                        // Sort by page/slot
+                        processedQuestions.sort((a, b) => {
+                            if (a.page !== b.page) return (a.page || 0) - (b.page || 0);
+                            return (a.slot || 0) - (b.slot || 0);
+                        });
+
+                        setQuestions(processedQuestions);
+                        setAttemptId(routeAttemptId || null);
+                        if (route.params?.quizResult) {
+                            // If result exists, maybe we are reviewing?
+                        }
+
+                        // Default time limit for engineering assessment if not provided?
+                        // Usually 60 mins or from instructions. We don't have it here unless passed.
+                        // Assuming checks in instructions handled this.
+                        setTotalDurationSeconds(3600); // Default 1 hour fallback?
+                        setStartTime(new Date());
+
+                        setLoading(false);
+                        return;
+                    }
+                }
+
                 // Check if survey is already started (in progress)
                 // If attemptId exists, it means survey is already started
                 const isSurveyInProgress = !!routeAttemptId;
-                
+
                 if (isSurveyInProgress) {
                     console.log('[SurveyAssessmentQuestions] Survey is already in progress, calling get-enroll-course API first');
-                    
+
                     // Call get-enroll-course API when survey is already started
                     try {
                         const userId = await Storage.getItem('userId');
                         const email = await Storage.getItem('username');
-                        
+
                         if (userId && email) {
                             console.log('[SurveyAssessmentQuestions] Calling POST /api/lms/enrol/get-enroll-course');
                             console.log('[SurveyAssessmentQuestions] Payload:', { email, userId });
-                            
+
                             const enrollCourseResponse = await HomeService.getEnrollCourse();
                             console.log('[SurveyAssessmentQuestions] get-enroll-course Response:', JSON.stringify(enrollCourseResponse, null, 2));
-                            
+
                             // Find the survey course in the response
-                            const surveyCourse = Array.isArray(enrollCourseResponse) 
-                                ? enrollCourseResponse.find((course: any) => 
-                                    course?.Courses?.moodleCourseId === lessonId || 
+                            const surveyCourse = Array.isArray(enrollCourseResponse)
+                                ? enrollCourseResponse.find((course: any) =>
+                                    course?.Courses?.moodleCourseId === lessonId ||
                                     course?.Courses?.courseId === lessonId ||
                                     course?.courseId === lessonId
-                                  )
+                                )
                                 : null;
-                            
+
                             if (surveyCourse) {
                                 console.log('[SurveyAssessmentQuestions] Survey course found in enroll-course response:', JSON.stringify(surveyCourse, null, 2));
                                 console.log('[SurveyAssessmentQuestions] Course progress:', surveyCourse?.CourseProgress?.courseProgress);
                                 console.log('[SurveyAssessmentQuestions] AttemptId from enroll-course:', surveyCourse?.Courses?.attemptId);
-                                
+
                                 // Update attemptId if found in enroll-course response
                                 if (surveyCourse?.Courses?.attemptId) {
                                     setAttemptId(surveyCourse.Courses.attemptId);
@@ -134,7 +234,7 @@ const SurveyAssessmentQuestions: React.FC = () => {
                 // Use the new API: POST /api/lms/contents/questions for fetching survey questions
                 console.log('[SurveyAssessmentQuestions] Calling POST /api/lms/contents/questions');
                 console.log('[SurveyAssessmentQuestions] Using new questions API for survey');
-                
+
                 const response = await AssessmentService.getSurveyQuestions(lessonId);
 
                 console.log('[SurveyAssessmentQuestions] Questions API Response received:', JSON.stringify(response, null, 2));
@@ -153,16 +253,23 @@ const SurveyAssessmentQuestions: React.FC = () => {
                     console.log('[SurveyAssessmentQuestions] AttemptId set from API:', response.attemptId);
                 }
 
-                // Parse time limit (0 means no time limit)
+                // Robust time limit extraction
+                const apiTimeLimit = response.timeLimit || response.timelimit || response.time_limit || response.duration || 0;
                 let durationSeconds = 0;
-                if (response.timeLimit && response.timeLimit > 0) {
-                    durationSeconds = response.timeLimit * 60; // Convert minutes to seconds
-                    console.log('[SurveyAssessmentQuestions] Time limit from API:', response.timeLimit, 'minutes =', durationSeconds, 'seconds');
-                } else {
-                    // No time limit for survey
-                    durationSeconds = 0;
-                    console.log('[SurveyAssessmentQuestions] No time limit (survey)');
+
+                if (apiTimeLimit) {
+                    // If it's a string, try to parse (handle "30 mins", "1 hour" etc simply by parseInt for now or regex if complex)
+                    const parsed = parseInt(String(apiTimeLimit));
+                    if (!isNaN(parsed) && parsed > 0) {
+                        // Check if it's likely minutes or seconds. Usually Moodle returns seconds or minutes. 
+                        // If < 600 (10 hours), likely minutes. If > 600, could be seconds? 
+                        // Standardizing: usually 'timeLimit' is minutes in our app unless specified. 
+                        // Let's assume minutes as per original code.
+                        durationSeconds = parsed * 60;
+                    }
                 }
+
+                console.log('[SurveyAssessmentQuestions] Extracted time limit:', apiTimeLimit, 'Set duration (seconds):', durationSeconds);
                 setTotalDurationSeconds(durationSeconds);
 
                 // Set start time to current time if no time limit
@@ -177,19 +284,19 @@ const SurveyAssessmentQuestions: React.FC = () => {
                 if (response.questionData && Array.isArray(response.questionData)) {
                     console.log('[SurveyAssessmentQuestions] Processing questionData array from new API');
                     console.log('[SurveyAssessmentQuestions] Total questions in array:', response.questionData.length);
-                    
+
                     const allQuestions: Question[] = response.questionData.map((q: any) => {
                         // Extract chosenAnswer if already answered
                         // Note: chosenAnswer from API might be the choice value (e.g., "1", "2") or the choice text
                         // We need to match it with the choice index
                         if (q.chosenAnswer && q.chosenAnswer.length > 0 && q.choices && q.choices.length > 0) {
                             const chosenValue = q.chosenAnswer[0]; // Get the first chosen answer
-                            
+
                             // Find the index of the chosen answer in the choices array
-                            const choiceIndex = q.choices.findIndex((choice: string) => 
+                            const choiceIndex = q.choices.findIndex((choice: string) =>
                                 choice === chosenValue || String(choice) === String(chosenValue)
                             );
-                            
+
                             // If found, use the index+1 as option number (matching the rendering logic)
                             // Otherwise, try to parse as a number (if it's "1", "2", etc.)
                             let answerKey: string;
@@ -205,31 +312,43 @@ const SurveyAssessmentQuestions: React.FC = () => {
                                     answerKey = String(chosenValue);
                                 }
                             }
-                            
+
                             setSelectedAnswers(prev => ({
                                 ...prev,
                                 [q.questionId]: answerKey,
                             }));
                         }
-                        
+
                         // Mark as reviewed if status indicates it
                         if (q.status === 'toReview' || q.status === 'review') {
                             setMarkedForReview(prev => new Set(prev).add(q.questionId));
                         }
-                        
+
+                        // Robust mapping for question text
+                        const rawText = q.questionText || q.text || q.question || q.name || q.question_text || q.content || q.body || q.intro || '';
+                        const cleanText = rawText.replace(/<[^>]*>?/gm, '').replace(/&nbsp;/g, ' ').trim();
+
+                        // Robust mapping for choices
+                        let choices: string[] = [];
+                        if (Array.isArray(q.choices)) {
+                            choices = q.choices;
+                        } else if (Array.isArray(q.options)) {
+                            choices = q.options.map((opt: any) => typeof opt === 'string' ? opt : (opt.text || opt.label || JSON.stringify(opt)));
+                        }
+
                         return {
-                            questionId: q.questionId,
-                            questionText: q.questionText || '',
-                            questionType: q.questionType || q.type || 'survey',
-                            type: q.questionType || q.type || 'survey',
-                            choices: Array.isArray(q.choices) ? q.choices : [],
+                            questionId: q.questionId || q.id || `q-${Math.random()}`,
+                            questionText: cleanText,
+                            questionType: q.questionType || q.type || q.qtype || 'survey',
+                            type: q.questionType || q.type || q.qtype || 'survey',
+                            choices: choices,
                             page: q.page || 1,
                             slot: q.slot || 0,
                             status: q.status || 'notStarted',
                             maxMark: q.maxMark || 1,
                         };
                     });
-                    
+
                     // Sort by page, then by slot
                     allQuestions.sort((a, b) => {
                         if (a.page !== b.page) {
@@ -237,16 +356,16 @@ const SurveyAssessmentQuestions: React.FC = () => {
                         }
                         return (a.slot || 0) - (b.slot || 0);
                     });
-                    
+
                     console.log('[SurveyAssessmentQuestions] Processed questions:', allQuestions.length);
-                    console.log('[SurveyAssessmentQuestions] Questions by page:', 
+                    console.log('[SurveyAssessmentQuestions] Questions by page:',
                         allQuestions.reduce((acc, q) => {
                             const page = q.page || 1;
                             acc[page] = (acc[page] || 0) + 1;
                             return acc;
                         }, {} as Record<number, number>)
                     );
-                    
+
                     setQuestions(allQuestions);
                     setCurrentQuestionIndex(0);
                 } else {
@@ -304,7 +423,7 @@ const SurveyAssessmentQuestions: React.FC = () => {
 
     // Get current question
     const currentQuestion = questions[currentQuestionIndex] || null;
-    
+
     // Scroll to top when question changes
     useEffect(() => {
         if (scrollViewRef.current && questions.length > 0) {
@@ -318,7 +437,7 @@ const SurveyAssessmentQuestions: React.FC = () => {
             const isSelected = index === currentQuestionIndex;
             const isAnswered = !!selectedAnswers[q.questionId];
             const isMarked = markedForReview.has(q.questionId);
-            
+
             if (isSelected) {
                 return 'Selected';
             }
@@ -341,7 +460,7 @@ const SurveyAssessmentQuestions: React.FC = () => {
     }, [questionStates]);
 
     const reviewMarkedCount = useMemo(() => {
-        return questionStates.filter(state => 
+        return questionStates.filter(state =>
             state === 'Review Unanswered' || state === 'Review Answered'
         ).length;
     }, [questionStates]);
@@ -349,13 +468,26 @@ const SurveyAssessmentQuestions: React.FC = () => {
     const handleAnswerSelect = (optionNumber: string) => {
         if (!currentQuestion) return;
         const questionId = currentQuestion.questionId;
-        
-        setSelectedAnswers((prev) => ({
-            ...prev,
-            [questionId]: optionNumber,
-        }));
-        
-        // Remove from skipped when answer is selected
+
+        setSelectedAnswers((prev) => {
+            const currentAnswer = prev[questionId];
+            if (currentAnswer === optionNumber) {
+                // Deselect if clicking the same option
+                const newState = { ...prev };
+                delete newState[questionId];
+                return newState;
+            } else {
+                // Select new option
+                return {
+                    ...prev,
+                    [questionId]: optionNumber,
+                };
+            }
+        });
+
+        // Remove from skipped when answer is selected (or deselected - techincally if deselected it becomes skipped/unanswered, but skipped set logic handles 'skipped' status explicitly set by Next button usually. Here we just update skipped set to remove it if we interact?)
+        // Actually, if we deselect, we might want to ensure it's not in SKIPPED yet until user moves away.
+        // But the original logic removed it from skipped.
         setSkippedQuestions((prev) => {
             const newSet = new Set(prev);
             newSet.delete(questionId);
@@ -365,11 +497,11 @@ const SurveyAssessmentQuestions: React.FC = () => {
 
     const handleMarkForReview = async () => {
         if (!currentQuestion || !attemptId || !lessonId) return;
-        
+
         const questionId = currentQuestion.questionId;
         const isCurrentlyMarked = markedForReview.has(questionId);
         const hasAnswer = !!selectedAnswers[questionId];
-        
+
         // Toggle mark for review state
         setMarkedForReview((prev) => {
             const newSet = new Set(prev);
@@ -380,12 +512,12 @@ const SurveyAssessmentQuestions: React.FC = () => {
             }
             return newSet;
         });
-        
+
         // Call API to submit the mark for review status
         try {
             const chosenAnswer = hasAnswer ? [selectedAnswers[questionId]] : [];
-            const status = !isCurrentlyMarked 
-                ? 'toReview' 
+            const status = !isCurrentlyMarked
+                ? 'toReview'
                 : (hasAnswer ? 'submitted' : 'notSubmitted');
 
             console.log('[SurveyAssessmentQuestions] Marking question for review - API call');
@@ -443,7 +575,7 @@ const SurveyAssessmentQuestions: React.FC = () => {
         try {
             const questionId = currentQuestion.questionId;
             const hasAnswer = !!selectedAnswers[questionId];
-            
+
             // If no answer selected, mark as skipped
             if (!hasAnswer) {
                 setSkippedQuestions((prev) => new Set(prev).add(questionId));
@@ -459,7 +591,7 @@ const SurveyAssessmentQuestions: React.FC = () => {
             // Submit current answer
             // Based on API spec: {page: "question-submit", attemptId, questionId, chosenAnswer, status}
             const chosenAnswer = hasAnswer ? [selectedAnswers[questionId]] : [];
-            const status = hasAnswer 
+            const status = hasAnswer
                 ? (markedForReview.has(questionId) ? 'toReview' : 'submitted')
                 : (markedForReview.has(questionId) ? 'toReview' : 'notSubmitted');
 
@@ -520,9 +652,9 @@ const SurveyAssessmentQuestions: React.FC = () => {
                 return {
                     questionId: q.questionId,
                     chosenAnswer: answer ? [answer] : [],
-                    status: answer 
+                    status: (answer
                         ? (isMarked ? 'toReview' : 'submitted')
-                        : (isMarked ? 'toReview' : 'notSubmitted'),
+                        : (isMarked ? 'toReview' : 'notSubmitted')) as 'toReview' | 'submitted' | 'notSubmitted',
                 };
             });
 
@@ -649,37 +781,39 @@ const SurveyAssessmentQuestions: React.FC = () => {
                             onPress={handleMarkForReview}
                             activeOpacity={0.7}
                         >
-                            <Bookmark 
-                                size={24} 
-                                color={markedForReview.has(currentQuestion?.questionId || '') 
-                                    ? colors.primaryBlue 
-                                    : colors.primaryBlue} 
+                            <Bookmark
+                                size={24}
+                                color={markedForReview.has(currentQuestion?.questionId || '')
+                                    ? colors.primaryBlue
+                                    : colors.primaryBlue}
                             />
                             <Text style={styles.markForReviewText}>Mark For Review</Text>
                         </TouchableOpacity>
 
                         {/* Assessment Info */}
                         <View style={styles.assessmentInfo}>
-                            <Text style={styles.assessmentSubtitle}>STEM ASSESSMENT</Text>
-                            <Text style={styles.assessmentTitle}>Part 1 of 4: Science</Text>
+                            <Text style={styles.assessmentSubtitle}>{routeSubtitle || 'ASSESSMENT'}</Text>
+                            <Text style={styles.assessmentTitle}>{routeTitle || 'Questions'}</Text>
                         </View>
 
-                        {/* Question Tags */}
-                        <View style={styles.questionTagsContainer}>
-                            {questions.map((q, index) => (
-                                <TouchableOpacity
-                                    key={q.questionId}
-                                    onPress={() => handleQuestionTagPress(index)}
-                                    activeOpacity={0.7}
-                                >
-                                    <TestQuestionTag
-                                        questionNo={String(index + 1)}
-                                        state={questionStates[index] as any}
-                                        size={36}
-                                    />
-                                </TouchableOpacity>
-                            ))}
-                        </View>
+                        {/* Question Tags - Scrollable */}
+                        <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled={true} showsVerticalScrollIndicator={true}>
+                            <View style={styles.questionTagsContainer}>
+                                {questions.map((q, index) => (
+                                    <TouchableOpacity
+                                        key={q.questionId}
+                                        onPress={() => handleQuestionTagPress(index)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <TestQuestionTag
+                                            questionNo={String(index + 1)}
+                                            state={questionStates[index] as any}
+                                            size={36}
+                                        />
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </ScrollView>
 
                         {/* Submit Test Button */}
                         <TouchableOpacity
@@ -705,23 +839,21 @@ const SurveyAssessmentQuestions: React.FC = () => {
             {/* Main Content */}
             <ScrollView
                 ref={scrollViewRef}
+                style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
                 {currentQuestion ? (
-                    <View 
-                        key={currentQuestion.questionId} 
-                        style={[
-                            styles.questionContainer,
-                            markedForReview.has(currentQuestion.questionId) && styles.questionContainerMarkedForReview
-                        ]}
+                    <View
+                        key={currentQuestion.questionId}
+                        style={styles.questionContainer}
                     >
                         {/* Question Type and Text */}
                         <View style={styles.questionHeader}>
                             <Text style={styles.questionType}>
-                                {currentQuestion.questionType?.toUpperCase() || 
-                                 currentQuestion.type?.toUpperCase() || 
-                                 'PASSAGE SINGLE CHOICE QUESTION'}
+                                {currentQuestion.questionType?.toUpperCase() ||
+                                    currentQuestion.type?.toUpperCase() ||
+                                    'PASSAGE SINGLE CHOICE QUESTION'}
                             </Text>
                             <Text style={styles.questionText}>
                                 {currentQuestion.questionText || 'No question text available'}
@@ -734,12 +866,12 @@ const SurveyAssessmentQuestions: React.FC = () => {
                                 currentQuestion.choices.map((choice, index) => {
                                     const optionNumber = String(index + 1);
                                     const isSelected = selectedAnswers[currentQuestion.questionId] === optionNumber;
-                                    
+
                                     // Determine the state of the question
                                     const questionId = currentQuestion.questionId;
                                     const isQuestionAnswered = !!selectedAnswers[questionId];
                                     const isQuestionSkipped = skippedQuestions.has(questionId);
-                                    
+
                                     // Determine option state
                                     let optionState: 'attempted' | 'notAttempted' | 'skipped' = 'notAttempted';
                                     if (isQuestionSkipped) {
@@ -747,10 +879,10 @@ const SurveyAssessmentQuestions: React.FC = () => {
                                     } else if (isQuestionAnswered) {
                                         optionState = 'attempted';
                                     }
-                                    
+
                                     // Ensure choice is a string for display
                                     const choiceText = String(choice || '');
-                                    
+
                                     return (
                                         <AnswerOption
                                             key={`${currentQuestion.questionId}-${index}-${choiceText}`}
@@ -858,6 +990,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 12,
+        justifyContent: 'center',
     },
     submitTestButton: {
         borderWidth: 1,
@@ -882,7 +1015,10 @@ const styles = StyleSheet.create({
     },
     scrollContent: {
         padding: 16,
-        paddingBottom: 100,
+        paddingBottom: 150,
+    },
+    scrollView: {
+        flex: 1,
     },
     questionContainer: {
         gap: 24,

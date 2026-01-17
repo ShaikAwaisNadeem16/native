@@ -17,6 +17,7 @@ import Storage from '../../utils/storage';
 import TrophySvg from '../../../assets/trophy.svg';
 import ErrorRocketSvg from '../../../assets/Error Rocket Destroyed.svg';
 import { CardSkeleton, ListSkeleton } from '../../components/common/SkeletonLoaders';
+import StemAssessmentReportSkeleton from './components/StemAssessmentReportSkeleton';
 
 // Icons removed - will be added later
 
@@ -35,10 +36,12 @@ const StemAssessmentReportScreen: React.FC = () => {
 
     // Extract lessonId from route params (moodleCourseId)
     const lessonId = route.params?.lessonId || route.params?.moodleCourseId;
+    const attemptId = route.params?.attemptId;
     const quizReportDataFromRoute = route.params?.quizReportData;
-    
+
     console.log('[StemAssessmentReportScreen] Route params:', JSON.stringify(route.params, null, 2));
     console.log('[StemAssessmentReportScreen] Extracted lessonId:', lessonId);
+    console.log('[StemAssessmentReportScreen] Extracted attemptId:', attemptId);
     console.log('[StemAssessmentReportScreen] Quiz report data from route:', quizReportDataFromRoute ? 'Present' : 'Not present');
 
     // Fetch quiz report data on mount (or use data passed from navigation)
@@ -46,12 +49,15 @@ const StemAssessmentReportScreen: React.FC = () => {
         const fetchQuizReport = async () => {
             // If data was passed from navigation, use it directly
             if (quizReportDataFromRoute) {
+                // Artificial delay to show skeleton UI as per user request
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
                 console.log('[StemAssessmentReportScreen] Using quiz report data from route params');
                 console.log('[StemAssessmentReportScreen] Data:', JSON.stringify(quizReportDataFromRoute, null, 2));
-                
+
                 // Parse JSON strings if they exist in the response
                 let parsedResponse = { ...quizReportDataFromRoute };
-                
+
                 // If finalData is a JSON string, parse it
                 if (typeof quizReportDataFromRoute?.final === 'string') {
                     try {
@@ -60,7 +66,7 @@ const StemAssessmentReportScreen: React.FC = () => {
                         console.warn('[StemAssessmentReportScreen] Failed to parse finalData JSON string:', e);
                     }
                 }
-                
+
                 // If questions.overall is a JSON string, parse it
                 if (typeof quizReportDataFromRoute?.questions?.overall === 'string') {
                     try {
@@ -72,7 +78,7 @@ const StemAssessmentReportScreen: React.FC = () => {
                         console.warn('[StemAssessmentReportScreen] Failed to parse overallData JSON string:', e);
                     }
                 }
-                
+
                 // If questions.sectionDetails is a JSON string, parse it
                 if (typeof quizReportDataFromRoute?.questions?.sectionDetails === 'string') {
                     try {
@@ -84,7 +90,7 @@ const StemAssessmentReportScreen: React.FC = () => {
                         console.warn('[StemAssessmentReportScreen] Failed to parse sectionDetails JSON string:', e);
                     }
                 }
-                
+
                 // Also check for sectionDetails at root level
                 if (typeof quizReportDataFromRoute?.sectionDetails === 'string') {
                     try {
@@ -112,6 +118,9 @@ const StemAssessmentReportScreen: React.FC = () => {
                 setLoading(true);
                 setError(null);
 
+                // Artificial delay to show skeleton UI as per user request
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
                 const userId = await Storage.getItem('userId');
                 if (!userId) {
                     throw new Error('User ID not found');
@@ -120,17 +129,20 @@ const StemAssessmentReportScreen: React.FC = () => {
                 // Call API: POST /api/lms/attempt/quiz with page: "score"
                 console.log('[StemAssessmentReportScreen] ===== CALLING QUIZ REPORT API =====');
                 console.log('[StemAssessmentReportScreen] API: POST /api/lms/attempt/quiz');
-                console.log('[StemAssessmentReportScreen] Payload:', JSON.stringify({
+
+                const payload: any = {
                     page: 'score',
                     userId,
                     lessonId,
-                }, null, 2));
-                
-                const response = await AssessmentService.attemptQuiz({
-                    page: 'score',
-                    userId,
-                    lessonId,
-                });
+                };
+
+                if (attemptId) {
+                    payload.attemptId = attemptId;
+                }
+
+                console.log('[StemAssessmentReportScreen] Payload:', JSON.stringify(payload, null, 2));
+
+                const response = await AssessmentService.attemptQuiz(payload);
 
                 console.log('[StemAssessmentReportScreen] ===== QUIZ REPORT API RESPONSE =====');
                 console.log('[StemAssessmentReportScreen] Full response:', JSON.stringify(response, null, 2));
@@ -142,7 +154,7 @@ const StemAssessmentReportScreen: React.FC = () => {
 
                 // Parse JSON strings if they exist in the response
                 let parsedResponse = { ...response };
-                
+
                 // If finalData is a JSON string, parse it
                 if (typeof response?.final === 'string') {
                     try {
@@ -151,7 +163,7 @@ const StemAssessmentReportScreen: React.FC = () => {
                         console.warn('[StemAssessmentReportScreen] Failed to parse finalData JSON string:', e);
                     }
                 }
-                
+
                 // If questions.overall is a JSON string, parse it
                 if (typeof response?.questions?.overall === 'string') {
                     try {
@@ -163,7 +175,7 @@ const StemAssessmentReportScreen: React.FC = () => {
                         console.warn('[StemAssessmentReportScreen] Failed to parse overallData JSON string:', e);
                     }
                 }
-                
+
                 // If questions.sectionDetails is a JSON string, parse it
                 if (typeof response?.questions?.sectionDetails === 'string') {
                     try {
@@ -175,7 +187,7 @@ const StemAssessmentReportScreen: React.FC = () => {
                         console.warn('[StemAssessmentReportScreen] Failed to parse sectionDetails JSON string:', e);
                     }
                 }
-                
+
                 // Also check for sectionDetails at root level
                 if (typeof response?.sectionDetails === 'string') {
                     try {
@@ -207,10 +219,10 @@ const StemAssessmentReportScreen: React.FC = () => {
     const questionsData = reportData?.questions || reportData?.result?.questions || reportData?.quizResult?.questions || {};
     let overallData = questionsData?.overall || questionsData?.summary || {};
     let sectionDetailsRaw = questionsData?.sectionDetails || questionsData?.sections || reportData?.sectionDetails || {};
-    
+
     // Also check root level pass if final.pass is not available
     const rootPass = reportData?.pass;
-    
+
     // Parse JSON strings if they're still strings
     if (typeof finalData === 'string') {
         try {
@@ -220,7 +232,7 @@ const StemAssessmentReportScreen: React.FC = () => {
             finalData = {};
         }
     }
-    
+
     if (typeof overallData === 'string') {
         try {
             overallData = JSON.parse(overallData);
@@ -229,7 +241,7 @@ const StemAssessmentReportScreen: React.FC = () => {
             overallData = {};
         }
     }
-    
+
     if (typeof sectionDetailsRaw === 'string') {
         try {
             sectionDetailsRaw = JSON.parse(sectionDetailsRaw);
@@ -257,37 +269,37 @@ const StemAssessmentReportScreen: React.FC = () => {
     // Determine if result is Pass or Fail - check multiple possible fields
     // Check root level pass first, then final.pass, then quizStatus
     const isPass = rootPass === true ||
-                   finalData?.pass === true || 
-                   reportData?.result?.pass === true ||
-                   reportData?.quizResult?.pass === true ||
-                   finalData?.quizStatus?.toLowerCase() === 'pass' ||
-                   finalData?.quizStatus?.toLowerCase() === 'cleared' ||
-                   finalData?.quizStatus?.toLowerCase().includes('cleared') ||
-                   finalData?.status?.toLowerCase() === 'pass' ||
-                   (finalData?.quizStatus !== 'Fail' && 
-                    finalData?.status !== 'Fail' &&
-                    finalData?.pass !== false && 
-                    rootPass !== false &&
-                    (finalData?.message?.toLowerCase().includes('pass') ||
-                     finalData?.message?.toLowerCase().includes('cleared') ||
-                     finalData?.message?.toLowerCase().includes('success')));
-    
+        finalData?.pass === true ||
+        reportData?.result?.pass === true ||
+        reportData?.quizResult?.pass === true ||
+        finalData?.quizStatus?.toLowerCase() === 'pass' ||
+        finalData?.quizStatus?.toLowerCase() === 'cleared' ||
+        finalData?.quizStatus?.toLowerCase().includes('cleared') ||
+        finalData?.status?.toLowerCase() === 'pass' ||
+        (finalData?.quizStatus !== 'Fail' &&
+            finalData?.status !== 'Fail' &&
+            finalData?.pass !== false &&
+            rootPass !== false &&
+            (finalData?.message?.toLowerCase().includes('pass') ||
+                finalData?.message?.toLowerCase().includes('cleared') ||
+                finalData?.message?.toLowerCase().includes('success')));
+
     const finalResult = isPass ? 'Pass' : 'Fail';
     // Use scoredMarks and totalMarks from overall data - check multiple possible fields
     // Priority: overallData > finalData > reportData root level
-    const scoredMarks = overallData?.scoredMarks || 
-                       overallData?.marksScored || 
-                       finalData?.scoredMarks || 
-                       finalData?.marksScored ||
-                       finalData?.rawScore ||
-                       reportData?.rawScore ||
-                       reportData?.scoredMarks || 
-                       0;
-    const totalMarks = overallData?.totalMarks || 
-                      overallData?.totalMarks || 
-                      finalData?.totalMarks || 
-                      reportData?.totalMarks || 
-                      0;
+    const scoredMarks = overallData?.scoredMarks ||
+        overallData?.marksScored ||
+        finalData?.scoredMarks ||
+        finalData?.marksScored ||
+        finalData?.rawScore ||
+        reportData?.rawScore ||
+        reportData?.scoredMarks ||
+        0;
+    const totalMarks = overallData?.totalMarks ||
+        overallData?.totalMarks ||
+        finalData?.totalMarks ||
+        reportData?.totalMarks ||
+        0;
     const finalScoreDisplay = totalMarks > 0 ? `${scoredMarks}/${totalMarks}` : '0/0';
 
     // Calculate percentage score - use finalScore from API if available, otherwise calculate
@@ -304,24 +316,24 @@ const StemAssessmentReportScreen: React.FC = () => {
     }
 
     // Message from API - use API message or fallback based on pass/fail
-    const message = finalData?.message || 
-                   reportData?.message ||
-                   finalData?.resultMessage ||
-                   (isPass ? 'Congratulations on clearing the assessment!' : 'You did not pass this assessment. Please review and try again.');
-    
+    const message = finalData?.message ||
+        reportData?.message ||
+        finalData?.resultMessage ||
+        (isPass ? 'Congratulations on clearing the assessment!' : 'You did not pass this assessment. Please review and try again.');
+
     // Failure reason from API (if present)
-    const failReason = finalData?.failReason || 
-                      finalData?.failureReason || 
-                      reportData?.failReason || 
-                      '';
+    const failReason = finalData?.failReason ||
+        finalData?.failureReason ||
+        reportData?.failReason ||
+        '';
 
     // Time taken from API - format for display - check multiple possible fields
-    const timeTakenRaw = finalData?.timeTaken || 
-                        finalData?.timeSpent || 
-                        reportData?.timeTaken || 
-                        reportData?.timeSpent ||
-                        overallData?.timeTaken ||
-                        '';
+    const timeTakenRaw = finalData?.timeTaken ||
+        finalData?.timeSpent ||
+        reportData?.timeTaken ||
+        reportData?.timeSpent ||
+        overallData?.timeTaken ||
+        '';
     // Format time taken (e.g., "01m 15s" or "1h 30m")
     const formatTimeTaken = (timeStr: string | number | undefined): string => {
         if (!timeStr) return '00m 00s';
@@ -345,19 +357,19 @@ const StemAssessmentReportScreen: React.FC = () => {
     // Correct answers - format as "X/Y" - check multiple possible fields
     // finalData.correctAnswers might already be in "0/7" format
     let correctAnswersDisplay = finalData?.correctAnswers || '';
-    
+
     if (!correctAnswersDisplay || typeof correctAnswersDisplay !== 'string') {
         // If not in format, extract and format it
-        const correctAnswers = overallData?.correctQuestions || 
-                              overallData?.correctAnswers ||
-                              finalData?.correctQuestions ||
-                              finalData?.rawScore ||
-                              scoredMarks;
-        const totalQuestions = overallData?.totalQuestions || 
-                              overallData?.totalQuestionsCount ||
-                              finalData?.totalQuestions ||
-                              totalMarks || 
-                              0;
+        const correctAnswers = overallData?.correctQuestions ||
+            overallData?.correctAnswers ||
+            finalData?.correctQuestions ||
+            finalData?.rawScore ||
+            scoredMarks;
+        const totalQuestions = overallData?.totalQuestions ||
+            overallData?.totalQuestionsCount ||
+            finalData?.totalQuestions ||
+            totalMarks ||
+            0;
         correctAnswersDisplay = totalQuestions > 0 ? `${correctAnswers}/${totalQuestions}` : '0/0';
     }
     // Ensure correctAnswersDisplay is always a string
@@ -366,47 +378,47 @@ const StemAssessmentReportScreen: React.FC = () => {
     }
 
     // Reattempt days from API (default to 60 days)
-    const reattemptDays = finalData?.reattemptDays || 
-                         finalData?.retryAfterDays ||
-                         reportData?.reattemptDays || 
-                         reportData?.retryAfterDays ||
-                         60;
+    const reattemptDays = finalData?.reattemptDays ||
+        finalData?.retryAfterDays ||
+        reportData?.reattemptDays ||
+        reportData?.retryAfterDays ||
+        60;
     const reattemptDaysDisplay = `${reattemptDays} Days`;
 
     // Minimum score required (from API or default 50%)
-    const minimumScore = finalData?.minimumScore || 
-                        finalData?.passingScore ||
-                        reportData?.minimumScore || 
-                        reportData?.passingScore ||
-                        50;
+    const minimumScore = finalData?.minimumScore ||
+        finalData?.passingScore ||
+        reportData?.minimumScore ||
+        reportData?.passingScore ||
+        50;
 
     // Build table data from sectionDetails
     // API response structure: questions.sectionDetails = { "Section 1": { pass: true, scoredMarks: 2, totalMarks: 4, ... } }
     // sectionDetails can be an object (key-value pairs) or an array
     let tableData: Array<{ testPart: string; result: 'Pass' | 'Fail'; score: string }> = [];
-    
+
     console.log('[StemAssessmentReportScreen] ===== BUILDING TABLE DATA =====');
     console.log('[StemAssessmentReportScreen] sectionDetailsRaw type:', typeof sectionDetailsRaw);
     console.log('[StemAssessmentReportScreen] sectionDetailsRaw is array?', Array.isArray(sectionDetailsRaw));
     console.log('[StemAssessmentReportScreen] sectionDetailsRaw keys:', sectionDetailsRaw && typeof sectionDetailsRaw === 'object' ? Object.keys(sectionDetailsRaw) : 'N/A');
     console.log('[StemAssessmentReportScreen] sectionDetailsRaw value:', JSON.stringify(sectionDetailsRaw, null, 2));
-    
+
     if (sectionDetailsRaw && typeof sectionDetailsRaw === 'object') {
         // Check if it's an array
         if (Array.isArray(sectionDetailsRaw)) {
             console.log('[StemAssessmentReportScreen] Processing sectionDetails as array, length:', sectionDetailsRaw.length);
             tableData = sectionDetailsRaw.map((section: any, index: number) => {
                 const sectionName = section?.sectionName || section?.name || section?.section || `Section ${index + 1}`;
-                const isSectionPass = section?.passed === true || 
-                                     section?.result === 'Pass' || 
-                                     section?.pass === true ||
-                                     (section?.quizStatus === 'Pass');
+                const isSectionPass = section?.passed === true ||
+                    section?.result === 'Pass' ||
+                    section?.pass === true ||
+                    (section?.quizStatus === 'Pass');
                 const result: 'Pass' | 'Fail' = isSectionPass ? 'Pass' : 'Fail';
                 const scoredMarks = section?.scoredMarks || section?.marksScored || 0;
                 const totalMarks = section?.totalMarks || section?.maxMarks || 0;
-                
+
                 console.log(`[StemAssessmentReportScreen] Section ${index}:`, { sectionName, result, scoredMarks, totalMarks });
-                
+
                 return {
                     testPart: sectionName,
                     result: result,
@@ -418,24 +430,24 @@ const StemAssessmentReportScreen: React.FC = () => {
             console.log('[StemAssessmentReportScreen] Processing sectionDetails as object');
             const entries = Object.entries(sectionDetailsRaw);
             console.log('[StemAssessmentReportScreen] Number of sections:', entries.length);
-            
+
             tableData = entries.map(([sectionKey, section]: [string, any], index: number) => {
                 // Use the key as section name, or section name from the object
                 const sectionName = section?.sectionName || section?.name || sectionKey || `Section ${index + 1}`;
-                
+
                 // Determine Pass/Fail - check multiple possible fields
-                const isSectionPass = section?.pass === true || 
-                                     section?.passed === true ||
-                                     section?.result === 'Pass' ||
-                                     section?.result === 'pass' ||
-                                     (section?.quizStatus === 'Pass') ||
-                                     (section?.quizStatus === 'pass');
+                const isSectionPass = section?.pass === true ||
+                    section?.passed === true ||
+                    section?.result === 'Pass' ||
+                    section?.result === 'pass' ||
+                    (section?.quizStatus === 'Pass') ||
+                    (section?.quizStatus === 'pass');
                 const result: 'Pass' | 'Fail' = isSectionPass ? 'Pass' : 'Fail';
-                
+
                 // Extract scoredMarks and totalMarks - check multiple possible fields
                 const scoredMarks = section?.scoredMarks || section?.marksScored || section?.correctQuestions || 0;
                 const totalMarks = section?.totalMarks || section?.maxMarks || section?.totalQuestions || 0;
-                
+
                 console.log(`[StemAssessmentReportScreen] Section "${sectionKey}":`, {
                     sectionName,
                     result,
@@ -445,7 +457,7 @@ const StemAssessmentReportScreen: React.FC = () => {
                     passed: section?.passed,
                     sectionData: JSON.stringify(section, null, 2)
                 });
-                
+
                 return {
                     testPart: sectionName,
                     result: result,
@@ -456,12 +468,12 @@ const StemAssessmentReportScreen: React.FC = () => {
     } else {
         console.warn('[StemAssessmentReportScreen] sectionDetailsRaw is not an object or is null/undefined');
     }
-    
+
     console.log('[StemAssessmentReportScreen] ===== TABLE DATA BUILT =====');
     console.log('[StemAssessmentReportScreen] Table data length:', tableData.length);
     console.log('[StemAssessmentReportScreen] Table data:', JSON.stringify(tableData, null, 2));
     console.log('[StemAssessmentReportScreen] ============================');
-    
+
     // Final rendering verification
     console.log('[StemAssessmentReportScreen] ===== RENDERING VERIFICATION =====');
     console.log('[StemAssessmentReportScreen] isPass:', isPass);
@@ -488,6 +500,8 @@ const StemAssessmentReportScreen: React.FC = () => {
         navigation.navigate('Profile');
     };
 
+    // ... existing imports
+
     // Show loading state
     if (loading) {
         return (
@@ -498,8 +512,7 @@ const StemAssessmentReportScreen: React.FC = () => {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    <CardSkeleton />
-                    <ListSkeleton count={2} />
+                    <StemAssessmentReportSkeleton />
                 </ScrollView>
             </SafeAreaView>
         );
@@ -522,7 +535,7 @@ const StemAssessmentReportScreen: React.FC = () => {
             </SafeAreaView>
         );
     }
-    
+
     // Show error if no report data after loading completes (and no error was set)
     if (!loading && !reportData && !error) {
         return (
@@ -542,7 +555,13 @@ const StemAssessmentReportScreen: React.FC = () => {
 
     // Render main report screen (with or without data - will show loading if data is being fetched)
     console.log('[StemAssessmentReportScreen] Rendering report screen - loading:', loading, 'hasData:', !!reportData, 'error:', error);
-    
+
+    // Quiz Title - use API data or fallback
+    const reportTitle = finalData?.quizTitle ||
+        reportData?.quizTitle ||
+        reportData?.title ||
+        'Assessment Report';
+
     // If assessment is failed, show report screen with blue card and table (matching Figma design)
     if (!isPass && !loading && reportData) {
         return (
@@ -551,7 +570,7 @@ const StemAssessmentReportScreen: React.FC = () => {
                 <Header onProfilePress={handleProfilePress} onLogoPress={() => navigation.navigate('Home')} />
 
                 {/* Breadcrumb Bar */}
-                <BreadcrumbBar items={['STEM Assessment Report']} />
+                <BreadcrumbBar items={[reportTitle]} />
 
                 <ScrollView
                     contentContainerStyle={styles.scrollContent}
@@ -568,7 +587,7 @@ const StemAssessmentReportScreen: React.FC = () => {
                         <View style={styles.contentSection}>
                             {/* Title and Message */}
                             <View style={styles.titleSection}>
-                                <Text style={styles.title}>STEM Assessment Report</Text>
+                                <Text style={styles.title}>{reportTitle}</Text>
                                 <Text style={styles.message}>
                                     {message}
                                 </Text>
@@ -632,7 +651,7 @@ const StemAssessmentReportScreen: React.FC = () => {
             </SafeAreaView>
         );
     }
-    
+
     // If assessment is passed, show success screen matching Figma design
     // BUT also show the table below the blue card (as per Figma design)
     if (isPass && !loading && reportData) {
@@ -723,7 +742,7 @@ const StemAssessmentReportScreen: React.FC = () => {
             </SafeAreaView>
         );
     }
-    
+
     // Render regular report screen for failed assessments or when data is not ready
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -777,7 +796,7 @@ const StemAssessmentReportScreen: React.FC = () => {
                                 <Text style={styles.scoreText}>{finalScoreDisplay}</Text>
                             </View>
                         </View>
-                        
+
                         {/* Failure Reason (if present and failed) */}
                         {!isPass && failReason && (
                             <View style={styles.failReasonContainer}>
