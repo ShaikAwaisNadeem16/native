@@ -11,7 +11,9 @@ import {
 } from '../../styles/theme';
 
 // Import assets
-import eyeIcon from '../../../assets/quill_eye.png';
+// Import assets
+import EyeIcon from '../common/EyeIcon';
+// import EyeOffIcon from '../common/EyeOffIcon';
 
 interface PasswordFieldProps {
     value: string;
@@ -116,11 +118,11 @@ const PasswordField: React.FC<PasswordFieldProps> = ({
                     style={styles.eyeIconContainer}
                     onPress={() => setIsPasswordVisible(!isPasswordVisible)}
                 >
-                    <Image
-                        source={eyeIcon}
-                        style={styles.eyeIcon}
-                        resizeMode="contain"
-                    />
+                    {isPasswordVisible ? (
+                        <EyeIcon size={24} color={colors.textGrey} />
+                    ) : (
+                        <EyeIcon size={24} color={colors.textGrey} />
+                    )}
                 </TouchableOpacity>
             </View>
             {error && <Text style={styles.errorText}>{error}</Text>}
@@ -155,10 +157,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    eyeIcon: {
-        width: 24,
-        height: 24,
-    },
+
     errorText: {
         ...inputBaseStyles.errorText,
     },

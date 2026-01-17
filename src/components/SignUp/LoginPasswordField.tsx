@@ -11,7 +11,9 @@ import {
 } from '../../styles/theme';
 
 // Import assets
-import eyeIcon from '../../../assets/quill_eye.png';
+
+import EyeIcon from '../common/EyeIcon';
+// import EyeOffIcon from '../common/EyeOffIcon';
 
 interface LoginPasswordFieldProps {
     value: string;
@@ -111,11 +113,11 @@ const LoginPasswordField: React.FC<LoginPasswordFieldProps> = ({
                     style={styles.eyeIconContainer}
                     onPress={() => setIsPasswordVisible(!isPasswordVisible)}
                 >
-                    <Image
-                        source={eyeIcon}
-                        style={styles.eyeIcon}
-                        resizeMode="contain"
-                    />
+                    {isPasswordVisible ? (
+                        <EyeIcon size={24} color={colors.textGrey} />
+                    ) : (
+                        <EyeIcon size={24} color={colors.textGrey} />
+                    )}
                 </TouchableOpacity>
             </View>
             {onForgotPassword && (
@@ -156,10 +158,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    eyeIcon: {
-        width: 24,
-        height: 24,
-    },
+
     forgotPasswordContainer: {
         alignSelf: 'flex-end',
     },
