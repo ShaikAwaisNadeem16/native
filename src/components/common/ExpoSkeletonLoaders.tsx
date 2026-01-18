@@ -171,7 +171,6 @@ export const CourseCardSkeleton: React.FC = () => (
             </View>
             <View style={styles.courseButtonsRow}>
                 <View style={styles.primaryButtonSkeleton} />
-                <View style={styles.secondaryButtonSkeleton} />
             </View>
         </View>
     </BaseSkeleton>

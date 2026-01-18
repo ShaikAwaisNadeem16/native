@@ -747,12 +747,13 @@ const HomeScreen: React.FC = () => {
                     rawCourseId: course?.raw?.courseId,
                     rawCoursesCourseId: course?.raw?.Courses?.courseId,
                 });
-                // Navigate to LearningPath screen which will:
-                // 1. Fetch course-view API with this courseId
-                // 2. Display modules and lessons
-                // 3. When "Start Learning" is clicked, navigate to first unlocked lesson
-                // 4. If lesson name includes "different players", navigate to ReadDifferentPlayers
-                navigation.navigate('LearningPath', { courseId: courseIdString });
+                // Navigate to CourseDetails screen (Different Players section) instead of LearningPath
+                // This ensures "Start Learning" goes directly to the player/content
+                navigation.navigate('CourseDetails', {
+                    courseId: 'automotive-awareness', // Using fixed ID to match handleCourseDetails, or could use courseIdString
+                    courseTitle: 'Different Players In The Automotive Industry',
+                    parentCourseId: courseIdString, // Pass ID for fetching course data
+                });
             } else {
                 console.error('[HomeScreen] ===== NO VALID COURSE ID FOUND =====');
                 console.error('[HomeScreen] Course object:', JSON.stringify(course, null, 2));
@@ -1038,7 +1039,8 @@ const HomeScreen: React.FC = () => {
                                 {activeCourses.map((course) => {
                                     // Check if this is an assessment (case-insensitive)
                                     const contentTypeUpper = (course.contentType || '').toUpperCase();
-                                    const isAssessment = contentTypeUpper.includes('ASSESSMENT') || contentTypeUpper.includes('TEST');
+                                    const isAssessment = (contentTypeUpper.includes('ASSESSMENT') || contentTypeUpper.includes('TEST')) &&
+                                        !course.title?.toLowerCase().includes('automotive'); // Exempt Automotive course from being treated as assessment
 
                                     // Check if this is a survey FIRST (before assessment check)
                                     const isSurvey = course.title?.toLowerCase().includes('survey') ||
@@ -1249,8 +1251,6 @@ const HomeScreen: React.FC = () => {
                                                 console.log('[HomeScreen] Raw courseId:', course?.raw?.courseId);
                                                 handleOpenMoodleUrl(course.moodleUrl, course);
                                             }}
-                                            secondaryButtonLabel="Course Details"
-                                            onSecondaryButtonPress={() => handleCourseDetails(course.title)}
                                         />
                                     );
                                 })}
