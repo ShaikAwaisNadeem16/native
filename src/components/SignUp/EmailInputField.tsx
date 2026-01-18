@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, TextInput, Text, StyleSheet, Animated } from 'react-native';
 import { Check } from 'lucide-react-native';
+import GreenTick from '../common/GreenTick';
 import {
     colors,
     typography,
@@ -106,7 +107,7 @@ const EmailInputField: React.FC<EmailInputFieldProps> = ({
                     />
                     {showCheckmark && value.length > 0 && (
                         <View style={styles.checkmarkContainer}>
-                            <Check size={24} color="#27AE60" />
+                            <GreenTick size={24} />
                         </View>
                     )}
                 </View>

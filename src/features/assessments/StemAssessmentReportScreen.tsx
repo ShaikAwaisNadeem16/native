@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Star, Flag, Check, X, BarChart2, Target, Clock, Lock } from 'lucide-react-native';
+import { Star, Flag, BarChart2, Target, Clock, Lock } from 'lucide-react-native';
 import { colors, typography, borderRadius } from '../../styles/theme';
 import Header from '../home/components/Header';
 import BreadcrumbBar from './components/BreadcrumbBar';
@@ -18,6 +18,8 @@ import TrophySvg from '../../../assets/trophy.svg';
 import ErrorRocketSvg from '../../../assets/Error Rocket Destroyed.svg';
 import { CardSkeleton, ListSkeleton } from '../../components/common/SkeletonLoaders';
 import StemAssessmentReportSkeleton from './components/StemAssessmentReportSkeleton';
+import GreenTick from '../../components/common/GreenTick';
+import WrongTick from '../../components/common/WrongTick';
 
 // Icons removed - will be added later
 
@@ -567,7 +569,7 @@ const StemAssessmentReportScreen: React.FC = () => {
                                     <Text style={styles.statLabel}>FINAL RESULT</Text>
                                     <View style={styles.resultContainer}>
                                         <View style={styles.resultIconContainer}>
-                                            <X size={24} color={colors.error || '#EB5757'} />
+                                            <WrongTick size={24} />
                                         </View>
                                         <Text style={styles.resultText}>Fail</Text>
                                     </View>
@@ -658,7 +660,7 @@ const StemAssessmentReportScreen: React.FC = () => {
                                     <Text style={styles.statLabel}>FINAL RESULT</Text>
                                     <View style={styles.resultContainer}>
                                         <View style={styles.resultIconContainer}>
-                                            <Check size={24} color={colors.successGreen || '#27AE60'} />
+                                            <GreenTick size={24} />
                                         </View>
                                         <Text style={styles.resultText}>Pass</Text>
                                     </View>
@@ -748,9 +750,9 @@ const StemAssessmentReportScreen: React.FC = () => {
                                 <View style={styles.resultContainer}>
                                     <View style={styles.resultIconContainer}>
                                         {isPass ? (
-                                            <Check size={24} color={colors.successGreen || '#27AE60'} />
+                                            <GreenTick size={24} />
                                         ) : (
-                                            <X size={24} color={colors.error || '#EB5757'} />
+                                            <WrongTick size={24} />
                                         )}
                                     </View>
                                     <Text style={styles.resultText}>{finalResult}</Text>

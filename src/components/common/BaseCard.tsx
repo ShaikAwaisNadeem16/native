@@ -4,7 +4,7 @@ import { colors, typography, borderRadius, shadows } from '../../styles/theme';
 import PrimaryButton from '../SignUp/PrimaryButton';
 import SecondaryButton from '../SignUp/SecondaryButton';
 import AssessmentLogo from './AssessmentLogo';
-import CheckIconGreen from './CheckIconGreen';
+import GreenTick from './GreenTick';
 
 export type CardVariant = 'active' | 'completed' | 'locked' | 'comingSoon' | 'assessment';
 
@@ -120,7 +120,7 @@ const BaseCard: React.FC<BaseCardProps> = ({
                                 {useAssessmentLogo ? (
                                     <AssessmentLogo size={finalIconSize} />
                                 ) : useGreenCheck ? (
-                                    <CheckIconGreen size={finalIconSize} />
+                                    <GreenTick size={finalIconSize} />
                                 ) : iconUrl ? (
                                     typeof iconUrl === 'function' ? (
                                         (() => {
@@ -145,7 +145,7 @@ const BaseCard: React.FC<BaseCardProps> = ({
                                     {useAssessmentLogo ? (
                                         <AssessmentLogo size={finalIconSize} />
                                     ) : useGreenCheck ? (
-                                        <CheckIconGreen size={finalIconSize} />
+                                        <GreenTick size={finalIconSize} />
                                     ) : iconUrl ? (
                                         typeof iconUrl === 'function' ? (
                                             (() => {

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Platform } from 'r
 import { Upload, FileText, AlertCircle, Check, Download } from 'lucide-react-native';
 import { getDocumentAsync, DocumentPickerResult } from 'expo-document-picker';
 import { colors, typography, borderRadius } from '../../../styles/theme';
+import GreenTick from '../../../components/common/GreenTick';
 import PrimaryButton from '../../../components/SignUp/PrimaryButton';
 import SecondaryButton from '../../../components/SignUp/SecondaryButton';
 import SubmitAssignmentConfirmationModal from './SubmitAssignmentConfirmationModal';
@@ -277,7 +278,7 @@ const AssignmentSubmissionPanel: React.FC<AssignmentSubmissionPanelProps> = ({
                 <Text style={styles.sectionTitle}>
                     {isEditDraftState ? 'Your File' : 'Submit Your File*'}
                 </Text>
-                
+
                 {/* File Upload Area - Show Edit Draft state OR uploaded state */}
                 {isEditDraftState && selectedFile ? (
                     <View style={styles.editDraftFileContainer}>
@@ -315,7 +316,7 @@ const AssignmentSubmissionPanel: React.FC<AssignmentSubmissionPanelProps> = ({
                             <View style={styles.uploadedFileInputContainer}>
                                 <View style={styles.uploadedFileInput}>
                                     <View style={styles.uploadedFileIconContainer}>
-                                        <Check size={24} color={colors.successGreen || '#27AE60'} />
+                                        <GreenTick size={24} />
                                     </View>
                                     <View style={styles.uploadedFileTextContainer}>
                                         <Text style={styles.uploadedFileText} numberOfLines={1}>

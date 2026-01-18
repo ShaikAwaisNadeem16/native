@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Check, X } from 'lucide-react-native';
 import { colors, typography, borderRadius } from '../../../styles/theme';
+import GreenTick from '../../../components/common/GreenTick';
+import WrongTick from '../../../components/common/WrongTick';
 
 export type ExplanationType = 'correct' | 'incorrect';
 
@@ -34,9 +35,9 @@ const AnswerExplanationWidget: React.FC<AnswerExplanationWidgetProps> = ({
             <View style={styles.statusContainer}>
                 <View style={styles.iconContainer}>
                     {isCorrect ? (
-                        <Check size={32} color={colors.successGreen} />
+                        <GreenTick size={32} />
                     ) : (
-                        <X size={32} color={colors.error} />
+                        <WrongTick size={32} />
                     )}
                 </View>
                 <Text

@@ -7,7 +7,8 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { colors, typography, borderRadius } from '../../styles/theme';
 import PrimaryButton from '../../components/SignUp/PrimaryButton';
 import SecondaryButton from '../../components/SignUp/SecondaryButton';
-import { Target, CheckCircle2, Clock, Lock } from 'lucide-react-native';
+import { Target, Clock, Lock } from 'lucide-react-native';
+import GreenTick from '../../components/common/GreenTick';
 import AssessmentService from '../../api/assessment';
 import Storage from '../../utils/storage';
 import { CardSkeleton } from '../../components/common/SkeletonLoaders';
@@ -31,13 +32,13 @@ const AssessmentFailedScreen: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [reportData, setReportData] = useState<any>(null);
-    
+
     // Extract lessonId from route params to fetch data from API
     const lessonId = route.params?.lessonId || route.params?.moodleCourseId;
     const moodleCourseId = route.params?.moodleCourseId || route.params?.lessonId;
     const quizReportDataFromRoute = route.params?.quizReportData;
     const finalResult = route.params?.finalResult || 'Fail';
-    
+
     // Fallback data from route params (used if API fails or while loading)
     const {
         finalScore: fallbackFinalScore,
@@ -94,56 +95,56 @@ const AssessmentFailedScreen: React.FC = () => {
     const overallData = questionsData?.overall || questionsData?.summary || {};
 
     // Extract scoredMarks and totalMarks from API
-    const scoredMarks = overallData?.scoredMarks || 
-                       overallData?.marksScored || 
-                       finalData?.scoredMarks || 
-                       finalData?.marksScored ||
-                       reportData?.scoredMarks || 
-                       (fallbackCorrectAnswers ? parseInt(fallbackCorrectAnswers.split('/')[0]) : 0);
-    const totalMarks = overallData?.totalMarks || 
-                      finalData?.totalMarks || 
-                      reportData?.totalMarks || 
-                      (fallbackCorrectAnswers ? parseInt(fallbackCorrectAnswers.split('/')[1]) : 7);
-    
+    const scoredMarks = overallData?.scoredMarks ||
+        overallData?.marksScored ||
+        finalData?.scoredMarks ||
+        finalData?.marksScored ||
+        reportData?.scoredMarks ||
+        (fallbackCorrectAnswers ? parseInt(fallbackCorrectAnswers.split('/')[0]) : 0);
+    const totalMarks = overallData?.totalMarks ||
+        finalData?.totalMarks ||
+        reportData?.totalMarks ||
+        (fallbackCorrectAnswers ? parseInt(fallbackCorrectAnswers.split('/')[1]) : 7);
+
     // Format correct answers as "0/7" from API
     const correctAnswersDisplay = `${scoredMarks}/${totalMarks}`;
-    
+
     // Calculate final score percentage
     const finalScorePercentage = totalMarks > 0 ? Math.round((scoredMarks / totalMarks) * 100) : (fallbackFinalScore || 0);
     const finalScoreDisplay = `${finalScorePercentage}%`;
-    
+
     // Time taken from API
-    const timeTakenRaw = finalData?.timeTaken || 
-                        finalData?.timeSpent || 
-                        reportData?.timeTaken || 
-                        reportData?.timeSpent ||
-                        overallData?.timeTaken ||
-                        fallbackTimeTaken ||
-                        '';
+    const timeTakenRaw = finalData?.timeTaken ||
+        finalData?.timeSpent ||
+        reportData?.timeTaken ||
+        reportData?.timeSpent ||
+        overallData?.timeTaken ||
+        fallbackTimeTaken ||
+        '';
     const timeTakenDisplay = timeTakenRaw || '00m 00s';
-    
+
     // Fail message from API - use "you didn't clear it" message
-    const failMessage = finalData?.failReason || 
-                       finalData?.failureReason || 
-                       finalData?.message ||
-                       reportData?.failReason || 
-                       fallbackFailMessage ||
-                       '';
-    
+    const failMessage = finalData?.failReason ||
+        finalData?.failureReason ||
+        finalData?.message ||
+        reportData?.failReason ||
+        fallbackFailMessage ||
+        '';
+
     // Cooldown days from API
-    const cooldownDays = finalData?.cooldownDays || 
-                        finalData?.reattemptDays || 
-                        reportData?.cooldownDays ||
-                        fallbackCooldownDays || 
-                        60;
-    
+    const cooldownDays = finalData?.cooldownDays ||
+        finalData?.reattemptDays ||
+        reportData?.cooldownDays ||
+        fallbackCooldownDays ||
+        60;
+
     // Minimum score from API
-    const minimumScore = finalData?.minimumScore || 
-                        finalData?.passingScore || 
-                        reportData?.minimumScore ||
-                        fallbackMinimumScore || 
-                        50;
-    
+    const minimumScore = finalData?.minimumScore ||
+        finalData?.passingScore ||
+        reportData?.minimumScore ||
+        fallbackMinimumScore ||
+        50;
+
     // Build warning message - use API message or default
     const warningMessage = failMessage || `You didn't clear it. You must score at least ${minimumScore}% in-order to clear the test. You must now reattempt the STEM Assessment and the Engineering Systems Assessment in ${cooldownDays} days`;
 
@@ -156,7 +157,7 @@ const AssessmentFailedScreen: React.FC = () => {
         // Navigate to report screen with lessonId and quizReportData
         // If we have reportData from API, use it; otherwise use data from route
         const reportDataToPass = reportData || quizReportDataFromRoute;
-        
+
         navigation.navigate('StemAssessmentReport', {
             lessonId: lessonId || moodleCourseId,
             moodleCourseId: moodleCourseId || lessonId,
@@ -217,7 +218,7 @@ const AssessmentFailedScreen: React.FC = () => {
                             <Text style={styles.statLabel}>Correct Answers</Text>
                             <View style={styles.statValueContainer}>
                                 <View style={styles.iconWrapper}>
-                                    <CheckCircle2 size={24} color={colors.primaryBlue} />
+                                    <GreenTick size={24} />
                                 </View>
                                 <Text style={styles.statValue}>{correctAnswersDisplay}</Text>
                             </View>

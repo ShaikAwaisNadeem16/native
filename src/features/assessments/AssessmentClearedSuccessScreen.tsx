@@ -7,7 +7,8 @@ import { RootStackParamList } from '../../navigation/AppNavigator';
 import { colors, typography, borderRadius } from '../../styles/theme';
 import PrimaryButton from '../../components/SignUp/PrimaryButton';
 import SecondaryButton from '../../components/SignUp/SecondaryButton';
-import { Target, CheckCircle2, Clock, Trophy } from 'lucide-react-native';
+import { Target, Clock, Trophy } from 'lucide-react-native';
+import GreenTick from '../../components/common/GreenTick';
 
 type AssessmentClearedSuccessScreenNavigationProp = StackNavigationProp<RootStackParamList, 'AssessmentClearedSuccess'>;
 type AssessmentClearedSuccessScreenRouteProp = RouteProp<RootStackParamList, 'AssessmentClearedSuccess'>;
@@ -25,7 +26,7 @@ type AssessmentClearedSuccessScreenRouteProp = RouteProp<RootStackParamList, 'As
 const AssessmentClearedSuccessScreen: React.FC = () => {
     const navigation = useNavigation<AssessmentClearedSuccessScreenNavigationProp>();
     const route = useRoute<AssessmentClearedSuccessScreenRouteProp>();
-    
+
     // Extract data from route params (passed from assessment submission)
     const {
         lessonId,
@@ -105,7 +106,7 @@ const AssessmentClearedSuccessScreen: React.FC = () => {
                             <Text style={styles.statLabel}>Correct Answers</Text>
                             <View style={styles.statValueContainer}>
                                 <View style={styles.iconWrapper}>
-                                    <CheckCircle2 size={24} color={colors.primaryBlue} />
+                                    <GreenTick size={24} />
                                 </View>
                                 <Text style={styles.statValue}>{correctAnswersDisplay}</Text>
                             </View>
