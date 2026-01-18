@@ -7,7 +7,7 @@ interface CompletedJourneyBlockProps {
     checkIconUrl?: string | React.ComponentType<any>; // Can be URI string or SVG component (optional)
     subtitle: string;
     title: string;
-    buttonLabel: string;
+    buttonLabel?: string;
     onButtonPress?: () => void;
     showDivider?: boolean;
     useGreenCheck?: boolean; // If true, use the green check icon instead of checkIconUrl
@@ -56,13 +56,15 @@ const CompletedJourneyBlock: React.FC<CompletedJourneyBlockProps> = ({
                     </View>
                 </View>
             </View>
-            <TouchableOpacity
-                style={styles.button}
-                onPress={onButtonPress}
-                activeOpacity={0.7}
-            >
-                <Text style={styles.buttonText}>{buttonLabel}</Text>
-            </TouchableOpacity>
+            {buttonLabel && (
+                <TouchableOpacity
+                    style={styles.button}
+                    onPress={onButtonPress}
+                    activeOpacity={0.7}
+                >
+                    <Text style={styles.buttonText}>{buttonLabel}</Text>
+                </TouchableOpacity>
+            )}
             {showDivider && <View style={styles.divider} />}
         </View>
     );

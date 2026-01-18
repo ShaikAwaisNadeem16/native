@@ -623,11 +623,28 @@ const HomeScreen: React.FC = () => {
                     courseTitleLower.includes('cc automotive') ||
                     courseTitleLower.includes('automotive awareness'));
 
-            const buttonLabel = isAssessment
-                ? 'View Report'
-                : isAutomotiveAwarenessAssignment
-                    ? 'View Submission'
-                    : 'Rewatch Course';
+            // Determine button label
+            let buttonLabel: string | undefined;
+
+            const isSurvey = courseTitleLower.includes('survey') ||
+                contentTypeUpper.includes('SURVEY') ||
+                course.subTitle?.toLowerCase().includes('survey');
+
+            if (isSurvey) {
+                // Remove button for surveys as requested
+                buttonLabel = undefined;
+            } else if (isAssessment) {
+                // Force 'View Report' for assessments
+                buttonLabel = 'View Report';
+            } else if (isAssignment) {
+                // Force 'View Submission' for assignments
+                buttonLabel = 'View Submission';
+            } else if (isAutomotiveAwarenessAssignment) {
+                buttonLabel = 'View Submission';
+            } else {
+                // Fallback to API text or Rewatch Course
+                buttonLabel = course.buttonText || 'Rewatch Course';
+            }
 
             return {
                 checkIconUrl: '', // Icon wiring handled separately; keeps visuals unchanged for now
@@ -643,7 +660,7 @@ const HomeScreen: React.FC = () => {
                 buttonLabel,
                 onButtonPress: isAssessment
                     ? () => handleViewReport(course)
-                    : isAutomotiveAwarenessAssignment
+                    : (isAssignment || isAutomotiveAwarenessAssignment)
                         ? () => handleViewSubmission(course)
                         : handleRewatchCourse,
             };
@@ -962,9 +979,8 @@ const HomeScreen: React.FC = () => {
         console.warn('[HomeScreen] Relative URL not handled:', url, 'Course:', course?.title || 'Unknown');
     };
 
-    // Show skeleton loader while fetching initial data
-    // Use the simplified loading check to ensure we show skeleton until data is ready
-    if (loading) {
+    // Show skeleton loader while fetching initial data or if there's a critical error with no data
+    if (loading || (error && !profileData && !enrolledCourses)) {
         return (
             <SafeAreaView style={styles.container} edges={['top']}>
                 <Header onProfilePress={handleProfilePress} onLogoPress={() => navigation.navigate('Home')} />
@@ -975,19 +991,6 @@ const HomeScreen: React.FC = () => {
                 >
                     <HomeScreenSkeleton />
                 </ScrollView>
-            </SafeAreaView>
-        );
-    }
-
-    // Show error message if data fetching failed and we have no data at all
-    if (error && !profileData && !enrolledCourses) {
-        return (
-            <SafeAreaView style={styles.container} edges={['top']}>
-                <Header onProfilePress={handleProfilePress} onLogoPress={() => navigation.navigate('Home')} />
-                <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>Error: {error}</Text>
-                    <Text style={styles.errorSubtext}>Please try again later</Text>
-                </View>
             </SafeAreaView>
         );
     }
@@ -1071,6 +1074,7 @@ const HomeScreen: React.FC = () => {
                                                     subtitle="TEST"
                                                     title={course.title}
                                                     reattemptDays={reattemptDays}
+                                                    buttonLabel={course?.buttonText}
                                                     onViewReport={() => {
                                                         // Navigate to assessment report
                                                         if (moodleCourseId) {
@@ -1098,7 +1102,7 @@ const HomeScreen: React.FC = () => {
                                                 description={course.description || 'You need to clear the test by scoring at least 7/10 in-order to access the next activity in your journey'}
                                                 level={course.subTitle || 'Beginner'}
                                                 duration={course.duration || '3 hours'}
-                                                buttonLabel={isSurveyInProgress ? (course?.buttonText || "Resume Survey") : "Start Survey"}
+                                                buttonLabel={course?.buttonText || (isSurveyInProgress ? "Resume Survey" : "Start Survey")}
                                                 onButtonPress={() => {
                                                     if (moodleCourseId) {
                                                         console.log('[HomeScreen] Detected Survey, navigating to EngineeringAssessmentInstructions with lessonId:', moodleCourseId);
@@ -1146,6 +1150,7 @@ const HomeScreen: React.FC = () => {
                                                     subtitle="TEST"
                                                     title={course.title}
                                                     reattemptDays={reattemptDays}
+                                                    buttonLabel={course?.buttonText}
                                                     onViewReport={() => {
                                                         // Navigate to assessment report
                                                         if (moodleCourseId) {
@@ -1167,7 +1172,7 @@ const HomeScreen: React.FC = () => {
                                                 description={course.description || 'You need to clear the test by scoring at least 7/10 in-order to access the next activity in your journey'}
                                                 level={course.subTitle || 'Beginner'}
                                                 duration={course.duration || '3 hours'}
-                                                buttonLabel={isSurvey ? "Start Survey" : "Start Assessment"}
+                                                buttonLabel={course?.buttonText || (isSurvey ? "Start Survey" : "Start Assessment")}
                                                 onButtonPress={() => {
                                                     // Check if this is a Survey - navigate to instructions screen first
                                                     if (isSurvey) {
@@ -1280,6 +1285,7 @@ const HomeScreen: React.FC = () => {
                                                 subtitle="TEST"
                                                 title={course.title}
                                                 reattemptDays={reattemptDays}
+                                                buttonLabel={course?.buttonText}
                                                 onViewReport={() => {
                                                     // Navigate to assessment report
                                                     if (moodleCourseId) {
@@ -1422,6 +1428,7 @@ const HomeScreen: React.FC = () => {
                                                     subtitle="TEST"
                                                     title={courseTitle}
                                                     reattemptDays={reattemptDays}
+                                                    buttonLabel={course?.buttonText}
                                                     onViewReport={() => {
                                                         // Navigate to assessment report
                                                         if (moodleCourseId) {
@@ -1452,7 +1459,7 @@ const HomeScreen: React.FC = () => {
                                                 description={courseDescription || 'You need to clear the test by scoring at least 7/10 in-order to access the next activity in your journey'}
                                                 level={courseLevel}
                                                 duration={courseDuration}
-                                                buttonLabel={isSurvey ? "Start Survey" : "Start Assessment"}
+                                                buttonLabel={course?.buttonText || (isSurvey ? "Start Survey" : "Start Assessment")}
                                                 onButtonPress={() => {
                                                     // Check if this is a Survey - navigate to instructions screen first
                                                     if (isSurvey) {
@@ -1513,7 +1520,7 @@ const HomeScreen: React.FC = () => {
                                                 description={courseDescription || 'Complete this assignment to progress in your learning journey.'}
                                                 level={courseLevel}
                                                 duration={courseDuration}
-                                                buttonLabel={progressPercentage > 0 ? 'Resume Learning' : 'Start Assignment'}
+                                                buttonLabel={course?.buttonText || (progressPercentage > 0 ? 'Resume Learning' : 'Start Assignment')}
                                                 onButtonPress={() => handleRewatchCourse(course)}
                                                 onSecondaryButtonPress={() => handleCourseDetails(courseTitle)}
                                                 progressPercentage={isActive ? progressPercentage : undefined}

@@ -35,20 +35,20 @@ const CourseDetailsScreen: React.FC = () => {
 
     // Use course store
     const { courseData, loading: courseLoading, error: courseError, fetchCourseView } = useCourseStore();
-    
+
     // Fetch course data for hamburger menu if parentCourseId is available
     useEffect(() => {
         if (parentCourseId) {
             fetchCourseView(parentCourseId);
         }
     }, [parentCourseId, fetchCourseView]);
-    
+
     // Update menu sections when course data changes
     useEffect(() => {
         if (courseData) {
             const sections = transformCourseDataToMenuSections(courseData, lessonId || courseId);
             setCourseSections(sections);
-            
+
             const { title, subtitle } = getCourseMenuTitle(courseData);
             setMenuTitle(title);
             setMenuSubtitle(subtitle);
@@ -69,17 +69,17 @@ const CourseDetailsScreen: React.FC = () => {
 
     const handleMenuItemPress = (sectionId: string, itemId: string, status?: 'completed' | 'current' | 'locked') => {
         setIsMenuVisible(false);
-        
+
         // CRITICAL: Do not navigate to locked lessons
         if (status === 'locked') {
             Alert.alert('Locked Lesson', 'This lesson is locked and cannot be accessed yet.');
             return;
         }
-        
+
         const parts = itemId.split('-');
         if (parts.length >= 2) {
             const extractedLessonId = parts.slice(1).join('-');
-            
+
             // Find the lesson in course sections to get its type and status
             let lessonType: string | null = null;
             let lessonStatus: 'completed' | 'current' | 'locked' = 'locked';
@@ -91,13 +91,13 @@ const CourseDetailsScreen: React.FC = () => {
                     break;
                 }
             }
-            
+
             // CRITICAL: Do not navigate to locked lessons
             if (lessonStatus === 'locked') {
                 console.log('[CourseDetails] Lesson is locked, cannot navigate');
                 return;
             }
-            
+
             if (lessonType === 'video') {
                 navigation.navigate('CourseDetails', {
                     courseId: extractedLessonId,

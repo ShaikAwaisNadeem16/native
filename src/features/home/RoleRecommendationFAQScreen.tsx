@@ -37,10 +37,10 @@ const RoleRecommendationFAQScreen: React.FC = () => {
         try {
             setLoading(true);
             setError(null);
-            
+
             console.log('[RoleRecommendationFAQ] Fetching FAQs...');
             const response = await HomeService.getRoleRecommendationFAQs();
-            
+
             if (Array.isArray(response)) {
                 console.log('[RoleRecommendationFAQ] FAQs received:', response.length);
                 setFaqs(response);
@@ -96,7 +96,7 @@ const RoleRecommendationFAQScreen: React.FC = () => {
         return aIndex - bIndex;
     });
 
-    if (loading) {
+    if (loading || error) {
         return (
             <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
                 <Header
@@ -111,24 +111,6 @@ const RoleRecommendationFAQScreen: React.FC = () => {
         );
     }
 
-    if (error) {
-        return (
-            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                <Header
-                    onProfilePress={handleProfilePress}
-                    onLogoPress={handleLogoPress}
-                />
-                <BreadcrumbBar items={['Role Recommendation', 'FAQs']} />
-                <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error}</Text>
-                    <TouchableOpacity style={styles.retryButton} onPress={fetchFAQs}>
-                        <Text style={styles.retryButtonText}>Retry</Text>
-                    </TouchableOpacity>
-                </View>
-            </SafeAreaView>
-        );
-    }
-
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             <Header
@@ -136,7 +118,7 @@ const RoleRecommendationFAQScreen: React.FC = () => {
                 onLogoPress={handleLogoPress}
             />
             <BreadcrumbBar items={['Role Recommendation', 'FAQs']} />
-            
+
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}

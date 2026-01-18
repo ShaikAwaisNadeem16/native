@@ -74,7 +74,7 @@ const StemAssessmentInstructionsScreen: React.FC = () => {
                         responseData = response.quiz_data;
                         console.log('[StemAssessmentInstructions] Response wrapped in quiz_data, extracting...');
                     }
-                    
+
                     // Map the response to quizData format
                     const quizData: QuizData = {
                         shortName: responseData.shortName || responseData.short_name,
@@ -88,9 +88,9 @@ const StemAssessmentInstructionsScreen: React.FC = () => {
                         questions: responseData.questions,
                         html: responseData.html,
                     };
-                    
+
                     console.log('[StemAssessmentInstructions] Mapped QuizData:', JSON.stringify(quizData, null, 2));
-                    
+
                     setQuizData(quizData);
 
                     // Parse HTML to extract instructions
@@ -100,14 +100,14 @@ const StemAssessmentInstructionsScreen: React.FC = () => {
                         console.log('[StemAssessmentInstructions] Parsed aboutItems:', parsed.aboutItems?.length || 0);
                         console.log('[StemAssessmentInstructions] Parsed instructions:', parsed.instructions?.length || 0);
                         console.log('[StemAssessmentInstructions] Parsed procedureItems:', parsed.procedureItems?.length || 0);
-                        
+
                         setAboutItems(parsed.aboutItems || []);
                         setInstructions(parsed.instructions || []);
                         setProcedureItems(parsed.procedureItems || []);
                     } else {
                         console.log('[StemAssessmentInstructions] No HTML found');
                     }
-                    
+
                     console.log('========================================');
                 } else {
                     console.error('[StemAssessmentInstructions] ERROR: No data found in response');
@@ -120,7 +120,7 @@ const StemAssessmentInstructionsScreen: React.FC = () => {
                 console.error('[StemAssessmentInstructions] Error response:', err?.response?.data);
                 console.error('[StemAssessmentInstructions] Error status:', err?.response?.status);
                 console.error('========================================');
-                
+
                 setError(err?.message || 'Failed to load assessment instructions');
                 Alert.alert('Error', 'Failed to load assessment instructions. Please try again.');
             } finally {
@@ -175,7 +175,7 @@ const StemAssessmentInstructionsScreen: React.FC = () => {
             if (startQuizResponse?.questionData) {
                 console.log('[StemAssessmentInstructions] QuestionData exists');
                 console.log('[StemAssessmentInstructions] QuestionData keys (sections):', Object.keys(startQuizResponse.questionData));
-                
+
                 // Log question counts per section
                 Object.keys(startQuizResponse.questionData).forEach((section) => {
                     const questions = startQuizResponse.questionData[section];
@@ -203,7 +203,7 @@ const StemAssessmentInstructionsScreen: React.FC = () => {
             console.log('[StemAssessmentInstructions] - questionData exists:', !!startQuizResponse?.questionData);
             console.log('[StemAssessmentInstructions] - result exists:', !!startQuizResponse?.result);
             console.log('========================================');
-            
+
             navigation.navigate('SurveyAssessmentQuestions', {
                 lessonId,
                 moodleCourseId: lessonId,
@@ -218,7 +218,7 @@ const StemAssessmentInstructionsScreen: React.FC = () => {
             console.error('[StemAssessmentInstructions] Error response:', error?.response?.data);
             console.error('[StemAssessmentInstructions] Error status:', error?.response?.status);
             console.error('========================================');
-            
+
             Alert.alert('Error', 'Failed to start assessment. Please try again.');
         } finally {
             setStartingQuiz(false);
@@ -241,32 +241,16 @@ const StemAssessmentInstructionsScreen: React.FC = () => {
         console.log('Submit test pressed');
     };
 
-    if (loading) {
+    if (loading || error || !quizData) {
         return (
             <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                <Header 
-                    onProfilePress={handleProfilePress} 
-                    onLogoPress={() => navigation.navigate('Home')} 
+                <Header
+                    onProfilePress={handleProfilePress}
+                    onLogoPress={() => navigation.navigate('Home')}
                     useAssessmentLogo={true}
                 />
                 <BreadcrumbBar items={['Your Learning Journey', 'STEM Assessment']} />
                 <CardSkeleton />
-            </SafeAreaView>
-        );
-    }
-
-    if (error || !quizData) {
-        return (
-            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                <Header 
-                    onProfilePress={handleProfilePress} 
-                    onLogoPress={() => navigation.navigate('Home')} 
-                    useAssessmentLogo={true}
-                />
-                <BreadcrumbBar items={['Your Learning Journey', 'STEM Assessment']} />
-                <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error || 'Failed to load assessment'}</Text>
-                </View>
             </SafeAreaView>
         );
     }
@@ -298,13 +282,13 @@ const StemAssessmentInstructionsScreen: React.FC = () => {
 
     return (
         <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-            <Header 
-                onProfilePress={handleProfilePress} 
-                onLogoPress={() => navigation.navigate('Home')} 
+            <Header
+                onProfilePress={handleProfilePress}
+                onLogoPress={() => navigation.navigate('Home')}
                 useAssessmentLogo={true}
             />
             <BreadcrumbBar items={['Your Learning Journey', 'STEM Assessment']} />
-            
+
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}

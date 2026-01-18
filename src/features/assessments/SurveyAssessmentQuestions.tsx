@@ -741,20 +741,10 @@ const SurveyAssessmentQuestions: React.FC = () => {
         }
     };
 
-    if (loading) {
+    if (loading || error || questions.length === 0) {
         return (
             <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
                 <CardSkeleton />
-            </SafeAreaView>
-        );
-    }
-
-    if (error || questions.length === 0) {
-        return (
-            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error || 'No questions available'}</Text>
-                </View>
             </SafeAreaView>
         );
     }

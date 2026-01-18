@@ -502,8 +502,8 @@ const StemAssessmentReportScreen: React.FC = () => {
 
     // ... existing imports
 
-    // Show loading state
-    if (loading) {
+    // Show loading state or error state as skeleton (per user request)
+    if (loading || error || (!reportData && !loading)) {
         return (
             <SafeAreaView style={styles.container} edges={['top']}>
                 <Header onProfilePress={handleProfilePress} onLogoPress={() => navigation.navigate('Home')} />
@@ -514,41 +514,6 @@ const StemAssessmentReportScreen: React.FC = () => {
                 >
                     <StemAssessmentReportSkeleton />
                 </ScrollView>
-            </SafeAreaView>
-        );
-    }
-
-    // Always render the screen structure
-    // Show error state (only if there's an error and not loading)
-    if (error && !loading) {
-        return (
-            <SafeAreaView style={styles.container} edges={['top']}>
-                <Header onProfilePress={handleProfilePress} onLogoPress={() => navigation.navigate('Home')} />
-                <BreadcrumbBar items={['STEM Assessment Report']} />
-                <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error}</Text>
-                    <PrimaryButton
-                        label="Back To Homepage"
-                        onPress={handleBackToHomepage}
-                    />
-                </View>
-            </SafeAreaView>
-        );
-    }
-
-    // Show error if no report data after loading completes (and no error was set)
-    if (!loading && !reportData && !error) {
-        return (
-            <SafeAreaView style={styles.container} edges={['top']}>
-                <Header onProfilePress={handleProfilePress} onLogoPress={() => navigation.navigate('Home')} />
-                <BreadcrumbBar items={['STEM Assessment Report']} />
-                <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>No report data available. Please try again.</Text>
-                    <PrimaryButton
-                        label="Back To Homepage"
-                        onPress={handleBackToHomepage}
-                    />
-                </View>
             </SafeAreaView>
         );
     }

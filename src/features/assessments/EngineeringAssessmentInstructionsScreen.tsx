@@ -419,7 +419,7 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
         }
     };
 
-    if (loading) {
+    if (loading || error || !quizData) {
         return (
             <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
                 <ScrollView
@@ -428,16 +428,6 @@ const EngineeringAssessmentInstructionsScreen: React.FC = () => {
                 >
                     <CardSkeleton />
                 </ScrollView>
-            </SafeAreaView>
-        );
-    }
-
-    if (error || !quizData) {
-        return (
-            <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-                <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error || 'Failed to load assessment'}</Text>
-                </View>
             </SafeAreaView>
         );
     }

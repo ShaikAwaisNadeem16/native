@@ -8,7 +8,7 @@ import Header from './components/Header';
 import BreadcrumbBar from '../assessments/components/BreadcrumbBar';
 import { HomeService } from '../../api/home';
 import { RootStackParamList } from '../../navigation/AppNavigator';
-import { CardSkeleton } from '../../components/common/SkeletonLoaders';
+import { RoleRecommendationSkeleton } from './role-skeleton/RoleRecommendationSkeleton';
 import StrengthsToggle, { ToggleOption } from './components/role-recommendation/StrengthsToggle';
 import RadarChart from './components/role-recommendation/RadarChart';
 import StrengthDescription from './components/role-recommendation/StrengthDescription';
@@ -67,13 +67,13 @@ const RoleRecommendationScreen: React.FC = () => {
         try {
             setLoading(true);
             setError(null);
-            
+
             console.log('[RoleRecommendation] Fetching role recommendation data...');
             const response = await HomeService.getRoleRecommendationFAQs();
-            
+
             // Parse response - API may return FAQs directly or wrapped in an object
             let parsedData: RoleRecommendationData = {};
-            
+
             if (Array.isArray(response)) {
                 // If response is array, it's FAQs only
                 parsedData = { faqs: response };
@@ -85,7 +85,7 @@ const RoleRecommendationScreen: React.FC = () => {
                     faqs: response.faqs || response.data || (Array.isArray(response) ? response : []),
                 };
             }
-            
+
             console.log('[RoleRecommendation] Data received:', JSON.stringify(parsedData, null, 2));
             setData(parsedData);
         } catch (err: any) {
@@ -123,7 +123,7 @@ const RoleRecommendationScreen: React.FC = () => {
     };
 
     // Get current strengths based on toggle
-    const currentStrengths = selectedToggle === 'Skills' 
+    const currentStrengths = selectedToggle === 'Skills'
         ? (data.strengths?.skills || [])
         : (data.strengths?.knowledge || []);
 
@@ -165,7 +165,7 @@ const RoleRecommendationScreen: React.FC = () => {
     const displayRoles = (data.roles && data.roles.length > 0) ? data.roles : defaultRoles;
     const displayFAQs = data.faqs || [];
 
-    if (loading) {
+    if (loading || error) {
         return (
             <SafeAreaView style={styles.container} edges={['top']}>
                 <Header
@@ -173,24 +173,13 @@ const RoleRecommendationScreen: React.FC = () => {
                     onLogoPress={handleLogoPress}
                 />
                 <BreadcrumbBar items={['Role Recommendation']} />
-                <View style={styles.content}>
-                    <CardSkeleton />
-                </View>
-            </SafeAreaView>
-        );
-    }
-
-    if (error) {
-        return (
-            <SafeAreaView style={styles.container} edges={['top']}>
-                <Header
-                    onProfilePress={handleProfilePress}
-                    onLogoPress={handleLogoPress}
-                />
-                <BreadcrumbBar items={['Role Recommendation']} />
-                <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error}</Text>
-                </View>
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    showsVerticalScrollIndicator={false}
+                    style={styles.scrollView}
+                >
+                    <RoleRecommendationSkeleton />
+                </ScrollView>
             </SafeAreaView>
         );
     }
@@ -202,7 +191,7 @@ const RoleRecommendationScreen: React.FC = () => {
                 onLogoPress={handleLogoPress}
             />
             <BreadcrumbBar items={['Role Recommendation']} />
-            
+
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
@@ -218,7 +207,7 @@ const RoleRecommendationScreen: React.FC = () => {
                             onToggle={setSelectedToggle}
                         />
                     </View>
-                    
+
                     {/* Chart and Descriptions Section */}
                     <View style={styles.chartDescriptionsSection}>
                         {/* Radar Chart */}
@@ -389,17 +378,6 @@ const styles = StyleSheet.create({
         flexDirection: 'column',
         gap: 0, // No gap, dividers separate items
         width: '100%',
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 32,
-    },
-    errorText: {
-        ...typography.p4,
-        color: colors.error,
-        textAlign: 'center',
     },
 });
 

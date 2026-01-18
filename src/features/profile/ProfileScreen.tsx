@@ -37,7 +37,7 @@ const ProfileScreen: React.FC = () => {
         console.log('[ProfileScreen] Profile details updated:', profileDetails ? 'Data exists' : 'No data');
         console.log('[ProfileScreen] Profile percentage:', profilePercentage);
         console.log('[ProfileScreen] Loading state:', loading);
-        
+
         // Log detailed data for debugging
         const hasProfileDetails = profileDetails && Object.keys(profileDetails).length > 0;
         const userData = hasProfileDetails ? profileDetails : (profileData || {});
@@ -61,7 +61,7 @@ const ProfileScreen: React.FC = () => {
         ...(profileData || {}),
         ...(profileDetails && Object.keys(profileDetails).length > 0 ? profileDetails : {})
     };
-    
+
     // Helper function to format date from "YYYY-MM-DD" to "DD MMM YYYY"
     const formatDateOfBirth = (dateStr: string | null | undefined): string => {
         if (!dateStr) return '';
@@ -71,14 +71,14 @@ const ProfileScreen: React.FC = () => {
                 const year = parts[0];
                 const month = parseInt(parts[1]) - 1;
                 const day = parts[2];
-                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                 return `${day} ${monthNames[month] || ''} ${year}`;
             } else if (parts.length === 2) {
                 const year = parts[0];
                 const month = parseInt(parts[1]) - 1;
-                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                 return `${monthNames[month] || ''} ${year}`;
             }
             return dateStr;
@@ -86,7 +86,7 @@ const ProfileScreen: React.FC = () => {
             return dateStr;
         }
     };
-    
+
     // Personal Details - Safe extraction with null checks
     const firstName = userData?.firstName || userData?.first_name || '';
     const lastName = userData?.lastName || userData.last_name || '';
@@ -112,7 +112,7 @@ const ProfileScreen: React.FC = () => {
     // Extract percentage from store - API returns: personalPercentage, educationPercentage, workPercentage, skillPercentage, certificatePercentage, overallPercentage
     // Only use API data, no hardcoded fallback
     const percentageValue = profilePercentage?.overallPercentage ?? profilePercentage?.percentage ?? null;
-    
+
     // Debug: Log percentage for verification
     useEffect(() => {
         if (percentageValue !== null && percentageValue !== undefined) {
@@ -128,8 +128,8 @@ const ProfileScreen: React.FC = () => {
     const certificatePercentage = profilePercentage?.certificatePercentage || 0;
 
     // Languages data from store - API can return null, so handle it properly
-    const languages = Array.isArray(userData?.languages) && userData.languages.length > 0 
-        ? userData.languages 
+    const languages = Array.isArray(userData?.languages) && userData.languages.length > 0
+        ? userData.languages
         : [];
 
     // Skills data from store or defaults
@@ -162,8 +162,8 @@ const ProfileScreen: React.FC = () => {
     const formatDate = (dateStr: string): string => {
         if (!dateStr || dateStr.length !== 7) return '';
         const [year, month] = dateStr.split('-');
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const monthName = monthNames[parseInt(month) - 1] || '';
         return `${monthName} ${year}`;
     };
@@ -332,7 +332,7 @@ const ProfileScreen: React.FC = () => {
                                     const formattedEndDate = edu?.collegeEndDate ? formatDate(edu.collegeEndDate) : '';
                                     const collegeName = edu?.collegeName || '';
                                     const subtitle = [collegeName, formattedEndDate].filter(Boolean).join(' - ');
-                                    
+
                                     return (
                                         <EducationCard
                                             key={edu?.id || `edu-${index}`}
@@ -448,8 +448,8 @@ const ProfileScreen: React.FC = () => {
                                             if (parts.length >= 2) {
                                                 const year = parts[0];
                                                 const month = parts[1];
-                                                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                                                                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                                const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                                                 const monthIndex = parseInt(month) - 1;
                                                 formattedDate = `${monthNames[monthIndex >= 0 && monthIndex < 12 ? monthIndex : 0] || ''} ${year}`;
                                             } else {
@@ -459,7 +459,7 @@ const ProfileScreen: React.FC = () => {
                                             formattedDate = dateStr;
                                         }
                                     }
-                                    
+
                                     return (
                                         <CertificateCard
                                             key={cert?.id || `cert-${index}`}

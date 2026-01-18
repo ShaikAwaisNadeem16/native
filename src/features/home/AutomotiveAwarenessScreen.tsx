@@ -59,7 +59,7 @@ const AutomotiveAwarenessScreen: React.FC = () => {
             console.log('[AutomotiveAwarenessScreen] Course name:', courseData.name);
             console.log('[AutomotiveAwarenessScreen] Course summary:', courseData.summary);
             console.log('[AutomotiveAwarenessScreen] Number of modules:', courseData.module.length);
-            
+
             // Expand all modules (both locked and unlocked)
             const allIndices = new Set<number>();
             courseData.module.forEach((module, index) => {
@@ -97,9 +97,9 @@ const AutomotiveAwarenessScreen: React.FC = () => {
     const { title, subtitle } = courseData
         ? getCourseMenuTitle(courseData)
         : {
-              title: 'Awareness On Automotive Industry',
-              subtitle: 'Automotive Industry Value Chain',
-          };
+            title: 'Awareness On Automotive Industry',
+            subtitle: 'Automotive Industry Value Chain',
+        };
 
     const handleProfilePress = () => {
         navigation.navigate('Profile');
@@ -184,14 +184,14 @@ const AutomotiveAwarenessScreen: React.FC = () => {
 
     const handleModulePress = (moduleIndex: number) => {
         if (!courseData) return;
-        
+
         // Check if module is locked from API data
         const module = courseData.module[moduleIndex];
         if (module?.isLocked) {
             console.log('[AutomotiveAwarenessScreen] Module is locked, cannot expand');
             return;
         }
-        
+
         // Toggle module expansion
         setExpandedModuleIndices(prev => {
             const newSet = new Set(prev);
@@ -203,16 +203,16 @@ const AutomotiveAwarenessScreen: React.FC = () => {
             return newSet;
         });
     };
-    
+
     const handleLessonPress = (lessonId: string, isLocked: boolean) => {
         if (!courseData || !courseId) return;
-        
+
         // Check if lesson is locked from API data
         if (isLocked) {
             Alert.alert('Locked Lesson', 'This lesson is locked and cannot be accessed yet.');
             return;
         }
-        
+
         // Find the lesson in course data
         let targetLesson: any = null;
         for (const module of courseData.module) {
@@ -222,7 +222,7 @@ const AutomotiveAwarenessScreen: React.FC = () => {
                 break;
             }
         }
-        
+
         if (targetLesson) {
             // Navigate based on lesson type
             if (targetLesson.lessonType === 'read' || targetLesson.type === 'read') {
@@ -288,8 +288,8 @@ const AutomotiveAwarenessScreen: React.FC = () => {
         }
     };
 
-    // Show loading state
-    if (loading && courseId) {
+    // Show loading state or error state (skeleton)
+    if ((loading || error) && courseId) {
         return (
             <SafeAreaView style={styles.container} edges={['top']}>
                 <Header
@@ -299,22 +299,6 @@ const AutomotiveAwarenessScreen: React.FC = () => {
                 <BreadcrumbBar items={['Your Learning Journey', 'Automotive Awareness']} />
                 <View style={styles.content}>
                     <CardSkeleton />
-                </View>
-            </SafeAreaView>
-        );
-    }
-
-    // Show error state
-    if (error && courseId) {
-        return (
-            <SafeAreaView style={styles.container} edges={['top']}>
-                <Header
-                    onProfilePress={handleProfilePress}
-                    onLogoPress={handleLogoPress}
-                />
-                <BreadcrumbBar items={['Your Learning Journey', 'Automotive Awareness']} />
-                <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>{error}</Text>
                 </View>
             </SafeAreaView>
         );
@@ -330,7 +314,7 @@ const AutomotiveAwarenessScreen: React.FC = () => {
                         onLogoPress={handleLogoPress}
                     />
                     <BreadcrumbBar items={['Your Learning Journey', courseData.name || 'Automotive Awareness']} />
-                    
+
                     <ScrollView
                         style={styles.scrollView}
                         contentContainerStyle={styles.scrollContent}

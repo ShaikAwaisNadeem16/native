@@ -12,7 +12,7 @@ interface CompletedActivitiesCardProps {
         useGreenCheck?: boolean;
         subtitle: string;
         title: string;
-        buttonLabel: string;
+        buttonLabel?: string;
         onButtonPress?: () => void;
     }>;
 }

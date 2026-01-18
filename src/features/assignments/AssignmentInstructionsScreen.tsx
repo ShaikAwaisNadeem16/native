@@ -87,7 +87,7 @@ const AssignmentInstructionsScreen: React.FC = () => {
         // IMPORTANT: Use moodleCourseId for start assignment API
         // If moodleCourseId not available, fall back to lessonId
         const courseIdForAttempt = moodleCourseId || lessonId;
-        
+
         if (!courseIdForAttempt) {
             console.error('[AssignmentInstructions] No moodleCourseId or lessonId available');
             setError('Course ID is required to start assignment');
@@ -159,15 +159,15 @@ const AssignmentInstructionsScreen: React.FC = () => {
     // This will be parsed in AssignmentTermsAndButton component
 
     // Determine if button should be disabled based on student status
-    const isButtonDisabledByStatus = studentData?.status === 'completed' || 
-                                     studentData?.status === 'submitted' ||
-                                     studentData?.status === 'submitted';
+    const isButtonDisabledByStatus = studentData?.status === 'completed' ||
+        studentData?.status === 'submitted' ||
+        studentData?.status === 'submitted';
 
-    if (loading) {
+    if (loading || error) {
         return (
             <SafeAreaView style={styles.container} edges={['top']}>
-                <Header 
-                    onProfilePress={handleProfilePress} 
+                <Header
+                    onProfilePress={handleProfilePress}
                     onNotificationPress={handleNotificationPress}
                     onLogoPress={handleLogoPress}
                 />
@@ -177,22 +177,6 @@ const AssignmentInstructionsScreen: React.FC = () => {
                 >
                     <CardSkeleton />
                 </ScrollView>
-            </SafeAreaView>
-        );
-    }
-
-    if (error) {
-        return (
-            <SafeAreaView style={styles.container} edges={['top']}>
-                <Header 
-                    onProfilePress={handleProfilePress} 
-                    onNotificationPress={handleNotificationPress}
-                    onLogoPress={handleLogoPress}
-                />
-                <View style={styles.loadingContainer}>
-                    <Text style={styles.errorText}>Error: {error}</Text>
-                    <Text style={styles.loadingText}>Please try again later</Text>
-                </View>
             </SafeAreaView>
         );
     }

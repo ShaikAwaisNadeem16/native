@@ -53,7 +53,7 @@ const LearningPathScreen: React.FC = () => {
             console.log('[LearningPathScreen] ===== COURSE DATA =====');
             console.log('[LearningPathScreen] Full course data:', JSON.stringify(courseData, null, 2));
             console.log('[LearningPathScreen] Number of modules:', courseData.module.length);
-            
+
             // Expand all modules (both locked and unlocked)
             const allIndices = new Set<number>();
             courseData.module.forEach((module, index) => {
@@ -85,21 +85,21 @@ const LearningPathScreen: React.FC = () => {
 
     const handleResumeLearning = () => {
         if (!courseData) return;
-        
+
         // Use resume1 from API if available
         if (courseData.resume1) {
             const resumeLesson = courseData.resume1;
             navigateToLesson(resumeLesson.lessonId, resumeLesson.lessonType, resumeLesson.name, courseId!);
             return;
         }
-        
+
         // Fallback: Use resumeUrl if available
         if (courseData.resumeUrl) {
             // Extract lessonId from resumeUrl or navigate directly
             // This is a fallback - prefer resume1
             console.log('[LearningPathScreen] Using resumeUrl:', courseData.resumeUrl);
         }
-        
+
         // Final fallback: Find first unlocked lesson
         const firstUnlockedLesson = findFirstUnlockedLesson(courseData.module);
         if (firstUnlockedLesson) {
@@ -111,7 +111,7 @@ const LearningPathScreen: React.FC = () => {
             );
         }
     };
-    
+
     // Helper to find first unlocked lesson across all modules
     const findFirstUnlockedLesson = (modules: Module[]): Lesson | null => {
         for (const module of modules) {
@@ -124,7 +124,7 @@ const LearningPathScreen: React.FC = () => {
         }
         return null;
     };
-    
+
     // Helper to navigate to lesson based on type
     const navigateToLesson = (lessonId: string, lessonType: string, lessonName: string, parentCourseId: string) => {
         console.log('[LearningPathScreen] navigateToLesson called:', {
@@ -133,7 +133,7 @@ const LearningPathScreen: React.FC = () => {
             lessonName,
             parentCourseId,
         });
-        
+
         if (lessonType === 'quiz' || lessonType === 'nongraded' || lessonType === 'graded') {
             console.log('[LearningPathScreen] Navigating to EngineeringAssessmentInstructions for quiz');
             navigation.navigate('EngineeringAssessmentInstructions', {
@@ -189,12 +189,12 @@ const LearningPathScreen: React.FC = () => {
         console.log('[LearningPathScreen] courseData:', courseData ? 'exists' : 'null');
         console.log('[LearningPathScreen] courseId:', courseId);
         console.log('[LearningPathScreen] courseData modules:', courseData?.module?.length || 0);
-        
+
         if (!courseData || !courseId) {
             console.warn('[LearningPathScreen] Cannot start learning - missing courseData or courseId');
             return;
         }
-        
+
         // Log all lessons for debugging
         if (courseData.module) {
             console.log('[LearningPathScreen] All lessons in course:');
@@ -215,7 +215,7 @@ const LearningPathScreen: React.FC = () => {
                 });
             });
         }
-        
+
         // First, check if there's resume data from API
         if (courseData.resume1) {
             const resumeLesson = courseData.resume1;
@@ -233,7 +233,7 @@ const LearningPathScreen: React.FC = () => {
             );
             return;
         }
-        
+
         // If no resume data, find first unlocked lesson by globalOrder (respecting API locking)
         const firstUnlockedLesson = findFirstUnlockedLessonByOrder(courseData.module);
         console.log('[LearningPathScreen] First unlocked lesson (by order):', firstUnlockedLesson ? {
@@ -242,7 +242,7 @@ const LearningPathScreen: React.FC = () => {
             lessonType: firstUnlockedLesson.lessonType,
             globalOrder: firstUnlockedLesson.globalOrder,
         } : 'null');
-        
+
         if (firstUnlockedLesson) {
             console.log('[LearningPathScreen] ===== NAVIGATING TO LESSON =====');
             console.log('[LearningPathScreen] Lesson details:', {
@@ -269,11 +269,11 @@ const LearningPathScreen: React.FC = () => {
             })));
         }
     };
-    
+
     // Helper to find first unlocked lesson by globalOrder (more accurate than just first in array)
     const findFirstUnlockedLessonByOrder = (modules: Module[]): Lesson | null => {
         const allUnlockedLessons: Lesson[] = [];
-        
+
         for (const module of modules) {
             if (module.isLocked) continue;
             for (const lesson of module.lessons) {
@@ -282,16 +282,16 @@ const LearningPathScreen: React.FC = () => {
                 }
             }
         }
-        
+
         if (allUnlockedLessons.length === 0) return null;
-        
+
         // Sort by globalOrder and return the first one
         const sortedLessons = allUnlockedLessons.sort((a, b) => {
             const orderA = a.globalOrder || 0;
             const orderB = b.globalOrder || 0;
             return orderA - orderB;
         });
-        
+
         return sortedLessons[0];
     };
 
@@ -324,14 +324,14 @@ const LearningPathScreen: React.FC = () => {
 
     const handleModulePress = (moduleIndex: number) => {
         if (!courseData) return;
-        
+
         // Check if module is locked from API data
         const module = courseData.module[moduleIndex];
         if (module?.isLocked) {
             console.log('[LearningPathScreen] Module is locked, cannot expand');
             return;
         }
-        
+
         // Toggle module expansion (allow multiple modules to be expanded)
         setExpandedModuleIndices(prev => {
             const newSet = new Set(prev);
@@ -343,16 +343,16 @@ const LearningPathScreen: React.FC = () => {
             return newSet;
         });
     };
-    
+
     const handleLessonPress = (lessonId: string, isLocked: boolean) => {
         if (!courseData || !courseId) return;
-        
+
         // Check if lesson is locked from API data
         if (isLocked) {
             console.log('[LearningPathScreen] Lesson is locked, cannot navigate');
             return;
         }
-        
+
         // Find the lesson in course data
         let targetLesson: Lesson | null = null;
         for (const module of courseData.module) {
@@ -362,7 +362,7 @@ const LearningPathScreen: React.FC = () => {
                 break;
             }
         }
-        
+
         if (targetLesson) {
             navigateToLesson(
                 targetLesson.lessonId,
@@ -373,7 +373,7 @@ const LearningPathScreen: React.FC = () => {
         }
     };
 
-    if (loading) {
+    if (loading || error || !courseData) {
         return (
             <SafeAreaView style={styles.container} edges={['top']}>
                 <Header
@@ -383,23 +383,6 @@ const LearningPathScreen: React.FC = () => {
                 <BreadcrumbBar items={['Your Learning Journey', 'Learning Path']} />
                 <View style={styles.content}>
                     <CardSkeleton />
-                </View>
-            </SafeAreaView>
-        );
-    }
-
-    if (error || !courseData) {
-        return (
-            <SafeAreaView style={styles.container} edges={['top']}>
-                <Header
-                    onProfilePress={handleProfilePress}
-                    onLogoPress={handleLogoPress}
-                />
-                <BreadcrumbBar items={['Your Learning Journey', 'Learning Path']} />
-                <View style={styles.errorContainer}>
-                    <Text style={styles.errorText}>
-                        {error || 'Failed to load course data'}
-                    </Text>
                 </View>
             </SafeAreaView>
         );

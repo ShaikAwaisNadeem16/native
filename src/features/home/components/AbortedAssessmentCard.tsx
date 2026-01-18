@@ -9,6 +9,7 @@ interface AbortedAssessmentCardProps {
     subtitle?: string; // "TEST" label
     title: string; // "STEM Assessment"
     reattemptDays?: number; // Days until reattempt (e.g., 60)
+    buttonLabel?: string;
     onViewReport?: () => void;
 }
 
@@ -21,6 +22,7 @@ const AbortedAssessmentCard: React.FC<AbortedAssessmentCardProps> = ({
     subtitle = 'TEST',
     title = 'STEM Assessment',
     reattemptDays = 60,
+    buttonLabel,
     onViewReport,
 }) => {
     return (
@@ -34,7 +36,7 @@ const AbortedAssessmentCard: React.FC<AbortedAssessmentCardProps> = ({
                             <AssessmentLogo size={70} />
                         </View>
                     </View>
-                    
+
                     {/* Title and Subtitle */}
                     <View style={styles.titleSubtitleContainer}>
                         <Text style={styles.subtitle}>{subtitle.toUpperCase()}</Text>
@@ -54,7 +56,7 @@ const AbortedAssessmentCard: React.FC<AbortedAssessmentCardProps> = ({
                     >
                         <Lock size={24} color="#72818c" />
                         <Text style={styles.reattemptButtonText}>
-                            Reattempt in {reattemptDays} Days
+                            {buttonLabel || `Reattempt in ${reattemptDays} Days`}
                         </Text>
                     </TouchableOpacity>
 
@@ -62,7 +64,7 @@ const AbortedAssessmentCard: React.FC<AbortedAssessmentCardProps> = ({
                     <View style={styles.viewReportButtonContainer}>
                         <SecondaryButton
                             label="View Report"
-                            onPress={onViewReport}
+                            onPress={onViewReport || (() => { })}
                         />
                     </View>
                 </View>
@@ -145,7 +147,7 @@ const styles = StyleSheet.create({
         gap: 8,
         paddingHorizontal: 24,
         paddingVertical: 12,
-        borderRadius: borderRadius.button,
+        borderRadius: borderRadius.input,
         opacity: 0.7, // Disabled state
     },
     reattemptButtonText: {
@@ -164,7 +166,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 12,
         padding: 12,
-        borderRadius: borderRadius.button,
+        borderRadius: borderRadius.input,
         width: '100%',
     },
     warningText: {
